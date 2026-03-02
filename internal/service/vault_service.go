@@ -1,0 +1,151 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/masorange/maspassword/internal/models"
+	"github.com/masorange/maspassword/internal/repository"
+	"github.com/masorange/maspassword/pkg/dto"
+)
+
+var ErrNoVaultAccess = errors.New("no access to this vault")
+
+type VaultService interface {
+	Create(ctx context.Context, ownerID uuid.UUID, req dto.CreateVaultRequest) (*models.Vault, error)
+	ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]models.Vault, error)
+	ListAccessible(ctx context.Context, userID uuid.UUID) ([]models.Vault, error)
+	CreateTeamVault(ctx context.Context, ownerID, teamID uuid.UUID, req dto.CreateTeamVaultRequest) (*models.Vault, error)
+	GetVaultKey(ctx context.Context, userID, vaultID uuid.UUID) (*dto.VaultKeyResponse, error)
+	ShareVault(ctx context.Context, userID, vaultID uuid.UUID, req dto.ShareVaultRequest) error
+	ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error)
+}
+
+type vaultService struct {
+	vaultRepo    repository.VaultRepository
+	vaultKeyRepo repository.VaultKeyRepository
+	teamRepo     repository.TeamRepository
+}
+
+func NewVaultService(vaultRepo repository.VaultRepository, vaultKeyRepo repository.VaultKeyRepository, teamRepo repository.TeamRepository) VaultService {
+	return &vaultService{vaultRepo: vaultRepo, vaultKeyRepo: vaultKeyRepo, teamRepo: teamRepo}
+}
+
+func (s *vaultService) Create(ctx context.Context, ownerID uuid.UUID, req dto.CreateVaultRequest) (*models.Vault, error) {
+	vault := &models.Vault{
+		OwnerID:       ownerID,
+		NameEncrypted: req.NameEncrypted,
+	}
+	if err := s.vaultRepo.Create(ctx, vault); err != nil {
+		return nil, fmt.Errorf("creating vault: %w", err)
+	}
+	return vault, nil
+}
+
+func (s *vaultService) ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]models.Vault, error) {
+	vaults, err := s.vaultRepo.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("listing vaults: %w", err)
+	}
+	return vaults, nil
+}
+
+func (s *vaultService) ListAccessible(ctx context.Context, userID uuid.UUID) ([]models.Vault, error) {
+	vaults, err := s.vaultRepo.ListAccessible(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("listing accessible vaults: %w", err)
+	}
+	return vaults, nil
+}
+
+func (s *vaultService) CreateTeamVault(ctx context.Context, ownerID, teamID uuid.UUID, req dto.CreateTeamVaultRequest) (*models.Vault, error) {
+	// Verify user is a member of the team
+	isMember, err := s.teamRepo.IsMember(ctx, teamID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, ErrNotTeamMember
+	}
+
+	vault := &models.Vault{
+		OwnerID:       ownerID,
+		NameEncrypted: req.NameEncrypted,
+		TeamID:        &teamID,
+	}
+	if err := s.vaultRepo.Create(ctx, vault); err != nil {
+		return nil, fmt.Errorf("creating team vault: %w", err)
+	}
+
+	// Create vault keys for each member
+	for _, vke := range req.VaultKeys {
+		uid, err := uuid.Parse(vke.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user id in vault keys: %w", err)
+		}
+		vk := &models.VaultKey{
+			VaultID:           vault.ID,
+			UserID:            uid,
+			EncryptedVaultKey: vke.EncryptedVaultKey,
+		}
+		if err := s.vaultKeyRepo.Create(ctx, vk); err != nil {
+			return nil, fmt.Errorf("creating vault key: %w", err)
+		}
+	}
+
+	return vault, nil
+}
+
+func (s *vaultService) GetVaultKey(ctx context.Context, userID, vaultID uuid.UUID) (*dto.VaultKeyResponse, error) {
+	vk, err := s.vaultKeyRepo.GetByVaultAndUser(ctx, vaultID, userID)
+	if err != nil {
+		return nil, ErrNoVaultAccess
+	}
+	return &dto.VaultKeyResponse{
+		EncryptedVaultKey: vk.EncryptedVaultKey,
+	}, nil
+}
+
+func (s *vaultService) ShareVault(ctx context.Context, userID, vaultID uuid.UUID, req dto.ShareVaultRequest) error {
+	// Verify user has access to vault (owner or has vault key)
+	vault, err := s.vaultRepo.GetByID(ctx, vaultID)
+	if err != nil {
+		return err
+	}
+	if vault.OwnerID != userID {
+		_, err := s.vaultKeyRepo.GetByVaultAndUser(ctx, vaultID, userID)
+		if err != nil {
+			return ErrNoVaultAccess
+		}
+	}
+
+	// Create vault keys for new members
+	for _, vke := range req.VaultKeys {
+		uid, err := uuid.Parse(vke.UserID)
+		if err != nil {
+			return fmt.Errorf("invalid user id: %w", err)
+		}
+		vk := &models.VaultKey{
+			VaultID:           vaultID,
+			UserID:            uid,
+			EncryptedVaultKey: vke.EncryptedVaultKey,
+		}
+		if err := s.vaultKeyRepo.Create(ctx, vk); err != nil {
+			return fmt.Errorf("creating vault key: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *vaultService) ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error) {
+	isMember, err := s.teamRepo.IsMember(ctx, teamID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, ErrNotTeamMember
+	}
+	return s.vaultRepo.ListByTeam(ctx, teamID)
+}

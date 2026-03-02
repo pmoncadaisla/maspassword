@@ -1,0 +1,90 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/masorange/maspassword/internal/config"
+	"github.com/masorange/maspassword/internal/database"
+	"github.com/masorange/maspassword/internal/handler"
+	"github.com/masorange/maspassword/internal/repository"
+	"github.com/masorange/maspassword/internal/router"
+	"github.com/masorange/maspassword/internal/service"
+	"github.com/masorange/maspassword/internal/srp"
+)
+
+func main() {
+	cfg := config.Load()
+
+	// Database
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.RunMigrations(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// SRP
+	srpEnv, err := srp.NewEnvironment(cfg.SRPBits)
+	if err != nil {
+		log.Fatalf("Failed to initialize SRP: %v", err)
+	}
+	srpStore := srp.NewStore(5 * time.Minute)
+
+	// Repositories
+	userRepo := repository.NewUserRepository(db)
+	vaultRepo := repository.NewVaultRepository(db)
+	itemRepo := repository.NewItemRepository(db)
+	teamRepo := repository.NewTeamRepository(db)
+	vaultKeyRepo := repository.NewVaultKeyRepository(db)
+
+	// Services
+	authService := service.NewAuthService(userRepo, srpEnv, srpStore, cfg.JWTSecret)
+	vaultService := service.NewVaultService(vaultRepo, vaultKeyRepo, teamRepo)
+	itemService := service.NewItemService(itemRepo, vaultRepo, vaultKeyRepo)
+	teamService := service.NewTeamService(teamRepo, userRepo)
+
+	// Handlers
+	authHandler := handler.NewAuthHandler(authService)
+	vaultHandler := handler.NewVaultHandler(vaultService)
+	itemHandler := handler.NewItemHandler(itemService)
+	teamHandler := handler.NewTeamHandler(teamService)
+	userHandler := handler.NewUserHandler(userRepo)
+
+	// Router
+	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, cfg.JWTSecret, cfg.CORSOrigins)
+
+	// Server with graceful shutdown
+	srv := &http.Server{
+		Addr:    ":" + cfg.ServerPort,
+		Handler: r,
+	}
+
+	go func() {
+		log.Printf("Server starting on port %s", cfg.ServerPort)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	log.Println("Server exited")
+}

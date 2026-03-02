@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#10a37f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Vault Internal</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- AUTH: Login -->
+  <div id="screen-login" class="screen auth-screen active">
+    <div class="auth-container">
+      <h2>Vault Internal</h2>
+      <p>Zero-Knowledge Password Manager.<br>Your passwords never leave your device unencrypted.</p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="login-password" placeholder="Your master password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="btn-login">Log in</button>
+      <p>Don't have an account? <button class="link-btn" id="btn-show-signup">Sign up</button></p>
+    </div>
+  </div>
+
+  <!-- AUTH: Signup -->
+  <div id="screen-signup" class="screen auth-screen">
+    <div class="auth-container">
+      <h2>Create Account</h2>
+      <p>Your master password is used to derive encryption keys locally. We never see it.</p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="signup-password" placeholder="Choose a strong password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" id="btn-signup">Create Account</button>
+      <p>Already have an account? <button class="link-btn" id="btn-show-login">Log in</button></p>
+    </div>
+  </div>
+
+  <!-- MAIN APP: 3-panel layout (post-login) -->
+  <div id="main-app" class="app-layout" style="display:none;">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="sidebar-logo">Vault Internal</h1>
+      </div>
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Vaults</div>
+          <div id="sidebar-vault-list"></div>
+          <button class="sidebar-add-btn" id="btn-sidebar-add-vault">+ New Vault</button>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Teams</div>
+          <div id="sidebar-team-list"></div>
+          <button class="sidebar-add-btn" id="btn-sidebar-add-team">+ New Team</button>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="sidebar-logout-btn" id="btn-logout">Logout</button>
+      </div>
+    </aside>
+
+    <!-- ITEM LIST PANEL -->
+    <div class="item-list-panel">
+      <div class="item-list-header">
+        <input type="text" id="search-input" class="search-input" placeholder="Search items...">
+      </div>
+      <div id="item-list" class="item-list"></div>
+      <div id="items-empty" class="empty-state" style="display:none;">
+        <div class="icon">&#128273;</div>
+        <p>No items yet</p>
+      </div>
+      <!-- Team detail content (shown when a team is selected) -->
+      <div id="team-detail-panel" style="display:none;">
+        <div class="section-header">
+          <h3>Members</h3>
+          <button class="btn btn-secondary btn-small" id="btn-team-add-member">Add Member</button>
+        </div>
+        <div id="member-list" class="member-list"></div>
+        <div class="section-header" style="margin-top:24px;">
+          <h3>Team Vaults</h3>
+          <button class="btn btn-secondary btn-small" id="btn-team-add-vault">Create Vault</button>
+        </div>
+        <div id="team-vault-list" class="vault-list"></div>
+      </div>
+      <div class="item-list-actions" style="display:none;" id="item-list-actions">
+        <button class="item-list-add-btn" id="btn-import-items" title="Import from 1Password">Import</button>
+        <button class="item-list-add-btn" id="btn-add-item" title="New item">+ New Item</button>
+      </div>
+    </div>
+
+    <!-- DETAIL PANEL -->
+    <div class="detail-panel">
+      <div id="detail-empty" class="empty-state">
+        <div class="icon">&#128274;</div>
+        <p>Select an item to view details</p>
+      </div>
+      <div id="detail-content" style="display:none;">
+        <div class="detail-header">
+          <h2 id="detail-title">Item</h2>
+          <div class="detail-actions">
+            <button class="btn-icon" id="btn-edit-item" title="Edit">&#9998;</button>
+            <button class="btn-icon btn-icon-danger" id="btn-delete-item" title="Delete">&#128465;</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field">
+            <div>
+              <div class="field-label">Username</div>
+              <div class="field-value" id="detail-username"></div>
+            </div>
+            <div class="field-actions">
+              <button class="btn-icon" onclick="copyField('detail-username')" title="Copy">&#128203;</button>
+            </div>
+          </div>
+          <div class="field">
+            <div>
+              <div class="field-label">Password</div>
+              <div class="field-value masked" id="detail-password">••••••••</div>
+            </div>
+            <div class="field-actions">
+              <button class="btn-icon" id="btn-toggle-pw" title="Show">&#128065;</button>
+              <button class="btn-icon" onclick="copyField('detail-password-raw')" title="Copy">&#128203;</button>
+            </div>
+          </div>
+          <div id="totp-field-container" class="field" style="display:none;">
+            <div style="flex:1;">
+              <div class="field-label">One-Time Password</div>
+              <div class="totp-display">
+                <span class="totp-code" id="detail-totp-code"></span>
+                <svg class="totp-countdown" viewBox="0 0 36 36" id="totp-countdown-svg">
+                  <circle class="totp-countdown-bg" cx="18" cy="18" r="16" fill="none" stroke-width="2"/>
+                  <circle class="totp-countdown-fg" cx="18" cy="18" r="16" fill="none" stroke-width="2"
+                    stroke-dasharray="100.53" stroke-dashoffset="0" id="totp-countdown-circle"/>
+                  <text x="18" y="19" class="totp-countdown-text" id="totp-countdown-text" dominant-baseline="central" text-anchor="middle"></text>
+                </svg>
+              </div>
+            </div>
+            <div class="field-actions">
+              <button class="btn-icon" onclick="copyField('detail-totp-code')" title="Copy">&#128203;</button>
+            </div>
+          </div>
+          <div class="field">
+            <div>
+              <div class="field-label">URL</div>
+              <div class="field-value" id="detail-url"></div>
+            </div>
+            <div class="field-actions">
+              <button class="btn-icon" onclick="copyField('detail-url')" title="Copy">&#128203;</button>
+            </div>
+          </div>
+          <div class="field">
+            <div>
+              <div class="field-label">Notes</div>
+              <div class="field-value" id="detail-notes" style="font-family: inherit; font-size:14px;"></div>
+            </div>
+          </div>
+        </div>
+        <span id="detail-password-raw" style="display:none;"></span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV (mobile only) -->
+<nav id="bottom-nav" class="bottom-nav" style="display:none;">
+  <button class="nav-item active" data-tab="vaults">
+    <span class="nav-icon">&#128274;</span>
+    <span class="nav-label">Vaults</span>
+  </button>
+  <button class="nav-item" data-tab="teams">
+    <span class="nav-icon">&#128101;</span>
+    <span class="nav-label">Teams</span>
+  </button>
+</nav>
+
+<!-- MODAL: New Vault -->
+<div class="modal-overlay" id="modal-vault">
+  <div class="modal">
+    <h3>New Vault</h3>
+    <div class="form-group">
+      <label>Vault Name</label>
+      <input type="text" id="vault-name-input" placeholder="e.g. Personal, Work">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-vault">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-vault">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: New/Edit Item -->
+<div class="modal-overlay" id="modal-item">
+  <div class="modal">
+    <h3 id="modal-item-title">New Item</h3>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="item-title-input" placeholder="e.g. GitHub, Gmail">
+    </div>
+    <div class="form-group">
+      <label>Username / Email</label>
+      <input type="text" id="item-user-input" placeholder="username" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="item-pw-input" placeholder="password" autocomplete="off" style="flex:1;">
+        <button class="btn btn-secondary btn-small" id="btn-gen-pw" title="Generate" style="white-space:nowrap;">Gen</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>URL</label>
+      <input type="text" id="item-url-input" placeholder="https://..." autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>One-Time Password Secret (TOTP)</label>
+      <input type="text" id="item-totp-input" placeholder="Base32 secret, e.g. JBSWY3DPEHPK3PXP" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input type="text" id="item-notes-input" placeholder="Optional notes" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-item">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-item">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: New Team -->
+<div class="modal-overlay" id="modal-team">
+  <div class="modal">
+    <h3>New Team</h3>
+    <div class="form-group">
+      <label>Team Name</label>
+      <input type="text" id="team-name-input" placeholder="e.g. Engineering, Design">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-team">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-team">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Member -->
+<div class="modal-overlay" id="modal-add-member">
+  <div class="modal">
+    <h3>Add Member</h3>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="member-email-input" placeholder="member@example.com" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-member">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-member">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: New Team Vault -->
+<div class="modal-overlay" id="modal-team-vault">
+  <div class="modal">
+    <h3>New Team Vault</h3>
+    <div class="form-group">
+      <label>Vault Name</label>
+      <input type="text" id="team-vault-name-input" placeholder="e.g. Shared Passwords">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-team-vault">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-team-vault">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Import -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal">
+    <!-- Step 1: Selection -->
+    <div id="import-step-select">
+      <h3>Import from 1Password</h3>
+      <p class="import-description">Select a <strong>.csv</strong> or <strong>.1pif</strong> file exported from 1Password.</p>
+      <div class="form-group">
+        <label class="import-file-label" id="import-file-label">
+          <span id="import-file-label-text">Choose file...</span>
+          <input type="file" id="import-file-input" accept=".csv,.1pif" class="import-file-input-hidden">
+        </label>
+      </div>
+      <div id="import-preview" class="import-preview" style="display:none;">
+        <span id="import-preview-text"></span>
+      </div>
+      <div id="import-errors-preview" class="import-errors-preview" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btn-cancel-import">Cancel</button>
+        <button class="btn btn-primary" id="btn-start-import" disabled>Import</button>
+      </div>
+    </div>
+    <!-- Step 2: Progress -->
+    <div id="import-step-progress" style="display:none;">
+      <h3>Importing...</h3>
+      <div class="import-progress-bar-container">
+        <div class="import-progress-bar" id="import-progress-bar"></div>
+      </div>
+      <p class="import-progress-text" id="import-progress-text">0 of 0 items processed...</p>
+    </div>
+    <!-- Step 3: Results -->
+    <div id="import-step-results" style="display:none;">
+      <h3>Import Complete</h3>
+      <div id="import-results-summary" class="import-results-summary"></div>
+      <div id="import-results-errors" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="btn-close-import">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/blake2b.js"></script>
+<script src="/srp.js" type="module"></script>
+<script src="/crypto.js" type="module"></script>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

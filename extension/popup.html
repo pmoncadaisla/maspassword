@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=360">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- Login screen -->
+  <div id="screen-login" class="screen active">
+    <div class="popup-header">
+      <h1>Vault Internal</h1>
+    </div>
+    <div class="popup-body">
+      <div class="form-group">
+        <label>Server URL</label>
+        <input type="url" id="server-url" placeholder="https://your-server.com">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="login-password" placeholder="Your master password">
+      </div>
+      <button class="btn btn-primary" id="btn-login">Log in</button>
+      <div id="login-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- Main screen (logged in) -->
+  <div id="screen-main" class="screen">
+    <div class="popup-header">
+      <h1>Vault Internal</h1>
+      <button class="btn-icon" id="btn-logout" title="Lock">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search passwords...">
+    </div>
+    <div class="popup-body" id="items-container">
+      <div id="current-site-section"></div>
+      <div id="all-items-section"></div>
+      <div id="empty-state" class="empty-state">
+        <p>No matching passwords</p>
+      </div>
+    </div>
+    <div class="popup-footer">
+      <button class="footer-btn" id="btn-generate">Generate password</button>
+      <button class="footer-btn" id="btn-refresh">Refresh</button>
+    </div>
+  </div>
+
+<script src="popup.js"></script>
+</body>
+</html>
