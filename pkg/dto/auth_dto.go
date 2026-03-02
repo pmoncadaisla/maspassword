@@ -34,3 +34,20 @@ type LoginStep2Response struct {
 	ServerProof         string `json:"server_proof"`
 	EncryptedPrivateKey string `json:"encrypted_private_key,omitempty"`
 }
+
+type SessionInfoResponse struct {
+	UserID              string `json:"user_id"`
+	Email               string `json:"email"`
+	AuthMethod          string `json:"auth_method"`
+	EncryptionSetup     bool   `json:"encryption_setup"`
+	EncryptedPrivateKey string `json:"encrypted_private_key,omitempty"`
+	SRPSalt             string `json:"srp_salt,omitempty"`
+	Token               string `json:"token"`
+}
+
+type SetupEncryptionRequest struct {
+	SRPSalt             string `json:"srp_salt" binding:"required"`
+	SRPVerifier         string `json:"srp_verifier" binding:"required"`
+	PublicKey           string `json:"public_key" binding:"required"`
+	EncryptedPrivateKey string `json:"encrypted_private_key" binding:"required"`
+}

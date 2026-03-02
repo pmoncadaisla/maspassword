@@ -25,6 +25,8 @@ type AuthService interface {
 	Signup(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error)
 	LoginStep1(ctx context.Context, req dto.LoginStep1Request) (*dto.LoginStep1Response, error)
 	LoginStep2(ctx context.Context, req dto.LoginStep2Request) (*dto.LoginStep2Response, error)
+	GetSessionInfo(ctx context.Context, userID uuid.UUID) (*dto.SessionInfoResponse, error)
+	SetupEncryption(ctx context.Context, userID uuid.UUID, req dto.SetupEncryptionRequest) error
 }
 
 type authService struct {
@@ -51,8 +53,8 @@ func NewAuthService(
 func (s *authService) Signup(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error) {
 	user := &models.User{
 		Email:       req.Email,
-		SRPSalt:     req.SRPSalt,
-		SRPVerifier: req.SRPVerifier,
+		SRPSalt:     &req.SRPSalt,
+		SRPVerifier: &req.SRPVerifier,
 	}
 	if req.PublicKey != "" {
 		user.PublicKey = &req.PublicKey
@@ -86,8 +88,13 @@ func (s *authService) LoginStep1(ctx context.Context, req dto.LoginStep1Request)
 		return nil, fmt.Errorf("looking up user: %w", err)
 	}
 
+	// Check if user has SRP credentials (IAP-only users may not)
+	if user.SRPVerifier == nil || user.SRPSalt == nil {
+		return s.fakeLoginStep1Response(), nil
+	}
+
 	// Reconstruct verifier from stored data
-	srpInstance, verifier, err := gosrp.MakeSRPVerifier(user.SRPVerifier)
+	srpInstance, verifier, err := gosrp.MakeSRPVerifier(*user.SRPVerifier)
 	if err != nil {
 		return nil, fmt.Errorf("reconstructing verifier: %w", err)
 	}
@@ -119,7 +126,7 @@ func (s *authService) LoginStep1(ctx context.Context, req dto.LoginStep1Request)
 
 	return &dto.LoginStep1Response{
 		SessionID:    sessionID,
-		Salt:         user.SRPSalt,
+		Salt:         *user.SRPSalt,
 		ServerPublic: serverCreds,
 	}, nil
 }
@@ -168,6 +175,58 @@ func (s *authService) LoginStep2(ctx context.Context, req dto.LoginStep2Request)
 	}
 
 	return resp, nil
+}
+
+func (s *authService) GetSessionInfo(ctx context.Context, userID uuid.UUID) (*dto.SessionInfoResponse, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("getting user: %w", err)
+	}
+
+	token, err := s.generateJWT(userID)
+	if err != nil {
+		return nil, fmt.Errorf("generating token: %w", err)
+	}
+
+	resp := &dto.SessionInfoResponse{
+		UserID:          userID.String(),
+		Email:           user.Email,
+		AuthMethod:      "iap",
+		EncryptionSetup: user.EncryptedPrivateKey != nil && user.PublicKey != nil,
+		Token:           token,
+	}
+
+	if user.EncryptedPrivateKey != nil {
+		resp.EncryptedPrivateKey = *user.EncryptedPrivateKey
+	}
+	if user.SRPSalt != nil {
+		resp.SRPSalt = *user.SRPSalt
+	}
+
+	return resp, nil
+}
+
+func (s *authService) SetupEncryption(ctx context.Context, userID uuid.UUID, req dto.SetupEncryptionRequest) error {
+	// Check if encryption is already set up
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user.EncryptedPrivateKey != nil && user.PublicKey != nil {
+		return fmt.Errorf("encryption already set up")
+	}
+
+	// Save SRP credentials
+	if err := s.userRepo.UpdateSRPCredentials(ctx, userID, req.SRPSalt, req.SRPVerifier); err != nil {
+		return fmt.Errorf("updating SRP credentials: %w", err)
+	}
+
+	// Save keys
+	if err := s.userRepo.UpdateKeys(ctx, userID, req.PublicKey, req.EncryptedPrivateKey); err != nil {
+		return fmt.Errorf("updating keys: %w", err)
+	}
+
+	return nil
 }
 
 func (s *authService) generateJWT(userID uuid.UUID) (string, error) {

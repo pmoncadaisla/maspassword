@@ -7,9 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/masorange/maspassword/internal/iap"
+	"github.com/masorange/maspassword/internal/repository"
 )
 
 const UserIDKey = "user_id"
+const AuthMethodKey = "auth_method"
 
 func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -75,4 +78,49 @@ func GetUserID(c *gin.Context) uuid.UUID {
 	val, _ := c.Get(UserIDKey)
 	uid, _ := val.(uuid.UUID)
 	return uid
+}
+
+func GetAuthMethod(c *gin.Context) string {
+	val, _ := c.Get(AuthMethodKey)
+	method, _ := val.(string)
+	if method == "" {
+		return "srp"
+	}
+	return method
+}
+
+// DualAuth supports both IAP JWT (X-Goog-IAP-JWT-Assertion) and Bearer JWT auth.
+// If the IAP header is present and the validator is non-nil, it validates the IAP
+// token, finds or creates the user, and sets user_id + auth_method="iap".
+// Otherwise, it falls back to the standard Bearer JWT flow.
+func DualAuth(jwtSecret string, iapValidator *iap.Validator, userRepo repository.UserRepository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		iapToken := c.GetHeader("X-Goog-IAP-JWT-Assertion")
+		if iapToken != "" && iapValidator != nil {
+			claims, err := iapValidator.Validate(iapToken)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": gin.H{"code": "UNAUTHORIZED", "message": "invalid IAP token"},
+				})
+				return
+			}
+
+			// Find or create user by email
+			user, err := userRepo.FindOrCreateByEmail(c.Request.Context(), claims.Email)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to resolve user"},
+				})
+				return
+			}
+
+			c.Set(UserIDKey, user.ID)
+			c.Set(AuthMethodKey, "iap")
+			c.Next()
+			return
+		}
+
+		// Fallback to Bearer JWT
+		JWTAuth(jwtSecret)(c)
+	}
 }

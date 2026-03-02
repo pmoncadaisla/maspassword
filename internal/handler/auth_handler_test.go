@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/masorange/maspassword/pkg/dto"
 )
 
@@ -33,6 +34,14 @@ func (m *mockAuthService) LoginStep1(ctx context.Context, req dto.LoginStep1Requ
 
 func (m *mockAuthService) LoginStep2(ctx context.Context, req dto.LoginStep2Request) (*dto.LoginStep2Response, error) {
 	return m.loginStep2Fn(ctx, req)
+}
+
+func (m *mockAuthService) GetSessionInfo(_ context.Context, _ uuid.UUID) (*dto.SessionInfoResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthService) SetupEncryption(_ context.Context, _ uuid.UUID, _ dto.SetupEncryptionRequest) error {
+	return nil
 }
 
 func TestSignup_Success(t *testing.T) {

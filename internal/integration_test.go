@@ -68,7 +68,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	teamHandler := handler.NewTeamHandler(teamService)
 	userHandler := handler.NewUserHandler(userRepo)
 
-	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, jwtSecret, "*")
+	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, jwtSecret, "*", false, nil, userRepo)
 	ts := httptest.NewServer(r)
 
 	cleanup := func() {

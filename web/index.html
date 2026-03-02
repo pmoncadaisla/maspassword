@@ -54,6 +54,38 @@
     </div>
   </div>
 
+  <!-- AUTH: IAP Unlock (master password only) -->
+  <div id="screen-iap-unlock" class="screen auth-screen">
+    <div class="auth-container">
+      <h2>Vault Internal</h2>
+      <p>Authenticated via Google IAP.<br>Enter your master password to unlock your vault.</p>
+      <div id="iap-unlock-email" style="margin-bottom:12px; font-weight:600;"></div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="iap-unlock-password" placeholder="Your master password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="btn-iap-unlock">Unlock</button>
+    </div>
+  </div>
+
+  <!-- AUTH: IAP Setup (first time — create master password) -->
+  <div id="screen-iap-setup" class="screen auth-screen">
+    <div class="auth-container">
+      <h2>Set Up Encryption</h2>
+      <p>Authenticated via Google IAP.<br>Create a master password to encrypt your data. We never see it.</p>
+      <div id="iap-setup-email" style="margin-bottom:12px; font-weight:600;"></div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="iap-setup-password" placeholder="Choose a strong password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="iap-setup-confirm" placeholder="Confirm password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" id="btn-iap-setup">Set Up Encryption</button>
+    </div>
+  </div>
+
   <!-- MAIN APP: 3-panel layout (post-login) -->
   <div id="main-app" class="app-layout" style="display:none;">
 

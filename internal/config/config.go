@@ -6,11 +6,14 @@ import (
 )
 
 type Config struct {
-	DatabaseURL string
-	JWTSecret   string
-	ServerPort  string
-	CORSOrigins string
-	SRPBits    int
+	DatabaseURL    string
+	JWTSecret      string
+	ServerPort     string
+	CORSOrigins    string
+	SRPBits        int
+	IAPEnabled     bool
+	IAPAudience    string
+	IAPPublicKeyURL string
 }
 
 func Load() *Config {
@@ -26,11 +29,21 @@ func Load() *Config {
 		port = "8080"
 	}
 
+	iapEnabled := os.Getenv("IAP_ENABLED") == "true"
+
+	iapPublicKeyURL := os.Getenv("IAP_PUBLIC_KEY_URL")
+	if iapPublicKeyURL == "" {
+		iapPublicKeyURL = "https://www.gstatic.com/iap/verify/public_key-jwk"
+	}
+
 	return &Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		ServerPort:  port,
-		CORSOrigins: os.Getenv("CORS_ORIGINS"),
-		SRPBits:     srpBits,
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		JWTSecret:       os.Getenv("JWT_SECRET"),
+		ServerPort:      port,
+		CORSOrigins:     os.Getenv("CORS_ORIGINS"),
+		SRPBits:         srpBits,
+		IAPEnabled:      iapEnabled,
+		IAPAudience:     os.Getenv("IAP_AUDIENCE"),
+		IAPPublicKeyURL: iapPublicKeyURL,
 	}
 }

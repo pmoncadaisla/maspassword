@@ -18,7 +18,9 @@ type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	FindOrCreateByEmail(ctx context.Context, email string) (*models.User, error)
 	UpdateKeys(ctx context.Context, userID uuid.UUID, publicKey, encryptedPrivateKey string) error
+	UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error
 	GetPublicKey(ctx context.Context, userID uuid.UUID) (string, error)
 	GetPublicKeysByIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]string, error)
 }
@@ -121,6 +123,40 @@ func (r *userRepo) GetPublicKeysByIDs(ctx context.Context, userIDs []uuid.UUID) 
 		result[r.ID] = r.PublicKey
 	}
 	return result, nil
+}
+
+func (r *userRepo) FindOrCreateByEmail(ctx context.Context, email string) (*models.User, error) {
+	user, err := r.GetByEmail(ctx, email)
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, ErrUserNotFound) {
+		return nil, err
+	}
+
+	// Create user without SRP credentials (IAP user)
+	newUser := &models.User{Email: email}
+	if err := r.Create(ctx, newUser); err != nil {
+		if isUniqueViolation(err) {
+			// Race condition: another request created the user
+			return r.GetByEmail(ctx, email)
+		}
+		return nil, err
+	}
+	return newUser, nil
+}
+
+func (r *userRepo) UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error {
+	query := `UPDATE users SET srp_salt = $1, srp_verifier = $2, updated_at = now() WHERE id = $3`
+	result, err := r.db.ExecContext(ctx, query, srpSalt, srpVerifier, userID)
+	if err != nil {
+		return fmt.Errorf("updating SRP credentials: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
 
 func isUniqueViolation(err error) bool {

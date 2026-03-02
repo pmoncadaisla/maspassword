@@ -19,6 +19,8 @@ let sidebarMode = 'vaults'; // 'vaults' or 'team'
 let decryptedItemsCache = []; // cache of { id, data } for search
 let pendingRoute = null; // route to navigate to after login
 let navigating = false; // prevent recursive route handling
+let iapMode = false; // true when IAP authentication is active
+let iapSession = null; // session info from /api/auth/session
 
 // --- API ---
 async function api(method, path, body) {
@@ -334,7 +336,117 @@ function logout() {
   stopTOTP();
   sessionStorage.clear();
   document.getElementById('login-password').value = '';
+  iapSession = null;
   showAuthScreen('login');
+}
+
+// --- IAP Authentication ---
+async function detectAuthMode() {
+  try {
+    const res = await fetch('/auth/mode');
+    const data = await res.json();
+    return data.iap_enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+async function initIAPSession() {
+  try {
+    const res = await fetch('/api/auth/session');
+    if (!res.ok) return false;
+    iapSession = await res.json();
+    token = iapSession.token;
+    sessionStorage.setItem('token', token);
+
+    if (iapSession.encryption_setup) {
+      // Encryption already set up — show unlock screen
+      showAuthScreen('iap-unlock');
+      document.getElementById('iap-unlock-email').textContent = iapSession.email;
+    } else {
+      // First time — show setup screen
+      showAuthScreen('iap-setup');
+      document.getElementById('iap-setup-email').textContent = iapSession.email;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function iapUnlock() {
+  const pw = document.getElementById('iap-unlock-password').value;
+  if (!pw) return toast('Enter your master password', true);
+
+  const btn = document.getElementById('btn-iap-unlock');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    encKey = await deriveKey(pw, iapSession.email);
+
+    // Try to decrypt private key to verify password
+    privateKey = await decryptPrivateKey(encKey, iapSession.encrypted_private_key);
+
+    toast('Vault unlocked');
+    await Promise.all([loadVaults(), loadTeams()]);
+    showMainApp();
+    renderSidebar();
+    setHash('/');
+  } catch (e) {
+    toast('Wrong master password', true);
+    encKey = null;
+    privateKey = null;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+  }
+}
+
+async function iapSetup() {
+  const pw = document.getElementById('iap-setup-password').value;
+  const confirm = document.getElementById('iap-setup-confirm').value;
+
+  if (!pw) return toast('Enter a master password', true);
+  if (pw !== confirm) return toast('Passwords do not match', true);
+  if (pw.length < 8) return toast('Password must be at least 8 characters', true);
+
+  const btn = document.getElementById('btn-iap-setup');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    encKey = await deriveKey(pw, iapSession.email);
+
+    // Generate RSA keypair
+    const { publicKeyJwk, privateKeyJwk } = await generateKeyPair();
+    const encryptedPrivKey = await encryptPrivateKey(encKey, privateKeyJwk);
+
+    // Generate SRP verifier for future SRP login
+    const { verifier, salt } = generateVerifier(iapSession.email, pw);
+
+    // Send setup to server
+    await api('POST', '/api/auth/setup-encryption', {
+      srp_salt: salt,
+      srp_verifier: verifier,
+      public_key: JSON.stringify(publicKeyJwk),
+      encrypted_private_key: encryptedPrivKey,
+    });
+
+    // Import private key for use
+    privateKey = await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+
+    toast('Encryption set up successfully');
+    await Promise.all([loadVaults(), loadTeams()]);
+    showMainApp();
+    renderSidebar();
+    setHash('/');
+  } catch (e) {
+    toast('Setup failed: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Set Up Encryption';
+  }
 }
 
 // --- Sidebar ---
@@ -1268,6 +1380,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-cancel-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
   document.getElementById('btn-close-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
 
+  // IAP buttons
+  document.getElementById('btn-iap-unlock').addEventListener('click', iapUnlock);
+  document.getElementById('btn-iap-setup').addEventListener('click', iapSetup);
+  document.getElementById('iap-unlock-password').addEventListener('keydown', e => { if (e.key === 'Enter') iapUnlock(); });
+  document.getElementById('iap-setup-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') iapSetup(); });
+
   // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
@@ -1276,6 +1394,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Routing: handle hash changes
   window.addEventListener('hashchange', () => handleRoute());
 
-  // Initial route: check current hash on load
-  handleRoute();
+  // Detect auth mode and initialize
+  iapMode = await detectAuthMode();
+  if (iapMode) {
+    await initIAPSession();
+  } else {
+    handleRoute();
+  }
 });

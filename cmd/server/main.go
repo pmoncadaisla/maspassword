@@ -12,6 +12,7 @@ import (
 	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/database"
 	"github.com/masorange/maspassword/internal/handler"
+	"github.com/masorange/maspassword/internal/iap"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/router"
 	"github.com/masorange/maspassword/internal/service"
@@ -39,6 +40,16 @@ func main() {
 	}
 	srpStore := srp.NewStore(5 * time.Minute)
 
+	// IAP Validator (optional)
+	var iapValidator *iap.Validator
+	if cfg.IAPEnabled {
+		if cfg.IAPAudience == "" {
+			log.Fatalf("IAP_AUDIENCE is required when IAP_ENABLED=true")
+		}
+		iapValidator = iap.NewValidator(cfg.IAPAudience, cfg.IAPPublicKeyURL)
+		log.Printf("IAP authentication enabled (audience: %s)", cfg.IAPAudience)
+	}
+
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	vaultRepo := repository.NewVaultRepository(db)
@@ -60,7 +71,11 @@ func main() {
 	userHandler := handler.NewUserHandler(userRepo)
 
 	// Router
-	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, cfg.JWTSecret, cfg.CORSOrigins)
+	r := router.Setup(
+		authHandler, vaultHandler, itemHandler, teamHandler, userHandler,
+		cfg.JWTSecret, cfg.CORSOrigins,
+		cfg.IAPEnabled, iapValidator, userRepo,
+	)
 
 	// Server with graceful shutdown
 	srv := &http.Server{

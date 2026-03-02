@@ -1,9 +1,13 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/masorange/maspassword/internal/handler"
+	"github.com/masorange/maspassword/internal/iap"
 	"github.com/masorange/maspassword/internal/middleware"
+	"github.com/masorange/maspassword/internal/repository"
 )
 
 func Setup(
@@ -14,6 +18,9 @@ func Setup(
 	userHandler *handler.UserHandler,
 	jwtSecret string,
 	corsOrigins string,
+	iapEnabled bool,
+	iapValidator *iap.Validator,
+	userRepo repository.UserRepository,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -27,12 +34,27 @@ func Setup(
 		auth.POST("/signup", authHandler.Signup)
 		auth.POST("/login/step1", authHandler.LoginStep1)
 		auth.POST("/login/step2", authHandler.LoginStep2)
+		auth.GET("/mode", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled})
+		})
 	}
 
-	// Protected routes (JWT required)
+	// Choose auth middleware based on IAP config
+	var authMiddleware gin.HandlerFunc
+	if iapValidator != nil {
+		authMiddleware = middleware.DualAuth(jwtSecret, iapValidator, userRepo)
+	} else {
+		authMiddleware = middleware.JWTAuth(jwtSecret)
+	}
+
+	// Protected routes
 	api := r.Group("/api")
-	api.Use(middleware.JWTAuth(jwtSecret))
+	api.Use(authMiddleware)
 	{
+		// Auth session (for IAP flow)
+		api.GET("/auth/session", authHandler.GetSession)
+		api.POST("/auth/setup-encryption", authHandler.SetupEncryption)
+
 		// Vaults
 		api.GET("/vaults", vaultHandler.List)
 		api.POST("/vaults", vaultHandler.Create)
