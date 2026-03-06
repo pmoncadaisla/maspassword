@@ -21,12 +21,15 @@ import (
 
 func main() {
 	cfg := config.Load()
+	log.Printf("Starting server (port=%s, iap=%v)", cfg.ServerPort, cfg.IAPEnabled)
 
 	// Database
+	log.Println("Connecting to database...")
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+	log.Println("Database connected")
 	defer db.Close()
 
 	if err := database.RunMigrations(db); err != nil {

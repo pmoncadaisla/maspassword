@@ -1,5 +1,5 @@
 import { SRPClient, generateVerifier } from '/srp.js';
-import { deriveKey, encrypt, decrypt, generatePassword, generateKeyPair, encryptPrivateKey, decryptPrivateKey, encryptWithPublicKey, decryptWithPrivateKey, generateVaultKey, importVaultKey, generateTOTP } from '/crypto.js';
+import { deriveKey, encrypt, decrypt, generatePassword, generateKeyPair, encryptPrivateKey, decryptPrivateKey, encryptWithPublicKey, decryptWithPrivateKey, generateVaultKey, importVaultKey, generateTOTP, generateRecoveryKey, deriveRecoveryKey } from '/crypto.js';
 
 // --- State ---
 let token = null;
@@ -69,6 +69,11 @@ async function handleRoute() {
   if (hash === '/signup') {
     if (token) return; // already logged in, ignore
     showAuthScreen('signup');
+    return;
+  }
+  if (hash === '/recover') {
+    if (token) return;
+    showAuthScreen('recover');
     return;
   }
 
@@ -194,6 +199,8 @@ async function navigateToTeam(teamId) {
     renderSidebar();
     showDetailEmpty();
     closeMobileSidebar();
+    // Process pending vault keys in background (admin only)
+    processPendingVaultKeys();
   }
 }
 
@@ -240,16 +247,24 @@ async function signup() {
     const { publicKeyJwk, privateKeyJwk } = await generateKeyPair();
     const encryptedPrivKey = await encryptPrivateKey(derivedKey, privateKeyJwk);
 
+    // Generate recovery key and encrypt private key with it
+    const recoveryKey = generateRecoveryKey();
+    const recoveryAesKey = await deriveRecoveryKey(recoveryKey, email);
+    const recoveryEncPrivKey = await encrypt(recoveryAesKey, JSON.stringify(privateKeyJwk));
+
     await api('POST', '/auth/signup', {
       email,
       srp_salt: salt,
       srp_verifier: verifier,
       public_key: JSON.stringify(publicKeyJwk),
       encrypted_private_key: encryptedPrivKey,
+      recovery_encrypted_private_key: recoveryEncPrivKey,
     });
-    toast('Account created! Please log in.');
-    showAuthScreen('login');
-    document.getElementById('login-email').value = email;
+    toast('Account created!');
+    showRecoveryKeyScreen(recoveryKey, () => {
+      showAuthScreen('login');
+      document.getElementById('login-email').value = email;
+    });
   } catch (e) {
     toast(e.message, true);
   } finally {
@@ -425,12 +440,18 @@ async function iapSetup() {
     // Generate SRP verifier for future SRP login
     const { verifier, salt } = generateVerifier(iapSession.email, pw);
 
+    // Generate recovery key and encrypt private key with it
+    const recoveryKey = generateRecoveryKey();
+    const recoveryAesKey = await deriveRecoveryKey(recoveryKey, iapSession.email);
+    const recoveryEncPrivKey = await encrypt(recoveryAesKey, JSON.stringify(privateKeyJwk));
+
     // Send setup to server
     await api('POST', '/api/auth/setup-encryption', {
       srp_salt: salt,
       srp_verifier: verifier,
       public_key: JSON.stringify(publicKeyJwk),
       encrypted_private_key: encryptedPrivKey,
+      recovery_encrypted_private_key: recoveryEncPrivKey,
     });
 
     // Import private key for use
@@ -438,14 +459,90 @@ async function iapSetup() {
 
     toast('Encryption set up successfully');
     await Promise.all([loadVaults(), loadTeams()]);
-    showMainApp();
-    renderSidebar();
-    setHash('/');
+
+    showRecoveryKeyScreen(recoveryKey, () => {
+      showMainApp();
+      renderSidebar();
+      setHash('/');
+    });
   } catch (e) {
     toast('Setup failed: ' + e.message, true);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Set Up Encryption';
+  }
+}
+
+// --- Recovery Key ---
+let recoveryKeyContinueCallback = null;
+
+function showRecoveryKeyScreen(recoveryKey, onContinue) {
+  document.getElementById('recovery-key-display').textContent = recoveryKey;
+  document.getElementById('recovery-key-saved-checkbox').checked = false;
+  document.getElementById('btn-recovery-key-continue').disabled = true;
+  recoveryKeyContinueCallback = onContinue;
+  showAuthScreen('show-recovery-key');
+}
+
+async function recover() {
+  const email = document.getElementById('recover-email').value.trim();
+  const recoveryKeyInput = document.getElementById('recover-key').value.trim();
+  const pw = document.getElementById('recover-password').value;
+  const confirm = document.getElementById('recover-confirm').value;
+
+  if (!email || !recoveryKeyInput || !pw) return toast('Fill all fields', true);
+  if (pw !== confirm) return toast('Passwords do not match', true);
+  if (pw.length < 8) return toast('Password must be at least 8 characters', true);
+
+  const btn = document.getElementById('btn-recover');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    // 1. Get recovery data from server
+    const recoveryData = await api('GET', `/auth/recovery/${encodeURIComponent(email)}`);
+
+    // 2. Derive recovery AES key and decrypt private key
+    const recoveryAesKey = await deriveRecoveryKey(recoveryKeyInput, email);
+    let privateKeyJwk;
+    try {
+      const json = await decrypt(recoveryAesKey, recoveryData.recovery_encrypted_private_key);
+      privateKeyJwk = JSON.parse(json);
+    } catch {
+      throw new Error('Invalid recovery key');
+    }
+
+    // 3. Re-encrypt private key with new master password
+    const newEncKey = await deriveKey(pw, email);
+    const newEncryptedPrivKey = await encryptPrivateKey(newEncKey, privateKeyJwk);
+
+    // 4. Generate new SRP verifier
+    const { verifier, salt } = generateVerifier(email, pw);
+
+    // 5. Generate new recovery key and encrypt private key with it
+    const newRecoveryKey = generateRecoveryKey();
+    const newRecoveryAesKey = await deriveRecoveryKey(newRecoveryKey, email);
+    const newRecoveryEncPrivKey = await encrypt(newRecoveryAesKey, JSON.stringify(privateKeyJwk));
+
+    // 6. Send recovery request
+    await api('POST', '/auth/recover', {
+      email,
+      srp_salt: salt,
+      srp_verifier: verifier,
+      encrypted_private_key: newEncryptedPrivKey,
+      recovery_encrypted_private_key: newRecoveryEncPrivKey,
+    });
+
+    toast('Password reset successful!');
+    showRecoveryKeyScreen(newRecoveryKey, () => {
+      showAuthScreen('login');
+      document.getElementById('login-email').value = email;
+    });
+  } catch (e) {
+    toast('Recovery failed: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reset Password';
   }
 }
 
@@ -754,12 +851,49 @@ async function loadTeamMembers() {
     return;
   }
 
-  list.innerHTML = members.map(m => `<div class="member-card">
-    <div class="card-info">
-      <h3>${esc(m.email)} <span class="badge-role badge-${m.role}">${m.role}</span></h3>
-    </div>
-    ${m.role !== 'admin' ? `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="Remove">&#10005;</button>` : ''}
-  </div>`).join('');
+  const myId = getCurrentUserId();
+  const myMember = members.find(m => m.user_id === myId);
+  const isAdmin = myMember && myMember.role === 'admin';
+  const ownerId = currentTeam.owner_id;
+
+  list.innerHTML = members.map(m => {
+    const isOwner = m.user_id === ownerId;
+    let actions = '';
+    if (isAdmin && !isOwner) {
+      if (m.role === 'member') {
+        actions += `<button class="btn-icon btn-promote" data-user-id="${m.user_id}" title="Promote to admin">&#8593;</button>`;
+      } else if (m.role === 'admin') {
+        actions += `<button class="btn-icon btn-demote" data-user-id="${m.user_id}" title="Demote to member">&#8595;</button>`;
+      }
+      actions += `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="Remove">&#10005;</button>`;
+    }
+    return `<div class="member-card">
+      <div class="card-info">
+        <h3>${esc(m.email)} <span class="badge-role badge-${m.role}">${m.role}</span>${isOwner ? ' <span class="badge-role badge-owner">owner</span>' : ''}${!m.has_public_key ? ' <span class="badge-role badge-pending">pending</span>' : ''}</h3>
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.btn-promote').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api('PUT', `/api/teams/${currentTeam.id}/members/${btn.dataset.userId}/role`, { role: 'admin' });
+        toast('Promoted to admin');
+        await loadTeamMembers();
+      } catch (e) { toast(e.message, true); }
+    });
+  });
+
+  list.querySelectorAll('.btn-demote').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api('PUT', `/api/teams/${currentTeam.id}/members/${btn.dataset.userId}/role`, { role: 'member' });
+        toast('Demoted to member');
+        await loadTeamMembers();
+      } catch (e) { toast(e.message, true); }
+    });
+  });
 
   list.querySelectorAll('.btn-remove-member').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -812,6 +946,45 @@ async function loadTeamVaults() {
   });
 }
 
+async function processPendingVaultKeys() {
+  if (!currentTeam || !privateKey) return;
+  try {
+    const resp = await api('GET', `/api/teams/${currentTeam.id}/pending-vault-keys`);
+    if (!resp.pending?.length) return;
+
+    // Group by vault_id
+    const byVault = {};
+    for (const p of resp.pending) {
+      if (!byVault[p.vault_id]) byVault[p.vault_id] = [];
+      byVault[p.vault_id].push(p);
+    }
+
+    for (const [vaultId, members] of Object.entries(byVault)) {
+      try {
+        const vkResp = await api('GET', `/api/vaults/${vaultId}/key`);
+        const vaultKeyBase64 = await decryptWithPrivateKey(privateKey, vkResp.encrypted_vault_key);
+
+        const vaultKeys = [];
+        for (const m of members) {
+          const pubKeyJwk = JSON.parse(m.public_key);
+          const encVaultKey = await encryptWithPublicKey(pubKeyJwk, vaultKeyBase64);
+          vaultKeys.push({ user_id: m.user_id, encrypted_vault_key: encVaultKey });
+        }
+
+        await api('POST', `/api/vaults/${vaultId}/share`, { vault_keys: vaultKeys });
+      } catch (e) {
+        console.warn('Could not share vault keys for vault', vaultId, e);
+      }
+    }
+
+    // Refresh member list to update pending badges
+    await loadTeamMembers();
+  } catch (e) {
+    // Non-admin users will get 403, that's expected
+    console.debug('processPendingVaultKeys:', e.message);
+  }
+}
+
 async function addTeamMember() {
   const emailInput = document.getElementById('member-email-input');
   const email = emailInput.value.trim();
@@ -820,27 +993,34 @@ async function addTeamMember() {
   try {
     const member = await api('POST', `/api/teams/${currentTeam.id}/members`, { email });
 
-    const pubKeyResp = await api('GET', `/api/users/${member.user_id}/public-key`);
-    const pubKeyJwk = JSON.parse(pubKeyResp.public_key);
+    let shared = false;
+    try {
+      const pubKeyResp = await api('GET', `/api/users/${member.user_id}/public-key`);
+      const pubKeyJwk = JSON.parse(pubKeyResp.public_key);
 
-    const teamVaults = (await api('GET', `/api/teams/${currentTeam.id}/vaults`)) || [];
-    for (const v of teamVaults) {
-      try {
-        const vkResp = await api('GET', `/api/vaults/${v.id}/key`);
-        const vaultKeyBase64 = await decryptWithPrivateKey(privateKey, vkResp.encrypted_vault_key);
-        const encVaultKey = await encryptWithPublicKey(pubKeyJwk, vaultKeyBase64);
-        await api('POST', `/api/vaults/${v.id}/share`, {
-          vault_keys: [{ user_id: member.user_id, encrypted_vault_key: encVaultKey }],
-        });
-      } catch (e) {
-        console.warn('Could not share vault', v.id, e);
+      const teamVaults = (await api('GET', `/api/teams/${currentTeam.id}/vaults`)) || [];
+      for (const v of teamVaults) {
+        try {
+          const vkResp = await api('GET', `/api/vaults/${v.id}/key`);
+          const vaultKeyBase64 = await decryptWithPrivateKey(privateKey, vkResp.encrypted_vault_key);
+          const encVaultKey = await encryptWithPublicKey(pubKeyJwk, vaultKeyBase64);
+          await api('POST', `/api/vaults/${v.id}/share`, {
+            vault_keys: [{ user_id: member.user_id, encrypted_vault_key: encVaultKey }],
+          });
+        } catch (e) {
+          console.warn('Could not share vault', v.id, e);
+        }
       }
+      shared = true;
+    } catch (e) {
+      // Member has no public key yet (pending signup)
+      console.warn('Member has no public key, vault keys will be shared later:', e);
     }
 
     closeModal('modal-add-member');
     emailInput.value = '';
     await loadTeamMembers();
-    toast('Member added');
+    toast(shared ? 'Member added' : 'Member invited (pending encryption setup)');
   } catch (e) {
     toast(e.message, true);
   }
@@ -857,10 +1037,14 @@ async function createTeamVault() {
     const vaultKeys = [];
 
     for (const m of members) {
-      const pubResp = await api('GET', `/api/users/${m.user_id}/public-key`);
-      const pubKeyJwk = JSON.parse(pubResp.public_key);
-      const encVaultKey = await encryptWithPublicKey(pubKeyJwk, vaultKeyBase64);
-      vaultKeys.push({ user_id: m.user_id, encrypted_vault_key: encVaultKey });
+      try {
+        const pubResp = await api('GET', `/api/users/${m.user_id}/public-key`);
+        const pubKeyJwk = JSON.parse(pubResp.public_key);
+        const encVaultKey = await encryptWithPublicKey(pubKeyJwk, vaultKeyBase64);
+        vaultKeys.push({ user_id: m.user_id, encrypted_vault_key: encVaultKey });
+      } catch (e) {
+        console.warn('Skipping member without public key:', m.user_id);
+      }
     }
 
     const vaultCryptoKey = await importVaultKey(vaultKeyBase64);
@@ -913,6 +1097,15 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function getCurrentUserId() {
+  if (iapSession && iapSession.user_id) return iapSession.user_id;
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.user_id || null;
+  } catch { return null; }
 }
 
 window.copyField = function(id) {
@@ -1211,7 +1404,7 @@ function resetImportModal() {
 }
 
 // --- Event Listeners ---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Auth
   document.getElementById('btn-login').addEventListener('click', login);
   document.getElementById('btn-signup').addEventListener('click', signup);
@@ -1379,6 +1572,22 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-import').addEventListener('click', () => importItems(parsedImportItems));
   document.getElementById('btn-cancel-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
   document.getElementById('btn-close-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
+
+  // Recovery key buttons
+  document.getElementById('btn-show-recover').addEventListener('click', () => showAuthScreen('recover'));
+  document.getElementById('btn-recover-back-login').addEventListener('click', () => showAuthScreen('login'));
+  document.getElementById('btn-recover').addEventListener('click', recover);
+  document.getElementById('recover-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') recover(); });
+  document.getElementById('btn-copy-recovery-key').addEventListener('click', () => {
+    const key = document.getElementById('recovery-key-display').textContent;
+    navigator.clipboard.writeText(key).then(() => toast('Copied!')).catch(() => toast('Copy failed', true));
+  });
+  document.getElementById('recovery-key-saved-checkbox').addEventListener('change', e => {
+    document.getElementById('btn-recovery-key-continue').disabled = !e.target.checked;
+  });
+  document.getElementById('btn-recovery-key-continue').addEventListener('click', () => {
+    if (recoveryKeyContinueCallback) recoveryKeyContinueCallback();
+  });
 
   // IAP buttons
   document.getElementById('btn-iap-unlock').addEventListener('click', iapUnlock);

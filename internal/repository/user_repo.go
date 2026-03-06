@@ -21,6 +21,8 @@ type UserRepository interface {
 	FindOrCreateByEmail(ctx context.Context, email string) (*models.User, error)
 	UpdateKeys(ctx context.Context, userID uuid.UUID, publicKey, encryptedPrivateKey string) error
 	UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error
+	UpdateRecoveryKey(ctx context.Context, userID uuid.UUID, recoveryEncryptedPrivateKey string) error
+	UpdateFullCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier, encryptedPrivateKey, recoveryEncryptedPrivateKey string) error
 	GetPublicKey(ctx context.Context, userID uuid.UUID) (string, error)
 	GetPublicKeysByIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]string, error)
 }
@@ -34,10 +36,10 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 }
 
 func (r *userRepo) Create(ctx context.Context, user *models.User) error {
-	query := `INSERT INTO users (email, srp_salt, srp_verifier, public_key, encrypted_private_key)
-	           VALUES ($1, $2, $3, $4, $5)
+	query := `INSERT INTO users (email, srp_salt, srp_verifier, public_key, encrypted_private_key, recovery_encrypted_private_key)
+	           VALUES ($1, $2, $3, $4, $5, $6)
 	           RETURNING id, created_at, updated_at`
-	err := r.db.QueryRowContext(ctx, query, user.Email, user.SRPSalt, user.SRPVerifier, user.PublicKey, user.EncryptedPrivateKey).
+	err := r.db.QueryRowContext(ctx, query, user.Email, user.SRPSalt, user.SRPVerifier, user.PublicKey, user.EncryptedPrivateKey, user.RecoveryEncryptedPrivateKey).
 		Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -151,6 +153,32 @@ func (r *userRepo) UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, s
 	result, err := r.db.ExecContext(ctx, query, srpSalt, srpVerifier, userID)
 	if err != nil {
 		return fmt.Errorf("updating SRP credentials: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepo) UpdateRecoveryKey(ctx context.Context, userID uuid.UUID, recoveryEncryptedPrivateKey string) error {
+	query := `UPDATE users SET recovery_encrypted_private_key = $1, updated_at = now() WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, recoveryEncryptedPrivateKey, userID)
+	if err != nil {
+		return fmt.Errorf("updating recovery key: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepo) UpdateFullCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier, encryptedPrivateKey, recoveryEncryptedPrivateKey string) error {
+	query := `UPDATE users SET srp_salt = $1, srp_verifier = $2, encrypted_private_key = $3, recovery_encrypted_private_key = $4, updated_at = now() WHERE id = $5`
+	result, err := r.db.ExecContext(ctx, query, srpSalt, srpVerifier, encryptedPrivateKey, recoveryEncryptedPrivateKey, userID)
+	if err != nil {
+		return fmt.Errorf("updating full credentials: %w", err)
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {

@@ -137,6 +137,68 @@ func (h *TeamHandler) RemoveMember(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (h *TeamHandler) UpdateMemberRole(c *gin.Context) {
+	teamID, err := uuid.Parse(c.Param("teamId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid team id"}})
+		return
+	}
+
+	targetUserID, err := uuid.Parse(c.Param("userId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid user id"}})
+		return
+	}
+
+	var req dto.UpdateMemberRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	err = h.teamService.UpdateMemberRole(c.Request.Context(), userID, teamID, targetUserID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrNotTeamAdmin) || errors.Is(err, service.ErrNotTeamMember) {
+			c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "admin access required"}})
+			return
+		}
+		if errors.Is(err, service.ErrCannotChangeOwnerRole) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "CANNOT_CHANGE_OWNER", "message": "cannot change owner role"}})
+			return
+		}
+		if errors.Is(err, repository.ErrMemberNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "member not found"}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to update member role"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *TeamHandler) GetPendingVaultKeys(c *gin.Context) {
+	teamID, err := uuid.Parse(c.Param("teamId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid team id"}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	pending, err := h.teamService.GetPendingVaultKeys(c.Request.Context(), userID, teamID)
+	if err != nil {
+		if errors.Is(err, service.ErrNotTeamAdmin) || errors.Is(err, service.ErrNotTeamMember) {
+			c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "admin access required"}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to get pending vault keys"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"pending": pending})
+}
+
 func (h *TeamHandler) ListMembers(c *gin.Context) {
 	teamID, err := uuid.Parse(c.Param("teamId"))
 	if err != nil {

@@ -44,6 +44,14 @@ func (m *mockAuthService) SetupEncryption(_ context.Context, _ uuid.UUID, _ dto.
 	return nil
 }
 
+func (m *mockAuthService) GetRecoveryData(_ context.Context, _ string) (*dto.RecoveryDataResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthService) Recover(_ context.Context, _ dto.RecoverRequest) error {
+	return nil
+}
+
 func TestSignup_Success(t *testing.T) {
 	mock := &mockAuthService{
 		signupFn: func(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error) {

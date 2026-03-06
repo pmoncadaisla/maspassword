@@ -27,6 +27,8 @@ type AuthService interface {
 	LoginStep2(ctx context.Context, req dto.LoginStep2Request) (*dto.LoginStep2Response, error)
 	GetSessionInfo(ctx context.Context, userID uuid.UUID) (*dto.SessionInfoResponse, error)
 	SetupEncryption(ctx context.Context, userID uuid.UUID, req dto.SetupEncryptionRequest) error
+	GetRecoveryData(ctx context.Context, email string) (*dto.RecoveryDataResponse, error)
+	Recover(ctx context.Context, req dto.RecoverRequest) error
 }
 
 type authService struct {
@@ -51,6 +53,26 @@ func NewAuthService(
 }
 
 func (s *authService) Signup(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error) {
+	// Check for placeholder user (created via team invitation)
+	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err == nil && existing.SRPVerifier == nil {
+		// Placeholder user — fill in credentials
+		if err := s.userRepo.UpdateSRPCredentials(ctx, existing.ID, req.SRPSalt, req.SRPVerifier); err != nil {
+			return nil, fmt.Errorf("updating placeholder credentials: %w", err)
+		}
+		if req.PublicKey != "" {
+			if err := s.userRepo.UpdateKeys(ctx, existing.ID, req.PublicKey, req.EncryptedPrivateKey); err != nil {
+				return nil, fmt.Errorf("updating placeholder keys: %w", err)
+			}
+		}
+		if req.RecoveryEncryptedPrivateKey != "" {
+			if err := s.userRepo.UpdateRecoveryKey(ctx, existing.ID, req.RecoveryEncryptedPrivateKey); err != nil {
+				return nil, fmt.Errorf("updating placeholder recovery key: %w", err)
+			}
+		}
+		return &dto.SignupResponse{ID: existing.ID.String(), Email: existing.Email}, nil
+	}
+
 	user := &models.User{
 		Email:       req.Email,
 		SRPSalt:     &req.SRPSalt,
@@ -62,8 +84,11 @@ func (s *authService) Signup(ctx context.Context, req dto.SignupRequest) (*dto.S
 	if req.EncryptedPrivateKey != "" {
 		user.EncryptedPrivateKey = &req.EncryptedPrivateKey
 	}
+	if req.RecoveryEncryptedPrivateKey != "" {
+		user.RecoveryEncryptedPrivateKey = &req.RecoveryEncryptedPrivateKey
+	}
 
-	err := s.userRepo.Create(ctx, user)
+	err = s.userRepo.Create(ctx, user)
 	if err != nil {
 		if errors.Is(err, repository.ErrEmailExists) {
 			// Anti-enumeration: return generic error
@@ -224,6 +249,43 @@ func (s *authService) SetupEncryption(ctx context.Context, userID uuid.UUID, req
 	// Save keys
 	if err := s.userRepo.UpdateKeys(ctx, userID, req.PublicKey, req.EncryptedPrivateKey); err != nil {
 		return fmt.Errorf("updating keys: %w", err)
+	}
+
+	// Save recovery key if provided
+	if req.RecoveryEncryptedPrivateKey != "" {
+		if err := s.userRepo.UpdateRecoveryKey(ctx, userID, req.RecoveryEncryptedPrivateKey); err != nil {
+			return fmt.Errorf("updating recovery key: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *authService) GetRecoveryData(ctx context.Context, email string) (*dto.RecoveryDataResponse, error) {
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		// Anti-enumeration: return generic error regardless of cause
+		return nil, fmt.Errorf("recovery data not available")
+	}
+
+	if user.RecoveryEncryptedPrivateKey == nil || user.PublicKey == nil {
+		return nil, fmt.Errorf("recovery data not available")
+	}
+
+	return &dto.RecoveryDataResponse{
+		RecoveryEncryptedPrivateKey: *user.RecoveryEncryptedPrivateKey,
+		PublicKey:                   *user.PublicKey,
+	}, nil
+}
+
+func (s *authService) Recover(ctx context.Context, req dto.RecoverRequest) error {
+	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil {
+		return fmt.Errorf("recovery failed")
+	}
+
+	if err := s.userRepo.UpdateFullCredentials(ctx, user.ID, req.SRPSalt, req.SRPVerifier, req.EncryptedPrivateKey, req.RecoveryEncryptedPrivateKey); err != nil {
+		return fmt.Errorf("recovery failed")
 	}
 
 	return nil

@@ -53,6 +53,29 @@ export function generatePassword(length = 20) {
   return Array.from(arr, b => chars[b % chars.length]).join('');
 }
 
+// --- Recovery Key ---
+
+// Generate a random 256-bit recovery key → base64 string
+export function generateRecoveryKey() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+// Derive AES-256 key from recovery key + email using PBKDF2
+export async function deriveRecoveryKey(recoveryKey, email) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(recoveryKey), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('recovery:' + email), iterations: 600000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
 // --- RSA-OAEP Key Pair (4096-bit) for shared vault encryption ---
 
 // Generate RSA-OAEP key pair → { publicKeyJwk, privateKeyJwk }

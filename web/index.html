@@ -29,6 +29,7 @@
       </div>
       <button class="btn btn-primary" id="btn-login">Log in</button>
       <p>Don't have an account? <button class="link-btn" id="btn-show-signup">Sign up</button></p>
+      <p><button class="link-btn" id="btn-show-recover">Forgot password?</button></p>
     </div>
   </div>
 
@@ -83,6 +84,47 @@
         <input type="password" id="iap-setup-confirm" placeholder="Confirm password" autocomplete="new-password">
       </div>
       <button class="btn btn-primary" id="btn-iap-setup">Set Up Encryption</button>
+    </div>
+  </div>
+
+  <!-- AUTH: Show Recovery Key (after signup or recovery) -->
+  <div id="screen-show-recovery-key" class="screen auth-screen">
+    <div class="auth-container">
+      <h2>Save Your Recovery Key</h2>
+      <p>This key allows you to recover your account if you forget your master password. <strong>Save it somewhere safe — it will only be shown once.</strong></p>
+      <code id="recovery-key-display" style="display:block; word-break:break-all; background:#f4f4f4; padding:16px; border-radius:8px; font-size:14px; margin:16px 0; user-select:all; color:#333;"></code>
+      <button class="btn btn-secondary" id="btn-copy-recovery-key" style="margin-bottom:16px; width:100%;">Copy to clipboard</button>
+      <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px; cursor:pointer;">
+        <input type="checkbox" id="recovery-key-saved-checkbox">
+        <span>I have saved this recovery key</span>
+      </label>
+      <button class="btn btn-primary" id="btn-recovery-key-continue" disabled>Continue</button>
+    </div>
+  </div>
+
+  <!-- AUTH: Recover Account (forgot password) -->
+  <div id="screen-recover" class="screen auth-screen">
+    <div class="auth-container">
+      <h2>Account Recovery</h2>
+      <p>Enter your email, recovery key, and a new master password to regain access.</p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="recover-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Recovery Key</label>
+        <input type="text" id="recover-key" placeholder="Paste your recovery key" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>New Master Password</label>
+        <input type="password" id="recover-password" placeholder="Choose a new password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirm New Password</label>
+        <input type="password" id="recover-confirm" placeholder="Confirm new password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" id="btn-recover">Reset Password</button>
+      <p><button class="link-btn" id="btn-recover-back-login">Back to login</button></p>
     </div>
   </div>
 

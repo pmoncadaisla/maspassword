@@ -37,6 +37,8 @@ func Setup(
 		auth.GET("/mode", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled})
 		})
+		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
+		auth.POST("/recover", authHandler.Recover)
 	}
 
 	// Choose auth middleware based on IAP config
@@ -72,7 +74,9 @@ func Setup(
 		api.GET("/teams/:teamId", teamHandler.Get)
 		api.POST("/teams/:teamId/members", teamHandler.AddMember)
 		api.DELETE("/teams/:teamId/members/:userId", teamHandler.RemoveMember)
+		api.PUT("/teams/:teamId/members/:userId/role", teamHandler.UpdateMemberRole)
 		api.GET("/teams/:teamId/members", teamHandler.ListMembers)
+		api.GET("/teams/:teamId/pending-vault-keys", teamHandler.GetPendingVaultKeys)
 		api.POST("/teams/:teamId/vaults", vaultHandler.CreateTeamVault)
 		api.GET("/teams/:teamId/vaults", vaultHandler.ListByTeam)
 

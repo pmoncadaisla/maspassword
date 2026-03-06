@@ -159,6 +159,14 @@ func (m *mockUserRepo) UpdateSRPCredentials(_ context.Context, _ uuid.UUID, _, _
 	return nil
 }
 
+func (m *mockUserRepo) UpdateRecoveryKey(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
+func (m *mockUserRepo) UpdateFullCredentials(_ context.Context, _ uuid.UUID, _, _, _, _ string) error {
+	return nil
+}
+
 func (m *mockUserRepo) GetPublicKey(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil
 }

@@ -11,13 +11,17 @@ import (
 )
 
 func Connect(databaseURL string) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("postgres", databaseURL)
+	db, err := sqlx.Open("postgres", databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("connecting to database: %w", err)
+		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
+
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("pinging database: %w", err)
+	}
 
 	return db, nil
 }

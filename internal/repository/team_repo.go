@@ -17,7 +17,14 @@ var ErrAlreadyMember = errors.New("user is already a team member")
 
 type TeamMemberWithEmail struct {
 	models.TeamMember
-	Email string `db:"email" json:"email"`
+	Email        string `db:"email" json:"email"`
+	HasPublicKey bool   `db:"has_public_key" json:"has_public_key"`
+}
+
+type MemberPendingVaultKey struct {
+	UserID    uuid.UUID `db:"user_id"`
+	VaultID   uuid.UUID `db:"vault_id"`
+	PublicKey string    `db:"public_key"`
 }
 
 type TeamRepository interface {
@@ -27,9 +34,11 @@ type TeamRepository interface {
 	AddMember(ctx context.Context, member *models.TeamMember) error
 	RemoveMember(ctx context.Context, teamID, userID uuid.UUID) error
 	GetMember(ctx context.Context, teamID, userID uuid.UUID) (*models.TeamMember, error)
+	UpdateMemberRole(ctx context.Context, teamID, userID uuid.UUID, role string) error
 	ListMembers(ctx context.Context, teamID uuid.UUID) ([]TeamMemberWithEmail, error)
 	IsMember(ctx context.Context, teamID, userID uuid.UUID) (bool, error)
 	ListMemberIDs(ctx context.Context, teamID uuid.UUID) ([]uuid.UUID, error)
+	GetMembersWithoutVaultKeys(ctx context.Context, teamID uuid.UUID) ([]MemberPendingVaultKey, error)
 }
 
 type teamRepo struct {
@@ -100,6 +109,18 @@ func (r *teamRepo) RemoveMember(ctx context.Context, teamID, userID uuid.UUID) e
 	return nil
 }
 
+func (r *teamRepo) UpdateMemberRole(ctx context.Context, teamID, userID uuid.UUID, role string) error {
+	result, err := r.db.ExecContext(ctx, "UPDATE team_members SET role = $1 WHERE team_id = $2 AND user_id = $3", role, teamID, userID)
+	if err != nil {
+		return fmt.Errorf("updating member role: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrMemberNotFound
+	}
+	return nil
+}
+
 func (r *teamRepo) GetMember(ctx context.Context, teamID, userID uuid.UUID) (*models.TeamMember, error) {
 	var member models.TeamMember
 	err := r.db.GetContext(ctx, &member, "SELECT * FROM team_members WHERE team_id = $1 AND user_id = $2", teamID, userID)
@@ -114,7 +135,7 @@ func (r *teamRepo) GetMember(ctx context.Context, teamID, userID uuid.UUID) (*mo
 
 func (r *teamRepo) ListMembers(ctx context.Context, teamID uuid.UUID) ([]TeamMemberWithEmail, error) {
 	var members []TeamMemberWithEmail
-	query := `SELECT tm.*, u.email FROM team_members tm
+	query := `SELECT tm.*, u.email, (u.public_key IS NOT NULL) as has_public_key FROM team_members tm
 	          JOIN users u ON u.id = tm.user_id
 	          WHERE tm.team_id = $1
 	          ORDER BY tm.joined_at ASC`
@@ -141,6 +162,23 @@ func (r *teamRepo) ListMemberIDs(ctx context.Context, teamID uuid.UUID) ([]uuid.
 		return nil, fmt.Errorf("listing member ids: %w", err)
 	}
 	return ids, nil
+}
+
+func (r *teamRepo) GetMembersWithoutVaultKeys(ctx context.Context, teamID uuid.UUID) ([]MemberPendingVaultKey, error) {
+	var results []MemberPendingVaultKey
+	query := `SELECT tm.user_id, v.id as vault_id, u.public_key
+	          FROM team_members tm
+	          JOIN vaults v ON v.team_id = tm.team_id
+	          JOIN users u ON u.id = tm.user_id
+	          LEFT JOIN vault_keys vk ON vk.vault_id = v.id AND vk.user_id = tm.user_id
+	          WHERE tm.team_id = $1
+	            AND u.public_key IS NOT NULL
+	            AND vk.id IS NULL`
+	err := r.db.SelectContext(ctx, &results, query, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("getting members without vault keys: %w", err)
+	}
+	return results, nil
 }
 
 func isTeamMemberUniqueViolation(err error) bool {

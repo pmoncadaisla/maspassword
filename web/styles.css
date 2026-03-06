@@ -768,6 +768,16 @@ input::placeholder {
   color: var(--text3);
 }
 
+.badge-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-owner {
+  background: #d4edda;
+  color: #155724;
+}
+
 .badge-shared {
   font-size: 12px;
   opacity: 0.5;

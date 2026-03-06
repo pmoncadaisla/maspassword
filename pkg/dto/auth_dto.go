@@ -1,11 +1,12 @@
 package dto
 
 type SignupRequest struct {
-	Email               string `json:"email" binding:"required,email"`
-	SRPSalt             string `json:"srp_salt" binding:"required"`
-	SRPVerifier         string `json:"srp_verifier" binding:"required"`
-	PublicKey           string `json:"public_key"`
-	EncryptedPrivateKey string `json:"encrypted_private_key"`
+	Email                       string `json:"email" binding:"required,email"`
+	SRPSalt                     string `json:"srp_salt" binding:"required"`
+	SRPVerifier                 string `json:"srp_verifier" binding:"required"`
+	PublicKey                   string `json:"public_key"`
+	EncryptedPrivateKey         string `json:"encrypted_private_key"`
+	RecoveryEncryptedPrivateKey string `json:"recovery_encrypted_private_key"`
 }
 
 type SignupResponse struct {
@@ -46,8 +47,22 @@ type SessionInfoResponse struct {
 }
 
 type SetupEncryptionRequest struct {
-	SRPSalt             string `json:"srp_salt" binding:"required"`
-	SRPVerifier         string `json:"srp_verifier" binding:"required"`
-	PublicKey           string `json:"public_key" binding:"required"`
-	EncryptedPrivateKey string `json:"encrypted_private_key" binding:"required"`
+	SRPSalt                     string `json:"srp_salt" binding:"required"`
+	SRPVerifier                 string `json:"srp_verifier" binding:"required"`
+	PublicKey                   string `json:"public_key" binding:"required"`
+	EncryptedPrivateKey         string `json:"encrypted_private_key" binding:"required"`
+	RecoveryEncryptedPrivateKey string `json:"recovery_encrypted_private_key"`
+}
+
+type RecoveryDataResponse struct {
+	RecoveryEncryptedPrivateKey string `json:"recovery_encrypted_private_key"`
+	PublicKey                   string `json:"public_key"`
+}
+
+type RecoverRequest struct {
+	Email                       string `json:"email" binding:"required,email"`
+	SRPSalt                     string `json:"srp_salt" binding:"required"`
+	SRPVerifier                 string `json:"srp_verifier" binding:"required"`
+	EncryptedPrivateKey         string `json:"encrypted_private_key" binding:"required"`
+	RecoveryEncryptedPrivateKey string `json:"recovery_encrypted_private_key" binding:"required"`
 }
