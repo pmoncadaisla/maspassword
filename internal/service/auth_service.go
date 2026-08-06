@@ -3,9 +3,15 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -28,14 +34,16 @@ type AuthService interface {
 	GetSessionInfo(ctx context.Context, userID uuid.UUID) (*dto.SessionInfoResponse, error)
 	SetupEncryption(ctx context.Context, userID uuid.UUID, req dto.SetupEncryptionRequest) error
 	GetRecoveryData(ctx context.Context, email string) (*dto.RecoveryDataResponse, error)
+	GetRecoveryChallenge(ctx context.Context, req dto.RecoverChallengeRequest) (*dto.RecoverChallengeResponse, error)
 	Recover(ctx context.Context, req dto.RecoverRequest) error
 }
 
 type authService struct {
-	userRepo  repository.UserRepository
-	srpEnv    *srp.Environment
-	srpStore  *srp.Store
-	jwtSecret []byte
+	userRepo      repository.UserRepository
+	srpEnv        *srp.Environment
+	srpStore      *srp.Store
+	recoveryStore *srp.Store
+	jwtSecret     []byte
 }
 
 func NewAuthService(
@@ -45,10 +53,11 @@ func NewAuthService(
 	jwtSecret string,
 ) AuthService {
 	return &authService{
-		userRepo:  userRepo,
-		srpEnv:    srpEnv,
-		srpStore:  srpStore,
-		jwtSecret: []byte(jwtSecret),
+		userRepo:      userRepo,
+		srpEnv:        srpEnv,
+		srpStore:      srpStore,
+		recoveryStore: srp.NewStore(10 * time.Minute),
+		jwtSecret:     []byte(jwtSecret),
 	}
 }
 
@@ -278,17 +287,114 @@ func (s *authService) GetRecoveryData(ctx context.Context, email string) (*dto.R
 	}, nil
 }
 
-func (s *authService) Recover(ctx context.Context, req dto.RecoverRequest) error {
+// GetRecoveryChallenge issues a proof-of-possession challenge for account recovery.
+// It returns a random nonce encrypted to the account's stored RSA public key, so
+// that only a caller who has recovered the matching private key (i.e. who holds the
+// recovery key) can decrypt it and complete Recover. This preserves zero-knowledge:
+// the server only encrypts a random nonce, never any user data, and never decrypts.
+func (s *authService) GetRecoveryChallenge(ctx context.Context, req dto.RecoverChallengeRequest) (*dto.RecoverChallengeResponse, error) {
+	challengeID := uuid.New().String()
+
 	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil || user.PublicKey == nil || user.RecoveryEncryptedPrivateKey == nil {
+		// Anti-enumeration: return a fake challenge indistinguishable from a real one.
+		return fakeRecoverChallenge(challengeID), nil
+	}
+
+	pubKey, err := parseRSAPublicKeyJWK(*user.PublicKey)
+	if err != nil {
+		return fakeRecoverChallenge(challengeID), nil
+	}
+
+	// The nonce is transmitted and compared as a base64 string (UTF-8 safe for the
+	// client's RSA decrypt helper, which text-decodes the plaintext).
+	nonceRaw := make([]byte, 32)
+	if _, err := rand.Read(nonceRaw); err != nil {
+		return nil, fmt.Errorf("generating nonce: %w", err)
+	}
+	nonce := base64.StdEncoding.EncodeToString(nonceRaw)
+
+	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey, []byte(nonce), nil)
+	if err != nil {
+		return fakeRecoverChallenge(challengeID), nil
+	}
+
+	s.recoveryStore.Set(challengeID, []byte(nonce), user.ID.String())
+
+	return &dto.RecoverChallengeResponse{
+		ChallengeID:    challengeID,
+		EncryptedNonce: base64.StdEncoding.EncodeToString(ciphertext),
+	}, nil
+}
+
+func (s *authService) Recover(ctx context.Context, req dto.RecoverRequest) error {
+	// Proof of possession: the caller must return the nonce we encrypted to the
+	// account's public key in GetRecoveryChallenge. Without it, an attacker cannot
+	// reset another user's credentials just by knowing their email.
+	nonce, userIDStr, ok := s.recoveryStore.Get(req.ChallengeID)
+	if !ok {
+		return fmt.Errorf("recovery failed")
+	}
+	// One-time use.
+	s.recoveryStore.Delete(req.ChallengeID)
+
+	if subtle.ConstantTimeCompare(nonce, []byte(req.Nonce)) != 1 {
+		return fmt.Errorf("recovery failed")
+	}
+
+	// Bind the update to the exact account that was challenged (not to req.Email).
+	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return fmt.Errorf("recovery failed")
 	}
 
-	if err := s.userRepo.UpdateFullCredentials(ctx, user.ID, req.SRPSalt, req.SRPVerifier, req.EncryptedPrivateKey, req.RecoveryEncryptedPrivateKey); err != nil {
+	if err := s.userRepo.UpdateFullCredentials(ctx, userID, req.SRPSalt, req.SRPVerifier, req.EncryptedPrivateKey, req.RecoveryEncryptedPrivateKey); err != nil {
 		return fmt.Errorf("recovery failed")
 	}
 
 	return nil
+}
+
+// fakeRecoverChallenge returns a random challenge (~RSA-4096 ciphertext size) so
+// that non-existent accounts are indistinguishable from real ones.
+func fakeRecoverChallenge(challengeID string) *dto.RecoverChallengeResponse {
+	fake := make([]byte, 512)
+	_, _ = rand.Read(fake)
+	return &dto.RecoverChallengeResponse{
+		ChallengeID:    challengeID,
+		EncryptedNonce: base64.StdEncoding.EncodeToString(fake),
+	}
+}
+
+// parseRSAPublicKeyJWK parses a JSON Web Key (RSA public) into an *rsa.PublicKey.
+func parseRSAPublicKeyJWK(jwkStr string) (*rsa.PublicKey, error) {
+	var jwk struct {
+		Kty string `json:"kty"`
+		N   string `json:"n"`
+		E   string `json:"e"`
+	}
+	if err := json.Unmarshal([]byte(jwkStr), &jwk); err != nil {
+		return nil, fmt.Errorf("parsing JWK: %w", err)
+	}
+	if jwk.Kty != "RSA" || jwk.N == "" || jwk.E == "" {
+		return nil, fmt.Errorf("not an RSA public key JWK")
+	}
+	nBytes, err := base64.RawURLEncoding.DecodeString(jwk.N)
+	if err != nil {
+		return nil, fmt.Errorf("decoding modulus: %w", err)
+	}
+	eBytes, err := base64.RawURLEncoding.DecodeString(jwk.E)
+	if err != nil {
+		return nil, fmt.Errorf("decoding exponent: %w", err)
+	}
+	e := 0
+	for _, b := range eBytes {
+		e = e<<8 | int(b)
+	}
+	if e == 0 {
+		return nil, fmt.Errorf("invalid exponent")
+	}
+	return &rsa.PublicKey{N: new(big.Int).SetBytes(nBytes), E: e}, nil
 }
 
 func (s *authService) generateJWT(userID uuid.UUID) (string, error) {

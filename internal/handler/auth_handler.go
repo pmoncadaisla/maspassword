@@ -119,6 +119,22 @@ func (h *AuthHandler) GetRecoveryData(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+func (h *AuthHandler) RecoverChallenge(c *gin.Context) {
+	var req dto.RecoverChallengeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})
+		return
+	}
+
+	resp, err := h.authService.GetRecoveryChallenge(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "internal error"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *AuthHandler) Recover(c *gin.Context) {
 	var req dto.RecoverRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

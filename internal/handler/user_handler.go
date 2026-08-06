@@ -30,6 +30,16 @@ func (h *UserHandler) UploadKeys(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
+
+	// Guard: never overwrite an existing keypair. Without this, an attacker who has
+	// taken over an account could replace the victim's public key with their own and
+	// gain access to secrets shared to that account afterwards (C1 escalation).
+	if existing, err := h.userRepo.GetByID(c.Request.Context(), userID); err == nil &&
+		existing.PublicKey != nil && existing.EncryptedPrivateKey != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{"code": "ALREADY_SETUP", "message": "keys already set"}})
+		return
+	}
+
 	if err := h.userRepo.UpdateKeys(c.Request.Context(), userID, req.PublicKey, req.EncryptedPrivateKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to upload keys"}})
 		return

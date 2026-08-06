@@ -59,8 +59,23 @@ type RecoveryDataResponse struct {
 	PublicKey                   string `json:"public_key"`
 }
 
+// RecoverChallengeRequest starts the recovery proof-of-possession handshake.
+type RecoverChallengeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// RecoverChallengeResponse carries a nonce encrypted to the account's stored
+// public key. Only a caller who can decrypt it (i.e. who holds the recovery key
+// and thus recovered the private key) can complete the recovery.
+type RecoverChallengeResponse struct {
+	ChallengeID    string `json:"challenge_id"`
+	EncryptedNonce string `json:"encrypted_nonce"`
+}
+
 type RecoverRequest struct {
 	Email                       string `json:"email" binding:"required,email"`
+	ChallengeID                 string `json:"challenge_id" binding:"required"`
+	Nonce                       string `json:"nonce" binding:"required"`
 	SRPSalt                     string `json:"srp_salt" binding:"required"`
 	SRPVerifier                 string `json:"srp_verifier" binding:"required"`
 	EncryptedPrivateKey         string `json:"encrypted_private_key" binding:"required"`
