@@ -512,6 +512,15 @@ async function recover() {
       throw new Error('Invalid recovery key');
     }
 
+    // 2b. Prove possession of the recovery key to the server: decrypt a nonce the
+    // server encrypts to our stored public key. Without this the server would reset
+    // credentials for any email (account takeover).
+    const recoveryPrivKey = await crypto.subtle.importKey(
+      'jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']
+    );
+    const challenge = await api('POST', '/auth/recover/challenge', { email });
+    const nonce = await decryptWithPrivateKey(recoveryPrivKey, challenge.encrypted_nonce);
+
     // 3. Re-encrypt private key with new master password
     const newEncKey = await deriveKey(pw, email);
     const newEncryptedPrivKey = await encryptPrivateKey(newEncKey, privateKeyJwk);
@@ -524,9 +533,11 @@ async function recover() {
     const newRecoveryAesKey = await deriveRecoveryKey(newRecoveryKey, email);
     const newRecoveryEncPrivKey = await encrypt(newRecoveryAesKey, JSON.stringify(privateKeyJwk));
 
-    // 6. Send recovery request
+    // 6. Send recovery request (with proof-of-possession from step 2b)
     await api('POST', '/auth/recover', {
       email,
+      challenge_id: challenge.challenge_id,
+      nonce,
       srp_salt: salt,
       srp_verifier: verifier,
       encrypted_private_key: newEncryptedPrivKey,

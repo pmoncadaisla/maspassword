@@ -38,6 +38,7 @@ func Setup(
 			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled})
 		})
 		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
+		auth.POST("/recover/challenge", authHandler.RecoverChallenge)
 		auth.POST("/recover", authHandler.Recover)
 	}
 

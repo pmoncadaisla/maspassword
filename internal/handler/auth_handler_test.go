@@ -48,6 +48,10 @@ func (m *mockAuthService) GetRecoveryData(_ context.Context, _ string) (*dto.Rec
 	return nil, nil
 }
 
+func (m *mockAuthService) GetRecoveryChallenge(_ context.Context, _ dto.RecoverChallengeRequest) (*dto.RecoverChallengeResponse, error) {
+	return nil, nil
+}
+
 func (m *mockAuthService) Recover(_ context.Context, _ dto.RecoverRequest) error {
 	return nil
 }
