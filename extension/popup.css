@@ -272,3 +272,178 @@ input::placeholder { color: #9ca3af; }
   color: #9ca3af;
   text-align: center;
 }
+
+/* Item detail view */
+.detail-row {
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.detail-row:last-child { border-bottom: none; }
+
+.detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.detail-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.detail-value.mono {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
+.detail-copy-btn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s;
+}
+.detail-copy-btn:hover { background: #f3f4f6; color: #111827; }
+
+.totp-code {
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: #10a37f;
+  font-weight: 600;
+}
+
+.totp-countdown {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: right;
+}
+.totp-countdown.totp-low { color: #ef4444; }
+
+.item-totp-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #10a37f;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 4px;
+  padding: 1px 4px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* Password generator */
+.gen-output-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.gen-output-row .gen-password {
+  flex: 1;
+  margin: 0;
+}
+
+.gen-control { margin-bottom: 14px; }
+.gen-control label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+input[type="range"], input[type="checkbox"] {
+  border: none;
+  background: none;
+  padding: 0;
+  accent-color: #10a37f;
+  cursor: pointer;
+}
+input[type="range"] { width: 100%; }
+input[type="range"]:focus { box-shadow: none; }
+input[type="checkbox"] { width: auto; }
+
+.gen-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gen-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+/* ============================================================
+   Dark mode
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  body { color: #e5e7eb; background: #1c1c1f; }
+
+  .popup-header,
+  .search-bar,
+  .popup-footer { border-color: #2b2c31; }
+
+  input {
+    background: #26272c;
+    border-color: #3a3b42;
+    color: #e5e7eb;
+  }
+  input:focus {
+    border-color: #10a37f;
+    box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.15);
+  }
+  input::placeholder { color: #6b7280; }
+  .search-bar input { background: #26272c; }
+
+  .item-row:hover { background: #26272c; }
+  .item-icon { background: #2b2c31; color: #cbd5e1; }
+
+  .footer-btn {
+    background: #26272c;
+    border-color: #3a3b42;
+    color: #cbd5e1;
+  }
+  .footer-btn:hover { background: #2f3036; color: #fff; }
+
+  .btn-icon:hover { color: #e5e7eb; }
+
+  .gen-password {
+    background: #26272c;
+    border-color: #3a3b42;
+    color: #e5e7eb;
+  }
+
+  .detail-row { border-color: #2b2c31; }
+  .detail-copy-btn {
+    background: #2b2c31;
+    border-color: #3a3b42;
+    color: #cbd5e1;
+  }
+  .detail-copy-btn:hover { background: #34353c; color: #fff; }
+
+  .gen-toggle { color: #cbd5e1; }
+}

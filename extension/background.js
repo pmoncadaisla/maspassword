@@ -1,7 +1,13 @@
 // ============================================================
 // Vault Internal — Chrome Extension Background Service Worker
 // Handles auth, API, crypto, and item matching
+//
+// Declared as a MODULE service worker (manifest background.type =
+// "module") so it can import the shared, anti-phishing domain
+// matcher below.
 // ============================================================
+
+import { domainsMatch } from './domain.js';
 
 // --- BLAKE2b-256 (inlined) ---
 const BLAKE2B_IV = [
@@ -307,24 +313,17 @@ async function refreshAllItems() {
   }
 }
 
-// --- URL matching ---
-function extractDomain(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch { return ''; }
-}
-
+// --- URL matching (registrable-domain / eTLD+1, anti-phishing) ---
+// A saved item matches the current page ONLY if both URLs share the
+// same registrable domain. No substring comparison, no title-based
+// heuristics. Items without a URL never match a site (they only show
+// up under "all items" search).
 function matchItems(url) {
-  const domain = extractDomain(url);
-  if (!domain) return [];
+  if (!url) return [];
   return allItemsCache.filter(item => {
-    const itemDomain = extractDomain(item.data.url || '');
-    if (itemDomain && domain.includes(itemDomain)) return true;
-    if (itemDomain && itemDomain.includes(domain)) return true;
-    // Also check title as fallback
-    const title = (item.data.title || '').toLowerCase();
-    const domainParts = domain.split('.');
-    return domainParts.some(part => part.length > 2 && title.includes(part));
+    const itemUrl = item.data.url || '';
+    if (!itemUrl) return false;
+    return domainsMatch(url, itemUrl);
   });
 }
 

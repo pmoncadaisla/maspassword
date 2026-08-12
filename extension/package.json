@@ -1,0 +1,11 @@
+{
+  "name": "vault-internal-extension",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "description": "Chrome MV3 extension (pure ES modules). package.json exists so Node's test runner treats domain.js/totp.js/generator.js as ES modules; Chrome ignores this file. `main` lets `node --test extension/` resolve the directory to the test aggregator on Node versions whose runner does not expand directory args.",
+  "main": "alltests.mjs",
+  "scripts": {
+    "test": "node --test"
+  }
+}
