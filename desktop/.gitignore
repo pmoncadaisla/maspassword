@@ -7,9 +7,7 @@ src-tauri/gen/
 
 # Generated icon set (produced by `npm run icons`) — keep only the source
 # app-icon.png and the .gitkeep placeholder.
-src-tauri/icons/*.png
-src-tauri/icons/*.icns
-src-tauri/icons/*.ico
+src-tauri/icons/*
 !src-tauri/icons/.gitkeep
 
 # Misc
