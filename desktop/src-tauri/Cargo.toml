@@ -1,0 +1,27 @@
+[package]
+name = "maspassword-desktop"
+version = "1.0.0"
+description = "MasPassword desktop app for macOS"
+authors = ["MasOrange"]
+edition = "2021"
+rust-version = "1.77"
+
+# Single desktop binary — no mobile/lib split.
+[[bin]]
+name = "maspassword-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

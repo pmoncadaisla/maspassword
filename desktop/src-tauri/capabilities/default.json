@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core APIs for the launcher window. The vault window loads a remote origin and is intentionally granted no IPC access.",
+  "windows": ["launcher"],
+  "permissions": ["core:default"]
+}
