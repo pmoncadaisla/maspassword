@@ -424,6 +424,18 @@ function lockVault() {
   stopAutoLock();
   stopTOTP();
   closeCmdPalette();
+  // Dismiss any open overlay (item form, watchtower, generator, history) so it
+  // can't float over the lock screen with plaintext still visible.
+  document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  // Scrub decrypted plaintext out of the (about-to-be-hidden) DOM — item titles,
+  // usernames, revealed passwords, breach results and tag chips.
+  ['item-list', 'detail-fields', 'detail-meta', 'detail-breach-result', 'tag-bar']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  const extras = document.getElementById('detail-extras');
+  if (extras) extras.style.display = 'none';
+  const search = document.getElementById('search-input');
+  if (search) search.value = '';
+  showDetailEmpty();
   document.getElementById('lock-email').textContent = lockContext.email || '';
   document.getElementById('lock-password').value = '';
   showAuthScreen('lock');
