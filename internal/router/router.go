@@ -99,6 +99,7 @@ func Setup(
 	r.StaticFile("/generator.js", "web/generator.js")
 	r.StaticFile("/strength.js", "web/strength.js")
 	r.StaticFile("/breach.js", "web/breach.js")
+	r.StaticFile("/import.js", "web/import.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
 	r.Static("/icons", "web/icons")
@@ -113,7 +114,8 @@ func Setup(
 		if c.Request.URL.Path == "/sw.js" || c.Request.URL.Path == "/app.js" ||
 			c.Request.URL.Path == "/crypto.js" || c.Request.URL.Path == "/srp.js" ||
 			c.Request.URL.Path == "/blake2b.js" || c.Request.URL.Path == "/generator.js" ||
-			c.Request.URL.Path == "/strength.js" || c.Request.URL.Path == "/breach.js" {
+			c.Request.URL.Path == "/strength.js" || c.Request.URL.Path == "/breach.js" ||
+			c.Request.URL.Path == "/import.js" {
 			c.Header("Content-Type", "application/javascript")
 		}
 		if c.Request.URL.Path == "/manifest.json" {
