@@ -68,6 +68,8 @@ func Setup(
 		api.GET("/vaults/:id/items", itemHandler.List)
 		api.POST("/vaults/:id/items", itemHandler.Create)
 		api.PUT("/vaults/:id/items/:itemId", itemHandler.Update)
+		api.DELETE("/vaults/:id/items/:itemId", itemHandler.Delete)
+		api.GET("/vaults/:id/items/:itemId/history", itemHandler.History)
 
 		// Teams
 		api.POST("/teams", teamHandler.Create)
@@ -94,6 +96,9 @@ func Setup(
 	r.StaticFile("/crypto.js", "web/crypto.js")
 	r.StaticFile("/srp.js", "web/srp.js")
 	r.StaticFile("/blake2b.js", "web/blake2b.js")
+	r.StaticFile("/generator.js", "web/generator.js")
+	r.StaticFile("/strength.js", "web/strength.js")
+	r.StaticFile("/breach.js", "web/breach.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
 	r.Static("/icons", "web/icons")
@@ -107,7 +112,8 @@ func Setup(
 	r.Use(func(c *gin.Context) {
 		if c.Request.URL.Path == "/sw.js" || c.Request.URL.Path == "/app.js" ||
 			c.Request.URL.Path == "/crypto.js" || c.Request.URL.Path == "/srp.js" ||
-			c.Request.URL.Path == "/blake2b.js" {
+			c.Request.URL.Path == "/blake2b.js" || c.Request.URL.Path == "/generator.js" ||
+			c.Request.URL.Path == "/strength.js" || c.Request.URL.Path == "/breach.js" {
 			c.Header("Content-Type", "application/javascript")
 		}
 		if c.Request.URL.Path == "/manifest.json" {
