@@ -1,6 +1,19 @@
 # MasPassword
 
+[![Release](https://github.com/pmoncadaisla/maspassword/actions/workflows/release.yml/badge.svg)](https://github.com/pmoncadaisla/maspassword/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/pmoncadaisla/maspassword)](https://github.com/pmoncadaisla/maspassword/releases/latest)
+
 Gestor de contrasenas zero-knowledge con cifrado extremo a extremo. Las contrasenas se cifran en el cliente antes de enviarse al servidor, lo que garantiza que ni siquiera los administradores del sistema pueden acceder a los datos en texto plano.
+
+## Instalacion rapida (Docker)
+
+```bash
+git clone https://github.com/pmoncadaisla/maspassword.git && cd maspassword
+JWT_SECRET=$(openssl rand -hex 32) docker compose up -d
+# abre http://localhost:8080
+```
+
+Levanta PostgreSQL y el servidor (imagen multi-arch amd64/arm64) con las migraciones aplicadas. App de escritorio para macOS y extension de Chrome: en [Releases](https://github.com/pmoncadaisla/maspassword/releases/latest). Detalles en [Instalacion](#instalacion).
 
 ## Caracteristicas
 
@@ -74,7 +87,41 @@ docker run -d --name maspassword -p 8080:8080 \
 - Rotar `JWT_SECRET` invalida las sesiones activas, pero no afecta a los datos: estan cifrados con las claves de los usuarios, no con este secreto.
 - Copia de seguridad = `pg_dump` de la base de datos. Todo lo sensible ya viaja y se guarda cifrado.
 - La imagen corre como usuario no-root (uid 10001).
-- Para GCP existe `scripts/deploy-gcp.sh` (Cloud Run + Cloud SQL con IAP nativo).
+
+### Despliegue en GCP (Cloud Run + Cloud SQL)
+
+Version minima con la instancia mas barata de Cloud SQL. Cloud Run no puede tirar directamente de `ghcr.io`, asi que la imagen se copia a Artifact Registry.
+
+```bash
+PROJECT=mi-proyecto REGION=europe-southwest1
+gcloud config set project $PROJECT
+gcloud services enable run.googleapis.com sqladmin.googleapis.com artifactregistry.googleapis.com
+
+# Cloud SQL minimo (PostgreSQL 15)
+gcloud sql instances create maspassword-db --database-version=POSTGRES_15 \
+  --tier=db-f1-micro --region=$REGION
+gcloud sql databases create vault_internal --instance=maspassword-db
+gcloud sql users create vault_user --instance=maspassword-db --password='CAMBIA-ESTO'
+
+# Copiar la imagen de GHCR a Artifact Registry
+gcloud artifacts repositories create maspassword --repository-format=docker --location=$REGION
+gcloud auth configure-docker $REGION-docker.pkg.dev
+docker pull ghcr.io/pmoncadaisla/maspassword:latest
+docker tag ghcr.io/pmoncadaisla/maspassword:latest \
+  $REGION-docker.pkg.dev/$PROJECT/maspassword/maspassword:latest
+docker push $REGION-docker.pkg.dev/$PROJECT/maspassword/maspassword:latest
+
+# Desplegar conectando por socket de Cloud SQL
+CONN="$PROJECT:$REGION:maspassword-db"
+gcloud run deploy maspassword \
+  --image=$REGION-docker.pkg.dev/$PROJECT/maspassword/maspassword:latest \
+  --region=$REGION \
+  --add-cloudsql-instances=$CONN \
+  --set-env-vars="DATABASE_URL=postgres://vault_user:CAMBIA-ESTO@/vault_internal?host=/cloudsql/$CONN&sslmode=disable,JWT_SECRET=$(openssl rand -hex 32)" \
+  --allow-unauthenticated
+```
+
+Cloud Run inyecta `PORT` y el servidor lo respeta; el TLS lo pone Cloud Run, con lo que el requisito de HTTPS para Web Crypto queda cubierto. Para produccion, mejor pasar los secretos con `--set-secrets` (Secret Manager) en vez de `--set-env-vars`, y restringir el acceso: `scripts/deploy-gcp.sh` automatiza este mismo despliegue con IAP nativo de Cloud Run (sin `--allow-unauthenticated`), que limita el acceso a las cuentas Google de la organizacion.
 
 ### Publicar una release
 

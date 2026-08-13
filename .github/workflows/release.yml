@@ -164,7 +164,46 @@ jobs:
           cd dist
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      # Release body with direct download links, OSS-style. GitHub appends the
+      # auto-generated changelog after this body.
+      - name: Compose release notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          {
+            echo "## Descargas"
+            echo ""
+            echo "| Artefacto | Descarga |"
+            echo "|---|---|"
+            for f in dist/*; do
+              n=$(basename "$f")
+              case "$n" in
+                *.dmg)           label="App de escritorio macOS (universal: Apple Silicon + Intel)" ;;
+                *.app.zip)       label="App macOS como .app (zip)" ;;
+                *extension*.zip) label="Extension de Chrome" ;;
+                SHA256SUMS.txt)  label="Checksums SHA-256" ;;
+                *)               label="$n" ;;
+              esac
+              echo "| $label | [\`$n\`](${BASE}/${n}) |"
+            done
+            echo ""
+            echo "## Imagen Docker (linux/amd64 + linux/arm64)"
+            echo ""
+            echo '```bash'
+            echo "docker pull ghcr.io/${GITHUB_REPOSITORY}:${TAG#v}"
+            echo '```'
+            echo ""
+            echo "## Instalacion rapida"
+            echo ""
+            echo "- **macOS**: abre el dmg, arrastra MasPassword a Aplicaciones y autoriza el binario sin firmar con \`xattr -cr /Applications/MasPassword.app\`."
+            echo "- **Extension**: descomprime el zip y cargalo desde \`chrome://extensions\` (modo desarrollador > Cargar extension sin empaquetar)."
+            echo "- **Servidor**: \`JWT_SECRET=\$(openssl rand -hex 32) docker compose up -d\` — instrucciones completas en el [README](https://github.com/${GITHUB_REPOSITORY}#instalacion)."
+            echo ""
+            echo "Verifica las descargas: \`shasum -a 256 -c SHA256SUMS.txt --ignore-missing\`"
+          } > release-notes.md
+          cat release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          body_path: release-notes.md
           generate_release_notes: true
