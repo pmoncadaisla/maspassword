@@ -111,7 +111,9 @@ else
     --description="maspassword container images" \
     --quiet
 fi
-gcloud builds submit --tag "${IMAGE}" --region="${REGION}" --quiet
+# cloudbuild.yaml enables BuildKit, required by the multi-arch Dockerfile.
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions "_IMAGE=${IMAGE}" --region="${REGION}" --quiet
 
 # ---- 5. Service Account + Deploy to Cloud Run ----
 step "5/6 Deploying to Cloud Run"

@@ -1,0 +1,15 @@
+# Cloud Build config with BuildKit enabled. The multi-arch Dockerfile uses
+# $BUILDPLATFORM, which Cloud Build's classic builder does not inject — plain
+# `gcloud builds submit --tag ...` fails on it.
+#
+# Usage:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions _IMAGE=<region>-docker.pkg.dev/<project>/maspassword/maspassword:<tag>
+substitutions:
+  _IMAGE: europe-southwest1-docker.pkg.dev/mm-test-pmoncada/maspassword/maspassword:latest
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '-t', '${_IMAGE}', '.']
+images:
+  - '${_IMAGE}'
