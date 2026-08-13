@@ -5,6 +5,12 @@ A native desktop shell for your self-hosted **MasPassword** vault, built with
 its own window, native copy/paste and keyboard shortcuts) instead of a browser
 tab — while changing **nothing** about the security model.
 
+Prebuilt universal `.dmg` files (Apple Silicon + Intel) are published on
+[GitHub Releases](https://github.com/pmoncadaisla/maspassword/releases) by CI on
+every `v*` tag. They are unsigned; see the install note in the root README
+(`xattr -cr /Applications/MasPassword.app`). The rest of this document is for
+building from source.
+
 ## How it works (and why it stays zero-knowledge)
 
 The MasPassword web app talks to its server with **relative** paths

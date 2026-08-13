@@ -12,6 +12,80 @@ Gestor de contrasenas zero-knowledge con cifrado extremo a extremo. Las contrase
 - **Versionado de items:** control de versiones para evitar conflictos en actualizaciones concurrentes.
 - **Anti-enumeracion:** respuestas ficticias ante emails invalidos para prevenir la enumeracion de usuarios.
 
+## Instalacion
+
+Los binarios se publican en [Releases](https://github.com/pmoncadaisla/maspassword/releases) y la imagen Docker en GHCR. GitHub Actions los genera al pushear un tag `v*` (ver `.github/workflows/release.yml`). Como el cifrado es de extremo a extremo, publicar binarios e imagenes no expone nada: el servidor solo maneja datos cifrados.
+
+### App de escritorio (macOS)
+
+1. Descarga `MasPassword-<version>-macos-universal.dmg` desde Releases. Es un binario universal (Apple Silicon + Intel).
+2. Abre el `.dmg` y arrastra MasPassword a Aplicaciones.
+3. El binario no va firmado con certificado de Apple Developer, asi que Gatekeeper lo bloquea la primera vez. Autorizalo con:
+
+   ```bash
+   xattr -cr /Applications/MasPassword.app
+   ```
+
+   (o clic derecho > Abrir, solo la primera vez)
+4. Al arrancar pide la URL de tu servidor (p.ej. `https://vault.example.com`) y la recuerda para los siguientes arranques.
+
+Cada release incluye `SHA256SUMS.txt` para verificar la descarga: `shasum -a 256 -c SHA256SUMS.txt --ignore-missing`.
+
+### Extension de Chrome
+
+1. Descarga `maspassword-extension-<version>.zip` desde Releases y descomprimelo.
+2. Abre `chrome://extensions` y activa el **modo desarrollador**.
+3. **Cargar extension sin empaquetar** y selecciona la carpeta descomprimida.
+
+El mismo zip vale para subirlo al Chrome Web Store si se quiere distribuir firmada.
+
+### Servidor (Docker)
+
+La imagen es multi-arch (`linux/amd64` y `linux/arm64`): sirve para un servidor Linux x86, para ARM (Raspberry Pi, Graviton) y para Docker Desktop en Mac, donde Apple Silicon usa la variante arm64 nativa.
+
+Despliegue completo con PostgreSQL incluido, usando el `docker-compose.yml` del repo:
+
+```bash
+git clone https://github.com/pmoncadaisla/maspassword.git && cd maspassword
+JWT_SECRET=$(openssl rand -hex 32) docker compose up -d
+```
+
+La app queda en `http://localhost:8080` y las migraciones se aplican solas al arrancar. Variables del compose:
+
+| Variable | Descripcion | Por defecto |
+|----------|-------------|-------------|
+| `JWT_SECRET` | Secreto para firmar JWT | — (obligatoria, sin default a proposito) |
+| `DB_PASSWORD` | Password de PostgreSQL | `vault_pass` (cambialo) |
+| `PORT` | Puerto publicado en el host | `8080` |
+| `CORS_ORIGINS` | Origenes CORS permitidos | vacio |
+
+Con una base de datos ya existente no hace falta compose:
+
+```bash
+docker run -d --name maspassword -p 8080:8080 \
+  -e DATABASE_URL='postgres://user:pass@host:5432/vault_internal?sslmode=disable' \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/pmoncadaisla/maspassword:latest
+```
+
+### Notas de produccion
+
+- **HTTPS es obligatorio** salvo en `localhost`: el cifrado del cliente usa la API Web Crypto (`crypto.subtle`), que los navegadores solo exponen en contextos seguros. Pon el contenedor detras de un reverse proxy con TLS (Caddy, nginx, Traefik).
+- Rotar `JWT_SECRET` invalida las sesiones activas, pero no afecta a los datos: estan cifrados con las claves de los usuarios, no con este secreto.
+- Copia de seguridad = `pg_dump` de la base de datos. Todo lo sensible ya viaja y se guarda cifrado.
+- La imagen corre como usuario no-root (uid 10001).
+- Para GCP existe `scripts/deploy-gcp.sh` (Cloud Run + Cloud SQL con IAP nativo).
+
+### Publicar una release
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+El workflow compila el `.dmg` universal, el zip de la extension y la imagen Docker multi-arch, y crea la Release con `SHA256SUMS.txt`. En cada pull request compila todo igualmente y deja los artefactos en la ejecucion del workflow, sin publicar nada.
+
+Nota sobre GHCR: el primer push crea el paquete como privado. Para que `docker pull` funcione sin autenticacion hay que marcarlo como publico una vez en GitHub > Packages > `maspassword` > Package settings > Change visibility.
+
 ## Arquitectura
 
 ```
