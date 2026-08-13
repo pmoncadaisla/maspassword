@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MasPassword</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="launcher">
+      <div class="logo" aria-hidden="true">🔐</div>
+      <h1>MasPassword</h1>
+      <p class="tagline">Connect to your vault server</p>
+
+      <form id="connect-form" autocomplete="off" spellcheck="false">
+        <label for="server-url">Server URL</label>
+        <input
+          id="server-url"
+          type="text"
+          inputmode="url"
+          placeholder="https://vault.example.com"
+          autocapitalize="off"
+          autocorrect="off"
+        />
+        <p id="error" class="error" hidden></p>
+        <button type="submit" id="connect-btn" class="primary">Connect</button>
+      </form>
+
+      <div id="saved-block" class="saved" hidden>
+        <button id="open-saved" class="primary"></button>
+        <button id="forget" class="link" type="button">Use a different server</button>
+      </div>
+
+      <p class="hint">
+        Your master password never leaves this device. The server only ever
+        stores end-to-end encrypted data.
+      </p>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>

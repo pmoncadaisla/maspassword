@@ -108,3 +108,64 @@ func (h *ItemHandler) Update(c *gin.Context) {
 
 	c.JSON(http.StatusOK, item)
 }
+
+func (h *ItemHandler) Delete(c *gin.Context) {
+	vaultID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid vault id"}})
+		return
+	}
+
+	itemID, err := uuid.Parse(c.Param("itemId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid item id"}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	if err := h.itemService.Delete(c.Request.Context(), userID, vaultID, itemID); err != nil {
+		if errors.Is(err, service.ErrNotVaultOwner) || errors.Is(err, repository.ErrVaultNotFound) {
+			c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "access denied"}})
+			return
+		}
+		if errors.Is(err, repository.ErrItemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "item not found"}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to delete item"}})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ItemHandler) History(c *gin.Context) {
+	vaultID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid vault id"}})
+		return
+	}
+
+	itemID, err := uuid.Parse(c.Param("itemId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid item id"}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	history, err := h.itemService.ListHistory(c.Request.Context(), userID, vaultID, itemID)
+	if err != nil {
+		if errors.Is(err, service.ErrNotVaultOwner) || errors.Is(err, repository.ErrVaultNotFound) {
+			c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "access denied"}})
+			return
+		}
+		if errors.Is(err, repository.ErrItemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "item not found"}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to list item history"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
+}

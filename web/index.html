@@ -10,6 +10,17 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/styles.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash of the wrong theme.
+    (function () {
+      try {
+        var t = localStorage.getItem('mp-theme');
+        if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
 <div id="app">
@@ -128,6 +139,22 @@
     </div>
   </div>
 
+  <!-- AUTH: Lock screen (vault auto-locked after inactivity) -->
+  <div id="screen-lock" class="screen auth-screen">
+    <div class="auth-container">
+      <div style="text-align:center; font-size:40px;">&#128274;</div>
+      <h2>Vault Locked</h2>
+      <p>Locked for your security. Enter your master password to unlock.</p>
+      <div id="lock-email" style="text-align:center; font-weight:600; margin-bottom:4px;"></div>
+      <div class="form-group">
+        <label>Master Password</label>
+        <input type="password" id="lock-password" placeholder="Your master password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="btn-unlock">Unlock</button>
+      <p><button class="link-btn" id="btn-lock-logout">Log out instead</button></p>
+    </div>
+  </div>
+
   <!-- MAIN APP: 3-panel layout (post-login) -->
   <div id="main-app" class="app-layout" style="display:none;">
 
@@ -147,9 +174,27 @@
           <div id="sidebar-team-list"></div>
           <button class="sidebar-add-btn" id="btn-sidebar-add-team">+ New Team</button>
         </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Tools</div>
+          <button class="sidebar-item" id="btn-tool-watchtower">
+            <span class="sidebar-item-icon">&#128737;</span>
+            <span class="sidebar-item-name">Security dashboard</span>
+          </button>
+          <button class="sidebar-item" id="btn-tool-generator">
+            <span class="sidebar-item-icon">&#127922;</span>
+            <span class="sidebar-item-name">Password generator</span>
+          </button>
+          <button class="sidebar-item" id="btn-cmd-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
+            <span class="sidebar-item-icon">&#128269;</span>
+            <span class="sidebar-item-name">Quick search</span>
+            <span class="kbd-hint">&#8984;K</span>
+          </button>
+        </div>
       </div>
       <div class="sidebar-footer">
-        <button class="sidebar-logout-btn" id="btn-logout">Logout</button>
+        <button class="sidebar-logout-btn" id="btn-theme">&#127769; Dark mode</button>
+        <button class="sidebar-logout-btn" id="btn-lock">&#128274; Lock vault</button>
+        <button class="sidebar-logout-btn" id="btn-logout">Log out</button>
       </div>
     </aside>
 
@@ -158,6 +203,7 @@
       <div class="item-list-header">
         <input type="text" id="search-input" class="search-input" placeholder="Search items...">
       </div>
+      <div id="tag-bar" class="tag-bar" style="display:none;"></div>
       <div id="item-list" class="item-list"></div>
       <div id="items-empty" class="empty-state" style="display:none;">
         <div class="icon">&#128273;</div>
@@ -190,66 +236,26 @@
       </div>
       <div id="detail-content" style="display:none;">
         <div class="detail-header">
-          <h2 id="detail-title">Item</h2>
+          <div class="detail-title-row">
+            <button class="btn-icon fav-star" id="btn-fav-item" title="Favorite">&#9734;</button>
+            <h2 id="detail-title">Item</h2>
+          </div>
           <div class="detail-actions">
+            <button class="btn-icon" id="btn-item-history" title="Password history">&#128340;</button>
             <button class="btn-icon" id="btn-edit-item" title="Edit">&#9998;</button>
             <button class="btn-icon btn-icon-danger" id="btn-delete-item" title="Delete">&#128465;</button>
           </div>
         </div>
-        <div class="field-group">
-          <div class="field">
-            <div>
-              <div class="field-label">Username</div>
-              <div class="field-value" id="detail-username"></div>
-            </div>
-            <div class="field-actions">
-              <button class="btn-icon" onclick="copyField('detail-username')" title="Copy">&#128203;</button>
-            </div>
-          </div>
-          <div class="field">
-            <div>
-              <div class="field-label">Password</div>
-              <div class="field-value masked" id="detail-password">••••••••</div>
-            </div>
-            <div class="field-actions">
-              <button class="btn-icon" id="btn-toggle-pw" title="Show">&#128065;</button>
-              <button class="btn-icon" onclick="copyField('detail-password-raw')" title="Copy">&#128203;</button>
-            </div>
-          </div>
-          <div id="totp-field-container" class="field" style="display:none;">
-            <div style="flex:1;">
-              <div class="field-label">One-Time Password</div>
-              <div class="totp-display">
-                <span class="totp-code" id="detail-totp-code"></span>
-                <svg class="totp-countdown" viewBox="0 0 36 36" id="totp-countdown-svg">
-                  <circle class="totp-countdown-bg" cx="18" cy="18" r="16" fill="none" stroke-width="2"/>
-                  <circle class="totp-countdown-fg" cx="18" cy="18" r="16" fill="none" stroke-width="2"
-                    stroke-dasharray="100.53" stroke-dashoffset="0" id="totp-countdown-circle"/>
-                  <text x="18" y="19" class="totp-countdown-text" id="totp-countdown-text" dominant-baseline="central" text-anchor="middle"></text>
-                </svg>
-              </div>
-            </div>
-            <div class="field-actions">
-              <button class="btn-icon" onclick="copyField('detail-totp-code')" title="Copy">&#128203;</button>
-            </div>
-          </div>
-          <div class="field">
-            <div>
-              <div class="field-label">URL</div>
-              <div class="field-value" id="detail-url"></div>
-            </div>
-            <div class="field-actions">
-              <button class="btn-icon" onclick="copyField('detail-url')" title="Copy">&#128203;</button>
-            </div>
-          </div>
-          <div class="field">
-            <div>
-              <div class="field-label">Notes</div>
-              <div class="field-value" id="detail-notes" style="font-family: inherit; font-size:14px;"></div>
-            </div>
+        <div id="detail-meta" class="detail-meta"></div>
+        <div id="detail-fields" class="field-group"></div>
+        <div id="detail-extras" class="detail-extras" style="display:none;">
+          <div class="extras-title">Password health</div>
+          <div id="detail-pw-strength" class="strength"></div>
+          <div class="extras-breach-row">
+            <button class="btn btn-secondary btn-small" id="btn-check-breach">Check for breaches</button>
+            <span id="detail-breach-result"></span>
           </div>
         </div>
-        <span id="detail-password-raw" style="display:none;"></span>
       </div>
     </div>
 
@@ -288,33 +294,115 @@
 <div class="modal-overlay" id="modal-item">
   <div class="modal">
     <h3 id="modal-item-title">New Item</h3>
+
+    <div id="item-type-selector" class="type-selector">
+      <button class="type-tab active" data-type="login">&#128273; Login</button>
+      <button class="type-tab" data-type="card">&#128179; Card</button>
+      <button class="type-tab" data-type="note">&#128221; Note</button>
+      <button class="type-tab" data-type="identity">&#128100; Identity</button>
+    </div>
+
     <div class="form-group">
       <label>Title</label>
       <input type="text" id="item-title-input" placeholder="e.g. GitHub, Gmail">
     </div>
-    <div class="form-group">
-      <label>Username / Email</label>
-      <input type="text" id="item-user-input" placeholder="username" autocomplete="off">
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="item-pw-input" placeholder="password" autocomplete="off" style="flex:1;">
-        <button class="btn btn-secondary btn-small" id="btn-gen-pw" title="Generate" style="white-space:nowrap;">Gen</button>
+
+    <!-- Login fields -->
+    <div data-type-fields="login">
+      <div class="form-group">
+        <label>Username / Email</label>
+        <input type="text" id="item-user-input" placeholder="username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="item-pw-input" placeholder="password" autocomplete="off" style="flex:1;">
+          <button class="btn btn-secondary btn-small" id="btn-gen-pw" title="Generate" style="white-space:nowrap;">&#127922; Gen</button>
+        </div>
+        <div id="item-pw-strength" class="strength"></div>
+      </div>
+      <div class="form-group">
+        <label>URL</label>
+        <input type="text" id="item-url-input" placeholder="https://..." autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>One-Time Password Secret (TOTP)</label>
+        <input type="text" id="item-totp-input" placeholder="Base32 secret, e.g. JBSWY3DPEHPK3PXP" autocomplete="off">
       </div>
     </div>
-    <div class="form-group">
-      <label>URL</label>
-      <input type="text" id="item-url-input" placeholder="https://..." autocomplete="off">
+
+    <!-- Card fields -->
+    <div data-type-fields="card" style="display:none;">
+      <div class="form-group">
+        <label>Cardholder Name</label>
+        <input type="text" id="item-card-holder" placeholder="Name on card" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Card Number</label>
+        <input type="text" id="item-card-number" placeholder="1234 5678 9012 3456" autocomplete="off" inputmode="numeric">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Brand</label>
+          <input type="text" id="item-card-brand" placeholder="Visa" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Expires</label>
+          <input type="text" id="item-card-exp" placeholder="MM/YY" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>CVV</label>
+          <input type="text" id="item-card-cvv" placeholder="123" autocomplete="off" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label>PIN</label>
+          <input type="text" id="item-card-pin" placeholder="••••" autocomplete="off" inputmode="numeric">
+        </div>
+      </div>
     </div>
-    <div class="form-group">
-      <label>One-Time Password Secret (TOTP)</label>
-      <input type="text" id="item-totp-input" placeholder="Base32 secret, e.g. JBSWY3DPEHPK3PXP" autocomplete="off">
+
+    <!-- Identity fields -->
+    <div data-type-fields="identity" style="display:none;">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="item-id-fullname" placeholder="Jane Doe" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="text" id="item-id-email" placeholder="jane@example.com" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" id="item-id-phone" placeholder="+34 600 000 000" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" id="item-id-address" placeholder="Street, City" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Company</label>
+        <input type="text" id="item-id-company" placeholder="Company" autocomplete="off">
+      </div>
     </div>
+
+    <!-- Note field (also shown for note type as the primary body) -->
     <div class="form-group">
       <label>Notes</label>
       <input type="text" id="item-notes-input" placeholder="Optional notes" autocomplete="off">
     </div>
+
+    <!-- Common: tags + favorite -->
+    <div class="form-group">
+      <label>Tags <span class="label-hint">(comma-separated)</span></label>
+      <input type="text" id="item-tags-input" placeholder="work, social, finance" autocomplete="off">
+    </div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="item-fav-input">
+      <span>&#9733; Mark as favorite</span>
+    </label>
+
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btn-cancel-item">Cancel</button>
       <button class="btn btn-primary" id="btn-save-item">Save</button>
@@ -405,6 +493,89 @@
       <div class="modal-actions">
         <button class="btn btn-primary" id="btn-close-import">Done</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Command palette (Cmd/Ctrl+K) -->
+<div class="cmd-overlay" id="cmd-palette">
+  <div class="cmd-box">
+    <input type="text" id="cmd-input" class="cmd-input" placeholder="Search items or type a command…" autocomplete="off" spellcheck="false">
+    <div id="cmd-results" class="cmd-results"></div>
+    <div class="cmd-footer"><span>&#8593;&#8595; navigate</span><span>&#8629; open</span><span>esc close</span></div>
+  </div>
+</div>
+
+<!-- MODAL: Security dashboard (Watchtower) -->
+<div class="modal-overlay" id="modal-watchtower">
+  <div class="modal modal-lg">
+    <div class="modal-lg-header">
+      <h3>&#128737; Security Dashboard</h3>
+      <button class="btn-icon" id="btn-watchtower-close" title="Close">&#10005;</button>
+    </div>
+    <div id="watchtower-body" class="watchtower-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: Password generator -->
+<div class="modal-overlay" id="modal-generator">
+  <div class="modal">
+    <h3>&#127922; Password Generator</h3>
+    <div class="gen-output-row">
+      <code id="gen-output" class="gen-output"></code>
+      <button class="btn-icon" id="btn-gen-refresh" title="Regenerate">&#8635;</button>
+      <button class="btn-icon" id="btn-gen-copy" title="Copy">&#128203;</button>
+    </div>
+    <div id="gen-strength" class="strength"></div>
+
+    <div class="gen-mode-row">
+      <label class="radio-pill"><input type="radio" name="gen-mode" value="password" checked><span>Password</span></label>
+      <label class="radio-pill"><input type="radio" name="gen-mode" value="passphrase"><span>Passphrase</span></label>
+    </div>
+
+    <!-- Password controls -->
+    <div id="gen-password-controls">
+      <div class="gen-slider-row">
+        <label>Length</label>
+        <input type="range" id="gen-length" min="6" max="64" value="20">
+        <span id="gen-length-label" class="gen-slider-val">20</span>
+      </div>
+      <div class="gen-checks">
+        <label class="checkbox-row"><input type="checkbox" id="gen-upper" checked><span>A-Z</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-lower" checked><span>a-z</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-digits" checked><span>0-9</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-symbols" checked><span>!@#</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-avoid"><span>No ambiguous</span></label>
+      </div>
+    </div>
+
+    <!-- Passphrase controls -->
+    <div id="gen-passphrase-controls" style="display:none;">
+      <div class="gen-slider-row">
+        <label>Words</label>
+        <input type="range" id="gen-words" min="3" max="10" value="4">
+        <span id="gen-words-label" class="gen-slider-val">4</span>
+      </div>
+      <div class="gen-checks">
+        <label class="checkbox-row"><input type="checkbox" id="gen-cap"><span>Capitalize</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-num"><span>Add number</span></label>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-gen-close">Close</button>
+      <button class="btn btn-primary" id="btn-gen-use" style="display:none;">Use password</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Password history -->
+<div class="modal-overlay" id="modal-history">
+  <div class="modal">
+    <h3>&#128340; Password History</h3>
+    <div id="history-body" class="history-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="btn-close-history">Done</button>
     </div>
   </div>
 </div>

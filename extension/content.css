@@ -229,3 +229,41 @@
 .vi-toast-error {
   background: #ef4444;
 }
+
+/* ============================================================
+   Dark mode — keep the injected overlay readable when the user
+   prefers a dark color scheme.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  .vi-field-icon { color: #6b7280; }
+  .vi-field-icon:hover {
+    color: #10a37f;
+    background: rgba(16, 163, 127, 0.15);
+  }
+
+  .vi-dropdown {
+    background: #26272c;
+    border-color: #3a3b42;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+  .vi-dropdown-item:hover { background: #313238; }
+  .vi-dropdown-item-title { color: #f3f4f6; }
+  .vi-dropdown-item-user { color: #9ca3af; }
+  .vi-dropdown-sep { background: #3a3b42; }
+  .vi-dropdown-empty { color: #9ca3af; }
+  .vi-dropdown-action:hover { background: rgba(16, 163, 127, 0.14); }
+
+  .vi-save-banner-content {
+    background: #26272c;
+    border-bottom-color: #3a3b42;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  }
+  .vi-save-banner-text strong { color: #f3f4f6; }
+  .vi-save-banner-text span { color: #9ca3af; }
+
+  .vi-save-btn-dismiss {
+    background: #3a3b42;
+    color: #cbd5e1;
+  }
+  .vi-save-btn-dismiss:hover { background: #45464e; }
+}

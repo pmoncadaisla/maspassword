@@ -1,5 +1,18 @@
 import { SRPClient, generateVerifier } from '/srp.js';
 import { deriveKey, encrypt, decrypt, generatePassword, generateKeyPair, encryptPrivateKey, decryptPrivateKey, encryptWithPublicKey, decryptWithPrivateKey, generateVaultKey, importVaultKey, generateTOTP, generateRecoveryKey, deriveRecoveryKey } from '/crypto.js';
+import { generatePassword as genAdvanced, generatePassphrase, passwordEntropyBits } from '/generator.js';
+import { estimateStrength } from '/strength.js';
+import { checkPwnedCount } from '/breach.js';
+import { detectFormatAndParse } from '/import.js';
+
+// --- Item types (1Password-style) ---
+const ITEM_TYPES = {
+  login:    { label: 'Login',        icon: '\u{1F511}' },  // 🔑
+  card:     { label: 'Credit Card',  icon: '\u{1F4B3}' },  // 💳
+  note:     { label: 'Secure Note',  icon: '\u{1F4DD}' },  // 📝
+  identity: { label: 'Identity',     icon: '\u{1F464}' },  // 👤
+};
+function itemType(data) { return ITEM_TYPES[data?.type] ? data.type : 'login'; }
 
 // --- State ---
 let token = null;
@@ -21,6 +34,10 @@ let pendingRoute = null; // route to navigate to after login
 let navigating = false; // prevent recursive route handling
 let iapMode = false; // true when IAP authentication is active
 let iapSession = null; // session info from /api/auth/session
+let activeTag = null; // tag filter in the item list
+let lockContext = null; // { email, encryptedPrivateKey } — lets us re-unlock without a full re-login
+let autoLockTimer = null; // inactivity timer handle
+let autoLockMinutes = Number(localStorage.getItem('mp-autolock') || 10); // 0 = disabled
 
 // --- API ---
 async function api(method, path, body) {
@@ -64,6 +81,14 @@ function currentHash() {
 async function handleRoute() {
   if (navigating) return;
   const hash = currentHash();
+
+  // Locked: keep the lock screen no matter where the hash points.
+  // (token is still valid; only the in-memory keys were wiped.)
+  if (token && lockContext && !encKey) {
+    document.getElementById('lock-email').textContent = lockContext.email || '';
+    showAuthScreen('lock');
+    return;
+  }
 
   // Auth routes (always accessible)
   if (hash === '/signup') {
@@ -300,7 +325,9 @@ async function login() {
     token = step2.token;
     encKey = await deriveKey(pw, email);
 
+    let lockEncPrivKey;
     if (step2.encrypted_private_key) {
+      lockEncPrivKey = step2.encrypted_private_key;
       privateKey = await decryptPrivateKey(encKey, step2.encrypted_private_key);
     } else {
       const { publicKeyJwk, privateKeyJwk } = await generateKeyPair();
@@ -309,10 +336,13 @@ async function login() {
         public_key: JSON.stringify(publicKeyJwk),
         encrypted_private_key: encryptedPrivKey,
       });
+      lockEncPrivKey = encryptedPrivKey;
       privateKey = await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
     }
 
+    lockContext = { email, encryptedPrivateKey: lockEncPrivKey };
     sessionStorage.setItem('token', token);
+    startAutoLock();
     toast('Logged in');
     await Promise.all([loadVaults(), loadTeams()]);
 
@@ -348,11 +378,172 @@ function logout() {
   vaultKeyCache = {};
   decryptedItemsCache = [];
   pendingRoute = null;
+  activeTag = null;
+  lockContext = null;
+  stopAutoLock();
   stopTOTP();
   sessionStorage.clear();
   document.getElementById('login-password').value = '';
   iapSession = null;
+  closeCmdPalette();
   showAuthScreen('login');
+}
+
+// --- Auto-lock (locks the vault after inactivity; re-unlock needs only the master password) ---
+function startAutoLock() {
+  stopAutoLock();
+  if (!autoLockMinutes || autoLockMinutes <= 0) return;
+  const reset = () => {
+    clearTimeout(autoLockTimer);
+    autoLockTimer = setTimeout(lockVault, autoLockMinutes * 60 * 1000);
+  };
+  startAutoLock._reset = reset;
+  ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(evt =>
+    document.addEventListener(evt, reset, { passive: true }));
+  reset();
+}
+
+function stopAutoLock() {
+  clearTimeout(autoLockTimer);
+  autoLockTimer = null;
+  if (startAutoLock._reset) {
+    ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(evt =>
+      document.removeEventListener(evt, startAutoLock._reset));
+    startAutoLock._reset = null;
+  }
+}
+
+// Lock: wipe decryption keys and plaintext caches from memory, show the lock screen.
+// The JWT session token is preserved so unlocking is a local key re-derivation.
+function lockVault() {
+  if (!lockContext) return; // nothing to lock
+  encKey = null;
+  privateKey = null;
+  vaultKeyCache = {};
+  decryptedItemsCache = [];
+  currentItem = null;
+  stopAutoLock();
+  stopTOTP();
+  closeCmdPalette();
+  // Dismiss any open overlay (item form, watchtower, generator, history) so it
+  // can't float over the lock screen with plaintext still visible.
+  document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  // Scrub decrypted plaintext out of the (about-to-be-hidden) DOM — item titles,
+  // usernames, revealed passwords, breach results and tag chips.
+  ['item-list', 'detail-fields', 'detail-meta', 'detail-breach-result', 'tag-bar']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  const extras = document.getElementById('detail-extras');
+  if (extras) extras.style.display = 'none';
+  const search = document.getElementById('search-input');
+  if (search) search.value = '';
+  showDetailEmpty();
+  document.getElementById('lock-email').textContent = lockContext.email || '';
+  document.getElementById('lock-password').value = '';
+  showAuthScreen('lock');
+}
+
+async function unlockVault() {
+  const pw = document.getElementById('lock-password').value;
+  if (!pw || !lockContext) return;
+  const btn = document.getElementById('btn-unlock');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+  try {
+    const k = await deriveKey(pw, lockContext.email);
+    // Verify by decrypting the private key; also restore it for shared-vault access.
+    privateKey = await decryptPrivateKey(k, lockContext.encryptedPrivateKey);
+    encKey = k;
+    startAutoLock();
+    showMainApp();
+    renderSidebar();
+    // Re-render whatever was open and restore the route off of /lock.
+    if (currentVault) { await loadItems(); setHash(`/vault/${currentVault.id}`); }
+    else setHash('/');
+    toast('Unlocked');
+    document.getElementById('lock-password').value = '';
+  } catch {
+    toast('Wrong master password', true);
+    encKey = null;
+    privateKey = null;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+  }
+}
+
+// --- Theme (light / dark) ---
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+function applyTheme(theme) {
+  if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('mp-theme', theme); } catch {}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0d1117' : '#10a37f');
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️ Light mode' : '\u{1F319} Dark mode';
+}
+function toggleTheme() {
+  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+}
+
+// --- Password generator popover ---
+// Reads options from the generator UI and produces a password or passphrase.
+function readGenOptions() {
+  const mode = document.querySelector('input[name="gen-mode"]:checked')?.value || 'password';
+  return {
+    mode,
+    length: Number(document.getElementById('gen-length').value),
+    words: Number(document.getElementById('gen-words').value),
+    upper: document.getElementById('gen-upper').checked,
+    lower: document.getElementById('gen-lower').checked,
+    digits: document.getElementById('gen-digits').checked,
+    symbols: document.getElementById('gen-symbols').checked,
+    avoidAmbiguous: document.getElementById('gen-avoid').checked,
+    capitalize: document.getElementById('gen-cap').checked,
+    includeNumber: document.getElementById('gen-num').checked,
+  };
+}
+
+function generateFromOptions() {
+  const o = readGenOptions();
+  try {
+    if (o.mode === 'passphrase') {
+      return generatePassphrase({ words: o.words, separator: '-', capitalize: o.capitalize, includeNumber: o.includeNumber });
+    }
+    return genAdvanced({ length: o.length, upper: o.upper, lower: o.lower, digits: o.digits, symbols: o.symbols, avoidAmbiguous: o.avoidAmbiguous });
+  } catch (e) {
+    toast(e.message, true);
+    return '';
+  }
+}
+
+function refreshGenerator() {
+  const o = readGenOptions();
+  document.getElementById('gen-password-controls').style.display = o.mode === 'passphrase' ? 'none' : 'block';
+  document.getElementById('gen-passphrase-controls').style.display = o.mode === 'passphrase' ? 'block' : 'none';
+  document.getElementById('gen-length-label').textContent = o.length;
+  document.getElementById('gen-words-label').textContent = o.words;
+  const pw = generateFromOptions();
+  const out = document.getElementById('gen-output');
+  if (out) out.textContent = pw;
+  renderStrengthInto('gen-strength', pw);
+  return pw;
+}
+
+// --- Password strength meter ---
+function renderStrengthInto(containerId, password) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!password) { el.innerHTML = ''; return; }
+  const s = estimateStrength(password);
+  const pct = Math.max(6, Math.round((s.score + 1) / 5 * 100));
+  const cls = ['vw', 'w', 'f', 's', 'vs'][s.score] || 'w';
+  const detail = s.crackTimeDisplay ? `· cracks in ~${esc(s.crackTimeDisplay)}` : '';
+  el.innerHTML = `
+    <div class="strength-bar"><div class="strength-fill strength-${cls}" style="width:${pct}%"></div></div>
+    <div class="strength-label">${esc(s.label)} <span class="strength-detail">${Math.round(s.entropyBits)} bits ${detail}</span></div>`;
 }
 
 // --- IAP Authentication ---
@@ -403,6 +594,8 @@ async function iapUnlock() {
     // Try to decrypt private key to verify password
     privateKey = await decryptPrivateKey(encKey, iapSession.encrypted_private_key);
 
+    lockContext = { email: iapSession.email, encryptedPrivateKey: iapSession.encrypted_private_key };
+    startAutoLock();
     toast('Vault unlocked');
     await Promise.all([loadVaults(), loadTeams()]);
     showMainApp();
@@ -457,6 +650,8 @@ async function iapSetup() {
     // Import private key for use
     privateKey = await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
 
+    lockContext = { email: iapSession.email, encryptedPrivateKey: encryptedPrivKey };
+    startAutoLock();
     toast('Encryption set up successfully');
     await Promise.all([loadVaults(), loadTeams()]);
 
@@ -633,6 +828,7 @@ async function createVault() {
 
 // --- Items ---
 async function loadItems() {
+  activeTag = null;
   items = (await api('GET', `/api/vaults/${currentVault.id}/items`)) || [];
   await renderItems();
 }
@@ -645,6 +841,7 @@ async function renderItems() {
     list.innerHTML = '';
     empty.style.display = 'flex';
     decryptedItemsCache = [];
+    renderTagBar();
     return;
   }
 
@@ -657,7 +854,42 @@ async function renderItems() {
     decryptedItemsCache.push({ id: item.id, data });
   }
 
+  renderTagBar();
   renderFilteredItems();
+}
+
+function itemSubtitle(data) {
+  const t = itemType(data);
+  if (t === 'card') return data.card_number ? '•••• ' + data.card_number.replace(/\s/g, '').slice(-4) : 'Card';
+  if (t === 'identity') return data.id_email || data.id_fullname || 'Identity';
+  if (t === 'note') return 'Secure note';
+  return data.username || '';
+}
+
+// Render the favorites/tags filter chips above the item list.
+function renderTagBar() {
+  const bar = document.getElementById('tag-bar');
+  if (!bar) return;
+  const tagSet = new Set();
+  let hasFav = false;
+  for (const { data } of decryptedItemsCache) {
+    if (data.favorite) hasFav = true;
+    (data.tags || []).forEach(t => tagSet.add(t));
+  }
+  const chips = [];
+  if (hasFav) chips.push(`<button class="filter-chip${activeTag === '__fav__' ? ' active' : ''}" data-tag="__fav__">★ Favorites</button>`);
+  for (const t of [...tagSet].sort()) {
+    chips.push(`<button class="filter-chip${activeTag === t ? ' active' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`);
+  }
+  bar.innerHTML = chips.join('');
+  bar.style.display = chips.length ? 'flex' : 'none';
+  bar.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      activeTag = (activeTag === chip.dataset.tag) ? null : chip.dataset.tag;
+      renderTagBar();
+      renderFilteredItems();
+    });
+  });
 }
 
 function renderFilteredItems() {
@@ -665,11 +897,19 @@ function renderFilteredItems() {
   const empty = document.getElementById('items-empty');
   const query = searchQuery.toLowerCase();
 
-  const filtered = query
-    ? decryptedItemsCache.filter(i =>
-        (i.data.title || '').toLowerCase().includes(query) ||
-        (i.data.username || '').toLowerCase().includes(query))
-    : decryptedItemsCache;
+  let filtered = decryptedItemsCache;
+  if (activeTag === '__fav__') filtered = filtered.filter(i => i.data.favorite);
+  else if (activeTag) filtered = filtered.filter(i => (i.data.tags || []).includes(activeTag));
+  if (query) filtered = filtered.filter(i =>
+    (i.data.title || '').toLowerCase().includes(query) ||
+    (i.data.username || '').toLowerCase().includes(query) ||
+    (i.data.url || '').toLowerCase().includes(query) ||
+    (i.data.tags || []).some(t => t.toLowerCase().includes(query)));
+
+  // Favorites first, then alphabetical by title.
+  filtered = [...filtered].sort((a, b) =>
+    (b.data.favorite ? 1 : 0) - (a.data.favorite ? 1 : 0) ||
+    (a.data.title || '').localeCompare(b.data.title || ''));
 
   if (!filtered.length) {
     list.innerHTML = '';
@@ -681,13 +921,14 @@ function renderFilteredItems() {
   const cards = filtered.map(({ id, data }) => {
     const activeClass = currentItem && currentItem.id === id ? ' active' : '';
     const totpDot = data.totp_secret ? '<span class="totp-indicator" title="Has TOTP"></span>' : '';
+    const favDot = data.favorite ? '<span class="fav-indicator" title="Favorite">★</span>' : '';
     return `<div class="item-card${activeClass}" data-id="${id}">
-      <div class="card-icon">&#128273;</div>
+      <div class="card-icon">${ITEM_TYPES[itemType(data)].icon}</div>
       <div class="card-info">
         <h3>${esc(data.title || 'Untitled')}</h3>
-        <p>${esc(data.username || '')}</p>
+        <p>${esc(itemSubtitle(data))}</p>
       </div>
-      ${totpDot}
+      ${favDot}${totpDot}
     </div>`;
   });
   list.innerHTML = cards.join('');
@@ -703,6 +944,96 @@ async function openItem(id) {
   await openItemDirect(id);
 }
 
+// Build a single detail field row. Copy/reveal use event delegation (see wireDetailDelegation).
+function fieldRow(label, value, opts = {}) {
+  if (value == null || value === '') return '';
+  const { mono = false, masked = false, url = false } = opts;
+  const enc = encodeURIComponent(value);
+  let valHtml;
+  if (url) {
+    const href = /^https?:\/\//i.test(value) ? value : 'https://' + value;
+    valHtml = `<a class="field-value link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>`;
+  } else {
+    valHtml = `<div class="field-value ${mono ? 'mono' : ''} ${masked ? 'masked' : ''}" data-raw="${enc}">${masked ? '••••••••••' : esc(value)}</div>`;
+  }
+  const reveal = masked ? `<button class="btn-icon js-reveal" title="Show">&#128065;</button>` : '';
+  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="Copy">&#128203;</button>`;
+  return `<div class="field"><div class="field-main"><div class="field-label">${esc(label)}</div>${valHtml}</div><div class="field-actions">${reveal}${copy}</div></div>`;
+}
+
+function totpFieldHtml() {
+  return `<div class="field" id="totp-field-container">
+    <div class="field-main">
+      <div class="field-label">One-Time Password</div>
+      <div class="totp-display">
+        <span class="totp-code" id="detail-totp-code"></span>
+        <svg class="totp-countdown" viewBox="0 0 36 36">
+          <circle class="totp-countdown-bg" cx="18" cy="18" r="16" fill="none" stroke-width="2"/>
+          <circle class="totp-countdown-fg" cx="18" cy="18" r="16" fill="none" stroke-width="2"
+            stroke-dasharray="100.53" stroke-dashoffset="0" id="totp-countdown-circle"/>
+          <text x="18" y="19" class="totp-countdown-text" id="totp-countdown-text" dominant-baseline="central" text-anchor="middle"></text>
+        </svg>
+      </div>
+    </div>
+    <div class="field-actions">
+      <button class="btn-icon js-copy" data-copy="totp" title="Copy code">&#128203;</button>
+    </div>
+  </div>`;
+}
+
+// Render the detail panel for any item type.
+function renderDetail(data) {
+  const type = itemType(data);
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'block';
+  document.getElementById('detail-title').textContent = data.title || 'Untitled';
+
+  const favBtn = document.getElementById('btn-fav-item');
+  favBtn.textContent = data.favorite ? '★' : '☆';
+  favBtn.classList.toggle('active', !!data.favorite);
+
+  const tags = (data.tags || []).map(t => `<button class="tag-chip" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+  document.getElementById('detail-meta').innerHTML =
+    `<span class="type-badge">${ITEM_TYPES[type].icon} ${esc(ITEM_TYPES[type].label)}</span>${tags}`;
+
+  let html = '';
+  if (type === 'login') {
+    html += fieldRow('Username', data.username);
+    html += fieldRow('Password', data.password, { mono: true, masked: true });
+    if (data.totp_secret) html += totpFieldHtml();
+    html += fieldRow('Website', data.url, { url: true });
+    html += fieldRow('Notes', data.notes);
+  } else if (type === 'card') {
+    html += fieldRow('Cardholder', data.card_holder);
+    html += fieldRow('Card Number', data.card_number, { mono: true, masked: true });
+    html += fieldRow('Brand', data.card_brand);
+    html += fieldRow('Expires', data.card_exp, { mono: true });
+    html += fieldRow('CVV', data.card_cvv, { mono: true, masked: true });
+    html += fieldRow('PIN', data.card_pin, { mono: true, masked: true });
+    html += fieldRow('Notes', data.notes);
+  } else if (type === 'identity') {
+    html += fieldRow('Full Name', data.id_fullname);
+    html += fieldRow('Email', data.id_email);
+    html += fieldRow('Phone', data.id_phone);
+    html += fieldRow('Address', data.id_address);
+    html += fieldRow('Company', data.id_company);
+    html += fieldRow('Notes', data.notes);
+  } else {
+    html += fieldRow('Note', data.notes) ||
+      `<div class="field"><div class="field-main"><div class="field-label">Note</div><div class="field-value">-</div></div></div>`;
+  }
+  document.getElementById('detail-fields').innerHTML = html;
+
+  const extras = document.getElementById('detail-extras');
+  if (type === 'login' && data.password) {
+    extras.style.display = 'block';
+    renderStrengthInto('detail-pw-strength', data.password);
+    document.getElementById('detail-breach-result').innerHTML = '';
+  } else {
+    extras.style.display = 'none';
+  }
+}
+
 async function openItemDirect(id) {
   currentItem = items.find(i => i.id === id);
   if (!currentItem) return;
@@ -710,36 +1041,88 @@ async function openItemDirect(id) {
   const key = await getVaultDecryptionKey(currentVault);
   let data = {};
   try { data = JSON.parse(await decrypt(key, currentItem.data_encrypted)); } catch {}
-
-  document.getElementById('detail-empty').style.display = 'none';
-  document.getElementById('detail-content').style.display = 'block';
-
-  document.getElementById('detail-title').textContent = data.title || 'Untitled';
-  document.getElementById('detail-username').textContent = data.username || '-';
-  document.getElementById('detail-password').textContent = '••••••••';
-  document.getElementById('detail-password').classList.add('masked');
-  document.getElementById('detail-password-raw').textContent = data.password || '';
-  document.getElementById('detail-url').textContent = data.url || '-';
-  document.getElementById('detail-notes').textContent = data.notes || '-';
-
   currentItem._data = data;
 
-  // TOTP
+  renderDetail(data);
+
+  // TOTP live updates
   stopTOTP();
   if (data.totp_secret) {
-    document.getElementById('totp-field-container').style.display = 'flex';
     await updateTOTP(data.totp_secret);
     totpInterval = setInterval(() => updateTOTP(data.totp_secret), 1000);
-  } else {
-    document.getElementById('totp-field-container').style.display = 'none';
   }
 
-  // Highlight in list
   renderFilteredItems();
+  document.querySelector('.detail-panel').classList.add('mobile-open');
+}
 
-  // Mobile: show detail panel
-  const detailPanel = document.querySelector('.detail-panel');
-  detailPanel.classList.add('mobile-open');
+// Toggle favorite on the currently open item.
+async function toggleFavorite() {
+  if (!currentItem || !currentItem._data) return;
+  const data = { ...currentItem._data, favorite: !currentItem._data.favorite };
+  const key = await getVaultDecryptionKey(currentVault);
+  const dataEnc = await encrypt(key, JSON.stringify(data));
+  try {
+    await api('PUT', `/api/vaults/${currentVault.id}/items/${currentItem.id}`, {
+      data_encrypted: dataEnc, version: currentItem.version,
+    });
+    toast(data.favorite ? 'Added to favorites' : 'Removed from favorites');
+    await loadItems();
+    await openItem(currentItem.id);
+  } catch (e) { toast(e.message, true); }
+}
+
+// Delete the currently open item (uses the DELETE endpoint).
+async function deleteCurrentItem() {
+  if (!currentItem) return;
+  if (!confirm('Delete this item? This cannot be undone.')) return;
+  try {
+    await api('DELETE', `/api/vaults/${currentVault.id}/items/${currentItem.id}`);
+    toast('Item deleted');
+    currentItem = null;
+    await loadItems();
+    showDetailEmpty();
+    setHash(`/vault/${currentVault.id}`);
+  } catch (e) { toast(e.message, true); }
+}
+
+// Show the server-stored password history (prior encrypted versions, decrypted locally).
+async function showItemHistory() {
+  if (!currentItem) return;
+  try {
+    const history = await api('GET', `/api/vaults/${currentVault.id}/items/${currentItem.id}/history`) || [];
+    const key = await getVaultDecryptionKey(currentVault);
+    const rows = [];
+    for (const h of history) {
+      let d = {};
+      try { d = JSON.parse(await decrypt(key, h.data_encrypted)); } catch {}
+      const when = new Date(h.created_at).toLocaleString();
+      const pw = d.password || '(no password)';
+      rows.push(`<div class="history-row">
+        <div class="history-meta">v${h.version} · ${esc(when)}</div>
+        <div class="history-pw"><span class="mono" data-raw="${encodeURIComponent(pw)}">${esc(pw)}</span>
+        <button class="btn-icon js-copy" data-copy="${encodeURIComponent(pw)}" title="Copy">&#128203;</button></div>
+      </div>`);
+    }
+    document.getElementById('history-body').innerHTML = rows.length
+      ? rows.join('') : '<p class="empty-text">No previous versions.</p>';
+    openModal('modal-history');
+  } catch (e) { toast(e.message, true); }
+}
+
+// Check the current password against Have I Been Pwned (k-anonymity: only a hash prefix leaves the device).
+async function checkCurrentBreach() {
+  if (!currentItem?._data?.password) return;
+  const out = document.getElementById('detail-breach-result');
+  out.innerHTML = '<span class="strength-detail">Checking…</span>';
+  try {
+    const count = await checkPwnedCount(currentItem._data.password);
+    out.innerHTML = count > 0
+      ? `<span class="breach-bad">⚠ Found in ${count.toLocaleString()} known breaches — change it.</span>`
+      : `<span class="breach-ok">✓ Not found in known breaches.</span>`;
+  } catch {
+    out.innerHTML = '<span class="strength-detail">Breach check unavailable (offline?)</span>';
+  }
 }
 
 function showDetailEmpty() {
@@ -779,21 +1162,57 @@ function stopTOTP() {
 }
 
 // --- Item CRUD ---
-async function saveItem() {
-  const title = document.getElementById('item-title-input').value.trim();
-  const username = document.getElementById('item-user-input').value.trim();
-  const password = document.getElementById('item-pw-input').value;
-  const url = document.getElementById('item-url-input').value.trim();
-  const totp_secret = document.getElementById('item-totp-input').value.trim();
-  const notes = document.getElementById('item-notes-input').value.trim();
+let itemFormType = 'login';
 
+function setItemFormType(type) {
+  itemFormType = ITEM_TYPES[type] ? type : 'login';
+  document.querySelectorAll('#item-type-selector .type-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.type === itemFormType);
+  });
+  document.querySelectorAll('#modal-item [data-type-fields]').forEach(sec => {
+    sec.style.display = sec.dataset.typeFields === itemFormType ? 'block' : 'none';
+  });
+}
+
+const val = id => (document.getElementById(id)?.value ?? '').trim();
+
+async function saveItem() {
+  const title = val('item-title-input');
   if (!title) return toast('Enter a title', true);
 
+  const tags = val('item-tags-input').split(',').map(t => t.trim()).filter(Boolean);
+  const favorite = document.getElementById('item-fav-input').checked;
+
+  const dataObj = { type: itemFormType, title, favorite, notes: val('item-notes-input') };
+  if (tags.length) dataObj.tags = tags;
+
+  if (itemFormType === 'login') {
+    dataObj.username = val('item-user-input');
+    dataObj.password = document.getElementById('item-pw-input').value;
+    dataObj.url = val('item-url-input');
+    const totp = val('item-totp-input');
+    if (totp) dataObj.totp_secret = totp;
+    // Track when the password last changed (for the security dashboard "old password" check).
+    const prev = editingItem?._data || {};
+    dataObj.pwChangedAt = (dataObj.password && dataObj.password !== prev.password)
+      ? Date.now() : (prev.pwChangedAt || (dataObj.password ? Date.now() : undefined));
+  } else if (itemFormType === 'card') {
+    dataObj.card_holder = val('item-card-holder');
+    dataObj.card_number = val('item-card-number');
+    dataObj.card_brand = val('item-card-brand');
+    dataObj.card_exp = val('item-card-exp');
+    dataObj.card_cvv = val('item-card-cvv');
+    dataObj.card_pin = val('item-card-pin');
+  } else if (itemFormType === 'identity') {
+    dataObj.id_fullname = val('item-id-fullname');
+    dataObj.id_email = val('item-id-email');
+    dataObj.id_phone = val('item-id-phone');
+    dataObj.id_address = val('item-id-address');
+    dataObj.id_company = val('item-id-company');
+  }
+
   const key = await getVaultDecryptionKey(currentVault);
-  const dataObj = { title, username, password, url, notes };
-  if (totp_secret) dataObj.totp_secret = totp_secret;
-  const data = JSON.stringify(dataObj);
-  const dataEnc = await encrypt(key, data);
+  const dataEnc = await encrypt(key, JSON.stringify(dataObj));
 
   try {
     let savedItemId = null;
@@ -821,14 +1240,45 @@ async function saveItem() {
   }
 }
 
+const FORM_FIELDS = [
+  'item-title-input', 'item-user-input', 'item-pw-input', 'item-url-input',
+  'item-totp-input', 'item-notes-input', 'item-tags-input',
+  'item-card-holder', 'item-card-number', 'item-card-brand', 'item-card-exp',
+  'item-card-cvv', 'item-card-pin',
+  'item-id-fullname', 'item-id-email', 'item-id-phone', 'item-id-address', 'item-id-company',
+];
+
 function clearItemForm() {
-  document.getElementById('item-title-input').value = '';
-  document.getElementById('item-user-input').value = '';
-  document.getElementById('item-pw-input').value = '';
-  document.getElementById('item-url-input').value = '';
-  document.getElementById('item-totp-input').value = '';
-  document.getElementById('item-notes-input').value = '';
+  FORM_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('item-fav-input').checked = false;
+  renderStrengthInto('item-pw-strength', '');
+  setItemFormType('login');
   editingItem = null;
+}
+
+// Populate the modal from an existing item's decrypted data (used by the Edit button).
+function fillItemForm(data) {
+  setItemFormType(itemType(data));
+  document.getElementById('item-title-input').value = data.title || '';
+  document.getElementById('item-notes-input').value = data.notes || '';
+  document.getElementById('item-tags-input').value = (data.tags || []).join(', ');
+  document.getElementById('item-fav-input').checked = !!data.favorite;
+  document.getElementById('item-user-input').value = data.username || '';
+  document.getElementById('item-pw-input').value = data.password || '';
+  document.getElementById('item-url-input').value = data.url || '';
+  document.getElementById('item-totp-input').value = data.totp_secret || '';
+  document.getElementById('item-card-holder').value = data.card_holder || '';
+  document.getElementById('item-card-number').value = data.card_number || '';
+  document.getElementById('item-card-brand').value = data.card_brand || '';
+  document.getElementById('item-card-exp').value = data.card_exp || '';
+  document.getElementById('item-card-cvv').value = data.card_cvv || '';
+  document.getElementById('item-card-pin').value = data.card_pin || '';
+  document.getElementById('item-id-fullname').value = data.id_fullname || '';
+  document.getElementById('item-id-email').value = data.id_email || '';
+  document.getElementById('item-id-phone').value = data.id_phone || '';
+  document.getElementById('item-id-address').value = data.id_address || '';
+  document.getElementById('item-id-company').value = data.id_company || '';
+  renderStrengthInto('item-pw-strength', data.password || '');
 }
 
 // --- Teams ---
@@ -1126,216 +1576,8 @@ window.copyField = function(id) {
 };
 
 // --- Import (1Password CSV + 1PIF) ---
-
-function parseCSV(text) {
-  const rows = [];
-  let i = 0;
-  const len = text.length;
-
-  function parseField() {
-    if (i >= len || text[i] === '\n' || text[i] === '\r') return '';
-    if (text[i] === '"') {
-      i++; // skip opening quote
-      let field = '';
-      while (i < len) {
-        if (text[i] === '"') {
-          if (i + 1 < len && text[i + 1] === '"') {
-            field += '"';
-            i += 2;
-          } else {
-            i++; // skip closing quote
-            break;
-          }
-        } else {
-          field += text[i];
-          i++;
-        }
-      }
-      return field;
-    } else {
-      let field = '';
-      while (i < len && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
-        field += text[i];
-        i++;
-      }
-      return field;
-    }
-  }
-
-  while (i < len) {
-    const row = [];
-    while (true) {
-      row.push(parseField());
-      if (i < len && text[i] === ',') {
-        i++; // skip comma
-      } else {
-        break;
-      }
-    }
-    // Skip line endings
-    if (i < len && text[i] === '\r') i++;
-    if (i < len && text[i] === '\n') i++;
-    rows.push(row);
-  }
-
-  return rows;
-}
-
-function parse1PIF(text) {
-  const lines = text.split('\n');
-  const entries = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('***')) continue;
-    try {
-      const obj = JSON.parse(trimmed);
-      // Skip system entries
-      if (obj.typeName === 'system.folder.Regular' || obj.typeName === 'system.folder.SavedSearch') continue;
-      entries.push(obj);
-    } catch {
-      // Skip unparseable lines
-    }
-  }
-  return entries;
-}
-
-function extractTOTPSecret(otpauthUri) {
-  if (!otpauthUri || !otpauthUri.startsWith('otpauth://')) return null;
-  try {
-    const url = new URL(otpauthUri);
-    const secret = url.searchParams.get('secret');
-    if (secret) return secret;
-  } catch {
-    // fallback regex
-  }
-  const match = otpauthUri.match(/[?&]secret=([A-Za-z2-7=]+)/i);
-  return match ? match[1] : null;
-}
-
-// 1Password CSV without headers: OTPAuth, Notes, Password, Title, Type, URL, Username
-const OP_CSV_COLUMNS = { otpauth: 0, notes: 1, password: 2, title: 3, type: 4, url: 5, username: 6 };
-const KNOWN_HEADERS = ['title', 'username', 'password', 'url', 'website', 'notes', 'otpauth', 'type'];
-// Types we skip (no useful credentials)
-const SKIP_TYPES = ['document'];
-
-function csvHasHeaders(firstRow) {
-  const lower = firstRow.map(h => h.trim().toLowerCase());
-  // If at least 2 known header names appear, treat as header row
-  return lower.filter(h => KNOWN_HEADERS.includes(h)).length >= 2;
-}
-
-function mapCSVToItems(rows) {
-  if (!rows.length) return [];
-
-  const hasHeaders = csvHasHeaders(rows[0]);
-
-  if (hasHeaders) {
-    // Header-based mapping
-    if (rows.length < 2) return [];
-    const headers = rows[0].map(h => h.trim().toLowerCase());
-    const idx = (name) => headers.indexOf(name);
-    const titleIdx = idx('title');
-    if (titleIdx === -1) throw new Error('CSV missing required "Title" column');
-
-    const usernameIdx = Math.max(idx('username'), idx('email'));
-    const passwordIdx = idx('password');
-    const urlIdx = Math.max(idx('website'), idx('url'));
-    const notesIdx = idx('notes');
-    const otpIdx = idx('otpauth');
-    const typeIdx = idx('type');
-
-    const items = [];
-    for (let r = 1; r < rows.length; r++) {
-      const row = rows[r];
-      // Skip document types
-      if (typeIdx >= 0 && SKIP_TYPES.includes((row[typeIdx] || '').trim().toLowerCase())) continue;
-      const title = (row[titleIdx] || '').trim();
-      if (!title) continue;
-
-      const item = { title };
-      if (usernameIdx >= 0 && row[usernameIdx]) item.username = row[usernameIdx].trim();
-      if (passwordIdx >= 0 && row[passwordIdx]) item.password = row[passwordIdx].trim();
-      if (urlIdx >= 0 && row[urlIdx]) item.url = row[urlIdx].trim();
-      if (notesIdx >= 0 && row[notesIdx]) item.notes = row[notesIdx].trim();
-      if (otpIdx >= 0 && row[otpIdx]) {
-        const secret = extractTOTPSecret(row[otpIdx].trim());
-        if (secret) item.totp_secret = secret;
-      }
-      items.push(item);
-    }
-    return items;
-  }
-
-  // Headerless 1Password CSV: OTPAuth(0), Notes(1), Password(2), Title(3), Type(4), URL(5), Username(6)
-  const C = OP_CSV_COLUMNS;
-  const items = [];
-  for (const row of rows) {
-    // Skip document types
-    const type = (row[C.type] || '').trim().toLowerCase();
-    if (SKIP_TYPES.includes(type)) continue;
-    const title = (row[C.title] || '').trim();
-    if (!title) continue;
-
-    const item = { title };
-    if (row[C.username]) item.username = row[C.username].trim();
-    if (row[C.password]) item.password = row[C.password].trim();
-    if (row[C.url]) item.url = row[C.url].trim();
-    if (row[C.notes]) item.notes = row[C.notes].trim();
-    if (row[C.otpauth]) {
-      const secret = extractTOTPSecret(row[C.otpauth].trim());
-      if (secret) item.totp_secret = secret;
-    }
-    items.push(item);
-  }
-  return items;
-}
-
-function map1PIFToItems(entries) {
-  const items = [];
-  for (const entry of entries) {
-    const title = (entry.title || '').trim();
-    if (!title) continue;
-
-    const item = { title };
-    if (entry.location) item.url = entry.location;
-
-    // Extract username/password from secureContents.fields
-    const fields = entry.secureContents?.fields || [];
-    for (const f of fields) {
-      if (f.designation === 'username' && f.value) item.username = f.value;
-      if (f.designation === 'password' && f.value) item.password = f.value;
-    }
-
-    // Extract notes
-    if (entry.secureContents?.notesPlain) item.notes = entry.secureContents.notesPlain;
-
-    // Extract TOTP from sections
-    const sections = entry.secureContents?.sections || [];
-    for (const section of sections) {
-      for (const sf of (section.fields || [])) {
-        const val = sf.v || '';
-        if (typeof val === 'string' && val.startsWith('otpauth://')) {
-          const secret = extractTOTPSecret(val);
-          if (secret) item.totp_secret = secret;
-        }
-      }
-    }
-
-    items.push(item);
-  }
-  return items;
-}
-
-function detectFormatAndParse(text, filename) {
-  const ext = (filename || '').split('.').pop().toLowerCase();
-  if (ext === '1pif') {
-    const entries = parse1PIF(text);
-    return map1PIFToItems(entries);
-  }
-  // Default to CSV
-  const rows = parseCSV(text);
-  return mapCSVToItems(rows);
-}
+// Pure parsers live in /import.js (unit-tested); importItems below
+// handles the DOM + per-item encryption/upload.
 
 async function importItems(parsedItems) {
   if (!currentVault) return toast('Select a vault first', true);
@@ -1414,6 +1656,273 @@ function resetImportModal() {
   document.getElementById('btn-start-import').disabled = true;
 }
 
+// --- Global index (all vaults), used by command palette + security dashboard ---
+// Decrypts every item across every accessible vault. Zero-knowledge preserved:
+// all decryption happens locally with keys already in memory.
+async function collectAllItems() {
+  const out = [];
+  for (const v of vaults) {
+    let key, vname = 'Vault';
+    try {
+      key = await getVaultDecryptionKey(v);
+      vname = await decrypt(key, v.name_encrypted);
+    } catch { continue; }
+    let vitems = [];
+    try { vitems = (await api('GET', `/api/vaults/${v.id}/items`)) || []; } catch { continue; }
+    for (const it of vitems) {
+      let data = {};
+      try { data = JSON.parse(await decrypt(key, it.data_encrypted)); } catch {}
+      out.push({ vaultId: v.id, vaultName: vname, id: it.id, version: it.version, data });
+    }
+  }
+  return out;
+}
+
+async function openVaultItem(vaultId, itemId) {
+  setHash(`/vault/${vaultId}/item/${itemId}`);
+  await navigateToVault(vaultId);
+  await navigateToItem(itemId);
+}
+
+// --- Command palette (Cmd/Ctrl+K) ---
+let cmdIndex = [];   // cached { vaultId, vaultName, id, data } across all vaults
+let cmdList = [];     // currently visible palette rows
+let cmdSel = 0;
+
+function cmdActions() {
+  return [
+    { kind: 'action', icon: '➕', label: 'New item', run: () => { closeCmdPalette(); document.getElementById('btn-add-item').click(); } },
+    { kind: 'action', icon: '\u{1F5C4}️', label: 'New vault', run: () => { closeCmdPalette(); openModal('modal-vault'); } },
+    { kind: 'action', icon: '\u{1F6E1}️', label: 'Security dashboard', run: () => { closeCmdPalette(); openWatchtower(); } },
+    { kind: 'action', icon: '\u{1F3B2}', label: 'Password generator', run: () => { closeCmdPalette(); openGenerator(); } },
+    { kind: 'action', icon: '\u{1F311}', label: 'Toggle dark mode', run: () => { toggleTheme(); } },
+    { kind: 'action', icon: '\u{1F512}', label: 'Lock vault', run: () => { closeCmdPalette(); lockVault(); } },
+  ];
+}
+
+async function openCmdPalette() {
+  const overlay = document.getElementById('cmd-palette');
+  if (!overlay || !encKey) return;
+  overlay.classList.add('active');
+  const input = document.getElementById('cmd-input');
+  input.value = '';
+  document.getElementById('cmd-results').innerHTML = '<div class="cmd-loading">Indexing your vaults…</div>';
+  cmdIndex = await collectAllItems();
+  renderCmdResults('');
+  input.focus();
+}
+
+function closeCmdPalette() {
+  const overlay = document.getElementById('cmd-palette');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function renderCmdResults(query) {
+  const q = query.trim().toLowerCase();
+  const matches = (q
+    ? cmdIndex.filter(e =>
+        (e.data.title || '').toLowerCase().includes(q) ||
+        (e.data.username || '').toLowerCase().includes(q) ||
+        (e.data.url || '').toLowerCase().includes(q) ||
+        (e.vaultName || '').toLowerCase().includes(q))
+    : cmdIndex.slice(0, 8)
+  ).slice(0, 25);
+
+  const itemRows = matches.map(e => ({
+    kind: 'item',
+    icon: ITEM_TYPES[itemType(e.data)].icon,
+    title: e.data.title || 'Untitled',
+    sub: e.vaultName + (e.data.username ? ' · ' + e.data.username : ''),
+    run: () => { closeCmdPalette(); openVaultItem(e.vaultId, e.id); },
+  }));
+  const actions = cmdActions().filter(a => !q || a.label.toLowerCase().includes(q));
+  cmdList = [...itemRows, ...actions];
+  cmdSel = 0;
+  paintCmd();
+}
+
+function paintCmd() {
+  const results = document.getElementById('cmd-results');
+  if (!cmdList.length) { results.innerHTML = '<div class="cmd-empty">No matches</div>'; return; }
+  results.innerHTML = cmdList.map((e, i) => `
+    <div class="cmd-row${i === cmdSel ? ' active' : ''}" data-i="${i}">
+      <span class="cmd-icon">${e.icon || '•'}</span>
+      <span class="cmd-main"><span class="cmd-title">${esc(e.title || e.label)}</span>${e.sub ? `<span class="cmd-sub">${esc(e.sub)}</span>` : ''}</span>
+      ${e.kind === 'action' ? '<span class="cmd-tag">action</span>' : ''}
+    </div>`).join('');
+  results.querySelectorAll('.cmd-row').forEach(row => {
+    const i = Number(row.dataset.i);
+    row.addEventListener('click', () => { cmdSel = i; cmdList[i].run(); });
+    row.addEventListener('mousemove', () => { if (cmdSel !== i) { cmdSel = i; paintCmd(); } });
+  });
+  const active = results.querySelector('.cmd-row.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+function cmdKeydown(e) {
+  if (e.key === 'ArrowDown') { e.preventDefault(); cmdSel = Math.min(cmdSel + 1, cmdList.length - 1); paintCmd(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); cmdSel = Math.max(cmdSel - 1, 0); paintCmd(); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (cmdList[cmdSel]) cmdList[cmdSel].run(); }
+  else if (e.key === 'Escape') { closeCmdPalette(); }
+}
+
+// --- Security dashboard (Watchtower-style) ---
+async function openWatchtower() {
+  if (!encKey) return;
+  openModal('modal-watchtower');
+  const body = document.getElementById('watchtower-body');
+  body.innerHTML = '<div class="cmd-loading">Scanning your vaults…</div>';
+
+  const all = await collectAllItems();
+  const logins = all.filter(e => itemType(e.data) === 'login' && e.data.password);
+
+  const byPw = {};
+  for (const e of logins) (byPw[e.data.password] = byPw[e.data.password] || []).push(e);
+  const reused = Object.values(byPw).filter(g => g.length > 1);
+
+  const weak = logins.filter(e => estimateStrength(e.data.password).score <= 1);
+
+  const YEAR = 365 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const stale = logins.filter(e => e.data.pwChangedAt && (now - e.data.pwChangedAt) > YEAR);
+
+  renderWatchtower({ total: logins.length, weak, reused, stale });
+  checkWatchtowerBreaches(logins);
+}
+
+function wtItemRow(e, extra = '') {
+  return `<div class="wt-item" data-vault="${e.vaultId}" data-item="${e.id}">
+    <span class="cmd-icon">${ITEM_TYPES[itemType(e.data)].icon}</span>
+    <span class="cmd-main"><span class="cmd-title">${esc(e.data.title || 'Untitled')}</span>
+      <span class="cmd-sub">${esc(e.vaultName)}${e.data.username ? ' · ' + esc(e.data.username) : ''}${extra}</span></span>
+  </div>`;
+}
+
+function wtSection(title, entries, severity, note) {
+  if (!entries.length) return '';
+  return `<div class="wt-section wt-${severity}">
+    <div class="wt-head"><span class="wt-badge">${entries.length}</span> ${esc(title)}<span class="wt-note">${esc(note || '')}</span></div>
+    <div class="wt-list">${entries.map(e => wtItemRow(e)).join('')}</div>
+  </div>`;
+}
+
+function renderWatchtower(r) {
+  const body = document.getElementById('watchtower-body');
+  const clean = !r.weak.length && !r.reused.length && !r.stale.length;
+  let html = `<div class="wt-summary">Scanned ${r.total} login${r.total === 1 ? '' : 's'} across ${vaults.length} vault${vaults.length === 1 ? '' : 's'}.</div>`;
+  if (clean) html += '<div class="wt-allclear">✓ No weak, reused, or stale passwords found.</div>';
+  html += wtSection('Weak passwords', r.weak, 'bad', 'Easy to guess — strengthen these.');
+  if (r.reused.length) {
+    const groups = r.reused.map(g =>
+      `<div class="wt-group">${g.map(e => wtItemRow(e)).join('')}</div>`).join('');
+    html += `<div class="wt-section wt-warn">
+      <div class="wt-head"><span class="wt-badge">${r.reused.length}</span> Reused passwords<span class="wt-note">The same password protects multiple items.</span></div>
+      ${groups}</div>`;
+  }
+  html += wtSection('Aging passwords', r.stale, 'warn', 'Unchanged for over a year.');
+  html += '<div id="wt-breaches"><div class="cmd-loading">Checking Have I Been Pwned…</div></div>';
+  body.innerHTML = html;
+  wireWatchtowerNav(body);
+}
+
+async function checkWatchtowerBreaches(logins) {
+  const el = document.getElementById('wt-breaches');
+  if (!el) return;
+  const breached = [];
+  const seen = {}; // memoize identical passwords to cut network calls
+  for (const e of logins) {
+    const p = e.data.password;
+    try {
+      if (!(p in seen)) seen[p] = await checkPwnedCount(p);
+    } catch {
+      el.innerHTML = '<div class="wt-note">Breach check unavailable (offline).</div>';
+      return;
+    }
+    if (seen[p] > 0) breached.push({ ...e, _count: seen[p] });
+  }
+  if (!breached.length) {
+    el.innerHTML = '<div class="wt-allclear">✓ No passwords found in known breaches.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="wt-section wt-bad">
+    <div class="wt-head"><span class="wt-badge">${breached.length}</span> Breached passwords<span class="wt-note">Seen in known data breaches — change now.</span></div>
+    <div class="wt-list">${breached.map(e => wtItemRow(e, ' · in ' + e._count.toLocaleString() + ' breaches')).join('')}</div>
+  </div>`;
+  wireWatchtowerNav(el);
+}
+
+function wireWatchtowerNav(root) {
+  root.querySelectorAll('.wt-item').forEach(row => {
+    row.addEventListener('click', () => {
+      closeModal('modal-watchtower');
+      openVaultItem(row.dataset.vault, row.dataset.item);
+    });
+  });
+}
+
+// --- Password generator modal ---
+let generatorTarget = null; // input id to fill when opened from a form, else null
+
+function openGenerator(targetId = null) {
+  generatorTarget = targetId;
+  openModal('modal-generator');
+  const useBtn = document.getElementById('btn-gen-use');
+  if (useBtn) useBtn.style.display = targetId ? 'flex' : 'none';
+  refreshGenerator();
+}
+
+function useGenerated() {
+  const pw = document.getElementById('gen-output').textContent;
+  if (generatorTarget) {
+    const el = document.getElementById(generatorTarget);
+    if (el) { el.value = pw; renderStrengthInto('item-pw-strength', pw); }
+  }
+  closeModal('modal-generator');
+}
+
+// --- Detail panel event delegation (copy / reveal / tag filter) ---
+function wireDetailDelegation() {
+  const root = document.getElementById('detail-content');
+  if (!root || root._wired) return;
+  root._wired = true;
+  root.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.js-copy');
+    if (copyBtn) {
+      let text;
+      if (copyBtn.dataset.copy === 'totp') {
+        text = (document.getElementById('detail-totp-code')?.textContent || '').replace(/\s/g, '');
+      } else {
+        text = decodeURIComponent(copyBtn.dataset.copy || '');
+      }
+      navigator.clipboard.writeText(text).then(() => toast('Copied'));
+      return;
+    }
+    const reveal = e.target.closest('.js-reveal');
+    if (reveal) {
+      const val = reveal.closest('.field')?.querySelector('.field-value');
+      if (val) {
+        if (val.classList.contains('masked')) {
+          val.textContent = decodeURIComponent(val.dataset.raw || '');
+          val.classList.remove('masked');
+          reveal.innerHTML = '&#128584;';
+        } else {
+          val.textContent = '••••••••••';
+          val.classList.add('masked');
+          reveal.innerHTML = '&#128065;';
+        }
+      }
+      return;
+    }
+    const tag = e.target.closest('.tag-chip');
+    if (tag && currentVault) {
+      activeTag = tag.dataset.tag;
+      renderTagBar();
+      renderFilteredItems();
+      closeMobileDetail();
+    }
+  });
+}
+
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', async () => {
   // Auth
@@ -1454,39 +1963,77 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('btn-save-item').addEventListener('click', saveItem);
   document.getElementById('btn-cancel-item').addEventListener('click', () => { closeModal('modal-item'); clearItemForm(); });
-  document.getElementById('btn-gen-pw').addEventListener('click', () => {
-    document.getElementById('item-pw-input').value = generatePassword();
+  document.getElementById('btn-gen-pw').addEventListener('click', () => openGenerator('item-pw-input'));
+
+  // Item type selector tabs
+  document.querySelectorAll('#item-type-selector .type-tab').forEach(tab => {
+    tab.addEventListener('click', () => setItemFormType(tab.dataset.type));
+  });
+  // Live strength meter while typing a password
+  document.getElementById('item-pw-input').addEventListener('input', e => {
+    renderStrengthInto('item-pw-strength', e.target.value);
   });
 
-  // Detail
-  document.getElementById('btn-toggle-pw').addEventListener('click', () => {
-    const el = document.getElementById('detail-password');
-    const raw = document.getElementById('detail-password-raw').textContent;
-    if (el.classList.contains('masked')) {
-      el.textContent = raw;
-      el.classList.remove('masked');
-    } else {
-      el.textContent = '••••••••';
-      el.classList.add('masked');
-    }
-  });
+  // Detail actions (favorite / edit / delete / history / breach check)
+  wireDetailDelegation();
+  document.getElementById('btn-fav-item').addEventListener('click', toggleFavorite);
+  document.getElementById('btn-item-history').addEventListener('click', showItemHistory);
+  document.getElementById('btn-check-breach').addEventListener('click', checkCurrentBreach);
 
   document.getElementById('btn-edit-item').addEventListener('click', () => {
     if (!currentItem || !currentItem._data) return;
     editingItem = currentItem;
     document.getElementById('modal-item-title').textContent = 'Edit Item';
-    document.getElementById('item-title-input').value = currentItem._data.title || '';
-    document.getElementById('item-user-input').value = currentItem._data.username || '';
-    document.getElementById('item-pw-input').value = currentItem._data.password || '';
-    document.getElementById('item-url-input').value = currentItem._data.url || '';
-    document.getElementById('item-totp-input').value = currentItem._data.totp_secret || '';
-    document.getElementById('item-notes-input').value = currentItem._data.notes || '';
+    fillItemForm(currentItem._data);
     openModal('modal-item');
   });
 
-  document.getElementById('btn-delete-item').addEventListener('click', async () => {
-    if (!currentItem) return;
-    toast('Delete not implemented yet (server needs DELETE endpoint)');
+  document.getElementById('btn-delete-item').addEventListener('click', deleteCurrentItem);
+
+  // History modal close
+  document.getElementById('btn-close-history').addEventListener('click', () => closeModal('modal-history'));
+
+  // Generator modal
+  document.querySelectorAll('input[name="gen-mode"]').forEach(r => r.addEventListener('change', refreshGenerator));
+  ['gen-length', 'gen-words'].forEach(id => document.getElementById(id).addEventListener('input', refreshGenerator));
+  ['gen-upper', 'gen-lower', 'gen-digits', 'gen-symbols', 'gen-avoid', 'gen-cap', 'gen-num'].forEach(id =>
+    document.getElementById(id).addEventListener('change', refreshGenerator));
+  document.getElementById('btn-gen-refresh').addEventListener('click', refreshGenerator);
+  document.getElementById('btn-gen-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('gen-output').textContent).then(() => toast('Copied'));
+  });
+  document.getElementById('btn-gen-use').addEventListener('click', useGenerated);
+  document.getElementById('btn-gen-close').addEventListener('click', () => closeModal('modal-generator'));
+
+  // Sidebar tools: generator, security dashboard, theme, lock
+  document.getElementById('btn-tool-generator').addEventListener('click', () => openGenerator());
+  document.getElementById('btn-tool-watchtower').addEventListener('click', openWatchtower);
+  document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+  document.getElementById('btn-lock').addEventListener('click', lockVault);
+
+  // Lock screen unlock
+  document.getElementById('btn-unlock').addEventListener('click', unlockVault);
+  document.getElementById('lock-password').addEventListener('keydown', e => { if (e.key === 'Enter') unlockVault(); });
+  document.getElementById('btn-lock-logout').addEventListener('click', logout);
+
+  // Command palette
+  document.getElementById('cmd-input').addEventListener('input', e => renderCmdResults(e.target.value));
+  document.getElementById('cmd-input').addEventListener('keydown', cmdKeydown);
+  document.getElementById('cmd-palette').addEventListener('click', e => {
+    if (e.target.id === 'cmd-palette') closeCmdPalette();
+  });
+  document.getElementById('btn-watchtower-close').addEventListener('click', () => closeModal('modal-watchtower'));
+
+  // Global shortcuts: Cmd/Ctrl+K opens palette, Escape closes overlays
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const overlay = document.getElementById('cmd-palette');
+      if (overlay.classList.contains('active')) closeCmdPalette(); else openCmdPalette();
+    } else if (e.key === 'Escape') {
+      closeCmdPalette();
+      document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+    }
   });
 
   // Teams

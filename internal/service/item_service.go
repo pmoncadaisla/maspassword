@@ -17,6 +17,8 @@ type ItemService interface {
 	Create(ctx context.Context, userID, vaultID uuid.UUID, req dto.CreateItemRequest) (*models.Item, error)
 	ListByVault(ctx context.Context, userID, vaultID uuid.UUID) ([]models.Item, error)
 	Update(ctx context.Context, userID, vaultID, itemID uuid.UUID, req dto.UpdateItemRequest) (*models.Item, error)
+	Delete(ctx context.Context, userID, vaultID, itemID uuid.UUID) error
+	ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]models.ItemHistory, error)
 }
 
 type itemService struct {
@@ -94,4 +96,36 @@ func (s *itemService) Update(ctx context.Context, userID, vaultID, itemID uuid.U
 		return nil, err
 	}
 	return item, nil
+}
+
+func (s *itemService) Delete(ctx context.Context, userID, vaultID, itemID uuid.UUID) error {
+	if err := s.verifyAccess(ctx, userID, vaultID); err != nil {
+		return err
+	}
+
+	item, err := s.itemRepo.GetByID(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	if item.VaultID != vaultID {
+		return repository.ErrItemNotFound
+	}
+
+	return s.itemRepo.Delete(ctx, itemID)
+}
+
+func (s *itemService) ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]models.ItemHistory, error) {
+	if err := s.verifyAccess(ctx, userID, vaultID); err != nil {
+		return nil, err
+	}
+
+	item, err := s.itemRepo.GetByID(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	if item.VaultID != vaultID {
+		return nil, repository.ErrItemNotFound
+	}
+
+	return s.itemRepo.ListHistory(ctx, itemID)
 }

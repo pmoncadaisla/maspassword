@@ -54,6 +54,56 @@
     </div>
   </div>
 
-<script src="popup.js"></script>
+  <!-- Item detail screen (with TOTP) -->
+  <div id="screen-detail" class="screen">
+    <div class="popup-header">
+      <button class="btn-icon" id="btn-detail-back" title="Back">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L9.06 10l3.71 3.71a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"/></svg>
+      </button>
+      <h1 id="detail-title">Item</h1>
+      <span style="width:24px"></span>
+    </div>
+    <div class="popup-body" id="detail-body"></div>
+    <div class="popup-footer">
+      <button class="btn btn-primary" id="btn-detail-fill">Autofill</button>
+    </div>
+  </div>
+
+  <!-- Password generator screen -->
+  <div id="screen-generator" class="screen">
+    <div class="popup-header">
+      <button class="btn-icon" id="btn-gen-back" title="Back">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L9.06 10l3.71 3.71a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"/></svg>
+      </button>
+      <h1>Password generator</h1>
+      <span style="width:24px"></span>
+    </div>
+    <div class="popup-body">
+      <div class="gen-output-row">
+        <div class="gen-password" id="gen-output"></div>
+        <button class="btn-icon" id="btn-gen-refresh" title="Regenerate">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h1.999a.75.75 0 000-1.5H3.482a.75.75 0 00-.75.75v4.316a.75.75 0 001.5 0v-1.5l.317.316a7 7 0 0011.712-3.138.75.75 0 00-1.449-.399zm1.23-3.723a.75.75 0 00.219-.53V2.855a.75.75 0 00-1.5 0v1.5l-.317-.316A7 7 0 003.633 7.481a.75.75 0 101.449.399 5.5 5.5 0 019.201-2.466l.312.311H12.6a.75.75 0 000 1.5h4.316a.75.75 0 00.53-.22z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>
+
+      <div class="gen-control">
+        <label>Length: <span id="gen-len-value">20</span></label>
+        <input type="range" id="gen-length" min="8" max="40" value="20">
+      </div>
+
+      <div class="gen-toggles">
+        <label class="gen-toggle"><input type="checkbox" id="gen-upper" checked> Uppercase (A-Z)</label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-lower" checked> Lowercase (a-z)</label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-digits" checked> Digits (0-9)</label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-symbols" checked> Symbols (!@#…)</label>
+      </div>
+    </div>
+    <div class="popup-footer">
+      <button class="footer-btn" id="btn-gen-generate">Generate</button>
+      <button class="footer-btn" id="btn-gen-copy">Copy</button>
+    </div>
+  </div>
+
+<script type="module" src="popup.js"></script>
 </body>
 </html>

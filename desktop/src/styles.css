@@ -1,0 +1,153 @@
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-hover: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --primary: #2ea88a;
+  --primary-hover: #35c29e;
+  --danger: #f85149;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.launcher {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 28px;
+  gap: 14px;
+}
+
+.logo {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+form,
+.saved {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input {
+  width: 100%;
+  padding: 11px 13px;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  outline: none;
+  user-select: text;
+  transition: border-color 0.15s;
+}
+
+input:focus {
+  border-color: var(--primary);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 9px;
+}
+
+button.primary {
+  padding: 11px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #04170f;
+  background: var(--primary);
+  transition: background 0.15s, transform 0.05s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.primary:hover {
+  background: var(--primary-hover);
+}
+
+button.primary:active {
+  transform: translateY(1px);
+}
+
+button.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+button.link {
+  background: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 4px;
+  align-self: center;
+}
+
+button.link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.hint {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 320px;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "maspassword-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MasPassword desktop app for macOS (Tauri v2)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon app-icon.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
