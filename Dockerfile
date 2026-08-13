@@ -2,10 +2,8 @@
 # host's native platform and cross-compiles Go for $TARGETARCH, so buildx does
 # not need to emulate the compiler under QEMU.
 #
-# BuildKit injects BUILDPLATFORM; the default below is only for non-BuildKit
-# builders (Cloud Build's classic docker builder, used by gcloud builds submit),
-# where the variable would otherwise be empty and break the FROM line.
-ARG BUILDPLATFORM=linux/amd64
+# Requires BuildKit ($BUILDPLATFORM is injected by it). For Cloud Build, use
+# cloudbuild.yaml, which enables BuildKit — the classic builder fails here.
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
