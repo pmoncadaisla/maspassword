@@ -86,7 +86,7 @@ jobs:
             "dist/MasPassword-${VERSION}-macos-universal.app.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-macos
+          name: dist-desktop-macos
           path: dist/*
           if-no-files-found: error
 
@@ -107,7 +107,7 @@ jobs:
           unzip -l "dist/maspassword-extension-${VERSION}.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: extension
+          name: dist-extension
           path: dist/*
           if-no-files-found: error
 
@@ -138,6 +138,10 @@ jobs:
             type=ref,event=branch
             type=sha
       - uses: docker/build-push-action@v6
+        env:
+          # Don't upload the .dockerbuild debug artifact: it pollutes the run's
+          # artifact list and its download broke the release job.
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -157,6 +161,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: dist-*
           path: dist
           merge-multiple: true
       - name: Checksums
