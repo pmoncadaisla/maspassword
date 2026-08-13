@@ -1,0 +1,41 @@
+# Despliegue autocontenido: PostgreSQL + servidor MasPassword.
+#
+#   JWT_SECRET=$(openssl rand -hex 32) docker compose up -d
+#
+# Variables (se pueden fijar en un fichero .env junto a este compose):
+#   JWT_SECRET   obligatoria, sin valor por defecto a proposito
+#   DB_PASSWORD  password de PostgreSQL (por defecto: vault_pass, cambialo)
+#   PORT         puerto publicado en el host (por defecto: 8080)
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: vault_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vault_pass}
+      POSTGRES_DB: vault_internal
+    volumes:
+      - vault-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault_user -d vault_internal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/pmoncadaisla/maspassword:latest
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://vault_user:${DB_PASSWORD:-vault_pass}@db:5432/vault_internal?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET (p.ej. openssl rand -hex 32)}
+      SERVER_PORT: "8080"
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - "${PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  vault-db:
