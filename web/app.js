@@ -4,15 +4,22 @@ import { generatePassword as genAdvanced, generatePassphrase, passwordEntropyBit
 import { estimateStrength } from '/strength.js';
 import { checkPwnedCount } from '/breach.js';
 import { detectFormatAndParse } from '/import.js';
+import { initI18n, getLocale, setLocale, t, applyI18n, LOCALES } from '/i18n.js';
+import { icon, faviconUrl } from '/icons.js';
+import { MAX_ATTACHMENTS, fileToAttachment, attachmentDataUrl, formatSize } from '/attachments.js';
+import { createSharePayload, decryptSharePayload, buildShareUrl, parseShareHash } from '/sharelink.js';
+import { findDuplicateGroups } from '/duplicates.js';
 
 // --- Item types (1Password-style) ---
+// Labels are resolved lazily through t() so they follow the active locale.
 const ITEM_TYPES = {
-  login:    { label: 'Login',        icon: '\u{1F511}' },  // 🔑
-  card:     { label: 'Credit Card',  icon: '\u{1F4B3}' },  // 💳
-  note:     { label: 'Secure Note',  icon: '\u{1F4DD}' },  // 📝
-  identity: { label: 'Identity',     icon: '\u{1F464}' },  // 👤
+  login:    { icon: '\u{1F511}' },  // 🔑
+  card:     { icon: '\u{1F4B3}' },  // 💳
+  note:     { icon: '\u{1F4DD}' },  // 📝
+  identity: { icon: '\u{1F464}' },  // 👤
 };
 function itemType(data) { return ITEM_TYPES[data?.type] ? data.type : 'login'; }
+function typeLabel(type) { return t('type.' + (ITEM_TYPES[type] ? type : 'login')); }
 
 // --- State ---
 let token = null;
@@ -38,6 +45,12 @@ let activeTag = null; // tag filter in the item list
 let lockContext = null; // { email, encryptedPrivateKey } — lets us re-unlock without a full re-login
 let autoLockTimer = null; // inactivity timer handle
 let autoLockMinutes = Number(localStorage.getItem('mp-autolock') || 10); // 0 = disabled
+let appVersion = ''; // server version from /auth/mode
+let vaultSharesCache = {}; // vaultId -> { at, teams: [{team_id,team_name,shared_at}] }
+let formAttachments = []; // attachments being edited in the item form (plaintext, in-memory only)
+let historyEntries = []; // decrypted history entries for the open history modal
+let globalIndex = null; // decrypted cross-vault index for the sidebar global search
+let globalIndexAt = 0; // timestamp of globalIndex (cached ~60s)
 
 // --- API ---
 async function api(method, path, body) {
@@ -49,7 +62,11 @@ async function api(method, path, body) {
   }
   const res = await fetch(path, opts);
   const data = res.status !== 204 ? await res.json().catch(() => null) : null;
-  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -59,6 +76,14 @@ function showAuthScreen(id) {
   document.getElementById('screen-' + id).classList.add('active');
   document.getElementById('main-app').style.display = 'none';
   setHash('/' + id);
+}
+
+// Show a screen WITHOUT touching the hash (used by the share-link recipient
+// screen, where the fragment carries the decryption key and must be preserved).
+function showScreenNoHash(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.getElementById('main-app').style.display = 'none';
 }
 
 function showMainApp() {
@@ -79,6 +104,15 @@ function currentHash() {
 }
 
 async function handleRoute() {
+  // One-time share links come BEFORE any auth check: recipients don't need an
+  // account. The decryption key lives only in the fragment and never leaves
+  // the browser.
+  const share = parseShareHash(location.hash);
+  if (share) {
+    await renderShareOpen(share);
+    return;
+  }
+
   if (navigating) return;
   const hash = currentHash();
 
@@ -155,7 +189,7 @@ async function navigateToVault(vaultId) {
     vault = vaults.find(v => v.id === vaultId);
   }
   if (!vault) {
-    toast('Vault not found', true);
+    toast(t('vault.notFound'), true);
     setHash('/');
     return;
   }
@@ -177,6 +211,8 @@ async function navigateToVault(vaultId) {
     renderSidebar();
     showDetailEmpty();
     closeMobileSidebar();
+    // Lazily fetch which teams this vault is shared with (renders chips under the header).
+    loadVaultShares(vault);
   }
 }
 
@@ -186,7 +222,7 @@ async function navigateToItem(itemId) {
   // Items should already be loaded by navigateToVault
   const item = items.find(i => i.id === itemId);
   if (!item) {
-    toast('Item not found', true);
+    toast(t('toast.itemNotFound'), true);
     setHash(`/vault/${currentVault.id}`);
     return;
   }
@@ -195,14 +231,14 @@ async function navigateToItem(itemId) {
 }
 
 async function navigateToTeam(teamId) {
-  let team = teams.find(t => t.id === teamId);
+  let team = teams.find(tm => tm.id === teamId);
   if (!team) {
     await loadTeams();
     renderSidebar();
-    team = teams.find(t => t.id === teamId);
+    team = teams.find(tm => tm.id === teamId);
   }
   if (!team) {
-    toast('Team not found', true);
+    toast(t('teams.notFound'), true);
     setHash('/');
     return;
   }
@@ -218,6 +254,8 @@ async function navigateToTeam(teamId) {
     document.getElementById('items-empty').style.display = 'none';
     document.getElementById('item-list-actions').style.display = 'none';
     document.getElementById('team-detail-panel').style.display = 'block';
+    document.getElementById('vault-shares').style.display = 'none';
+    document.getElementById('tag-bar').style.display = 'none';
 
     showMainApp();
     await Promise.all([loadTeamMembers(), loadTeamVaults()]);
@@ -258,9 +296,9 @@ async function signup() {
   const pw = document.getElementById('signup-password').value;
   const confirm = document.getElementById('signup-confirm').value;
 
-  if (!email || !pw) return toast('Fill all fields', true);
-  if (pw !== confirm) return toast('Passwords do not match', true);
-  if (pw.length < 8) return toast('Password must be at least 8 characters', true);
+  if (!email || !pw) return toast(t('toast.fillAllFields'), true);
+  if (pw !== confirm) return toast(t('toast.passwordsMismatch'), true);
+  if (pw.length < 8) return toast(t('toast.passwordTooShort'), true);
 
   const btn = document.getElementById('btn-signup');
   btn.disabled = true;
@@ -285,7 +323,7 @@ async function signup() {
       encrypted_private_key: encryptedPrivKey,
       recovery_encrypted_private_key: recoveryEncPrivKey,
     });
-    toast('Account created!');
+    toast(t('toast.accountCreated'));
     showRecoveryKeyScreen(recoveryKey, () => {
       showAuthScreen('login');
       document.getElementById('login-email').value = email;
@@ -294,14 +332,14 @@ async function signup() {
     toast(e.message, true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Create Account';
+    btn.textContent = t('auth.signup.title');
   }
 }
 
 async function login() {
   const email = document.getElementById('login-email').value.trim();
   const pw = document.getElementById('login-password').value;
-  if (!email || !pw) return toast('Fill all fields', true);
+  if (!email || !pw) return toast(t('toast.fillAllFields'), true);
 
   const btn = document.getElementById('btn-login');
   btn.disabled = true;
@@ -343,7 +381,7 @@ async function login() {
     lockContext = { email, encryptedPrivateKey: lockEncPrivKey };
     sessionStorage.setItem('token', token);
     startAutoLock();
-    toast('Logged in');
+    toast(t('toast.loggedIn'));
     await Promise.all([loadVaults(), loadTeams()]);
 
     // Navigate to pending route or show main app
@@ -358,10 +396,10 @@ async function login() {
       setHash('/');
     }
   } catch (e) {
-    toast('Login failed: ' + e.message, true);
+    toast(t('toast.loginFailed', { error: e.message }), true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Log in';
+    btn.textContent = t('auth.login');
   }
 }
 
@@ -380,6 +418,9 @@ function logout() {
   pendingRoute = null;
   activeTag = null;
   lockContext = null;
+  vaultSharesCache = {};
+  historyEntries = [];
+  wipePlaintextCaches();
   stopAutoLock();
   stopTOTP();
   sessionStorage.clear();
@@ -413,6 +454,17 @@ function stopAutoLock() {
   }
 }
 
+// Wipe every in-memory plaintext cache (global search index, palette index,
+// strength memo). Called on lock and logout.
+function wipePlaintextCaches() {
+  globalIndex = null;
+  globalIndexAt = 0;
+  cmdIndex = [];
+  cmdList = [];
+  _strengthMemo.clear();
+  hideGlobalSearch(true);
+}
+
 // Lock: wipe decryption keys and plaintext caches from memory, show the lock screen.
 // The JWT session token is preserved so unlocking is a local key re-derivation.
 function lockVault() {
@@ -422,6 +474,8 @@ function lockVault() {
   vaultKeyCache = {};
   decryptedItemsCache = [];
   currentItem = null;
+  historyEntries = [];
+  wipePlaintextCaches();
   stopAutoLock();
   stopTOTP();
   closeCmdPalette();
@@ -429,9 +483,14 @@ function lockVault() {
   // can't float over the lock screen with plaintext still visible.
   document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
   // Scrub decrypted plaintext out of the (about-to-be-hidden) DOM — item titles,
-  // usernames, revealed passwords, breach results and tag chips.
-  ['item-list', 'detail-fields', 'detail-meta', 'detail-breach-result', 'tag-bar']
+  // usernames, revealed passwords, breach results, tag chips, history entries,
+  // attachments and share metadata.
+  ['item-list', 'detail-fields', 'detail-meta', 'detail-breach-result', 'tag-bar',
+   'history-body', 'share-links-list', 'vault-shares', 'detail-item-icon',
+   'custom-fields-list', 'item-attachments-list']
     .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  formAttachments = [];
+  FORM_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const extras = document.getElementById('detail-extras');
   if (extras) extras.style.display = 'none';
   const search = document.getElementById('search-input');
@@ -457,17 +516,21 @@ async function unlockVault() {
     showMainApp();
     renderSidebar();
     // Re-render whatever was open and restore the route off of /lock.
-    if (currentVault) { await loadItems(); setHash(`/vault/${currentVault.id}`); }
+    if (currentVault) {
+      await loadItems();
+      loadVaultShares(currentVault);
+      setHash(`/vault/${currentVault.id}`);
+    }
     else setHash('/');
-    toast('Unlocked');
+    toast(t('toast.unlocked'));
     document.getElementById('lock-password').value = '';
   } catch {
-    toast('Wrong master password', true);
+    toast(t('toast.wrongMasterPassword'), true);
     encKey = null;
     privateKey = null;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Unlock';
+    btn.textContent = t('auth.unlock');
   }
 }
 
@@ -482,7 +545,7 @@ function applyTheme(theme) {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme === 'dark' ? '#0d1117' : '#10a37f');
   const btn = document.getElementById('btn-theme');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️ Light mode' : '\u{1F319} Dark mode';
+  if (btn) btn.textContent = theme === 'dark' ? '☀️ ' + t('sidebar.lightMode') : '\u{1F319} ' + t('sidebar.darkMode');
 }
 function toggleTheme() {
   applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
@@ -533,6 +596,8 @@ function refreshGenerator() {
 }
 
 // --- Password strength meter ---
+const STRENGTH_KEYS = ['strength.veryWeak', 'strength.weak', 'strength.fair', 'strength.strong', 'strength.veryStrong'];
+
 function renderStrengthInto(containerId, password) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -540,10 +605,48 @@ function renderStrengthInto(containerId, password) {
   const s = estimateStrength(password);
   const pct = Math.max(6, Math.round((s.score + 1) / 5 * 100));
   const cls = ['vw', 'w', 'f', 's', 'vs'][s.score] || 'w';
-  const detail = s.crackTimeDisplay ? `· cracks in ~${esc(s.crackTimeDisplay)}` : '';
+  const detail = s.crackTimeDisplay ? `· ${esc(t('strength.cracksIn', { time: s.crackTimeDisplay }))}` : '';
   el.innerHTML = `
     <div class="strength-bar"><div class="strength-fill strength-${cls}" style="width:${pct}%"></div></div>
-    <div class="strength-label">${esc(s.label)} <span class="strength-detail">${Math.round(s.entropyBits)} bits ${detail}</span></div>`;
+    <div class="strength-label">${esc(t(STRENGTH_KEYS[s.score] || STRENGTH_KEYS[1]))} <span class="strength-detail">${esc(t('strength.bits', { bits: Math.round(s.entropyBits) }))} ${detail}</span></div>`;
+}
+
+// Memoized strength score used for the per-row weak-password badge.
+const _strengthMemo = new Map();
+function strengthScore(pw) {
+  if (_strengthMemo.has(pw)) return _strengthMemo.get(pw);
+  let score = 4;
+  try { score = estimateStrength(pw).score; } catch {}
+  if (_strengthMemo.size > 500) _strengthMemo.clear();
+  _strengthMemo.set(pw, score);
+  return score;
+}
+
+// --- Version ---
+function renderVersion() {
+  const label = appVersion ? `MasPassword ${appVersion}` : 'MasPassword';
+  ['app-version-login', 'app-version-sidebar', 'app-version-share'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
+  });
+}
+
+// --- Relative time ("hace 5 min") in the active locale ---
+function formatRelative(ts) {
+  const time = new Date(ts).getTime();
+  if (!isFinite(time)) return '';
+  const diff = time - Date.now();
+  let rtf;
+  try { rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto' }); }
+  catch { rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' }); }
+  const abs = Math.abs(diff);
+  const MIN = 60e3, HOUR = 3600e3, DAY = 86400e3;
+  if (abs < 45e3) return rtf.format(Math.round(diff / 1e3), 'second');
+  if (abs < 45 * MIN) return rtf.format(Math.round(diff / MIN), 'minute');
+  if (abs < 22 * HOUR) return rtf.format(Math.round(diff / HOUR), 'hour');
+  if (abs < 26 * DAY) return rtf.format(Math.round(diff / DAY), 'day');
+  if (abs < 335 * DAY) return rtf.format(Math.round(diff / (30 * DAY)), 'month');
+  return rtf.format(Math.round(diff / (365 * DAY)), 'year');
 }
 
 // --- IAP Authentication ---
@@ -551,6 +654,8 @@ async function detectAuthMode() {
   try {
     const res = await fetch('/auth/mode');
     const data = await res.json();
+    appVersion = data.version || '';
+    renderVersion();
     return data.iap_enabled === true;
   } catch {
     return false;
@@ -582,7 +687,7 @@ async function initIAPSession() {
 
 async function iapUnlock() {
   const pw = document.getElementById('iap-unlock-password').value;
-  if (!pw) return toast('Enter your master password', true);
+  if (!pw) return toast(t('toast.enterMasterPassword'), true);
 
   const btn = document.getElementById('btn-iap-unlock');
   btn.disabled = true;
@@ -596,18 +701,18 @@ async function iapUnlock() {
 
     lockContext = { email: iapSession.email, encryptedPrivateKey: iapSession.encrypted_private_key };
     startAutoLock();
-    toast('Vault unlocked');
+    toast(t('toast.unlocked'));
     await Promise.all([loadVaults(), loadTeams()]);
     showMainApp();
     renderSidebar();
     setHash('/');
   } catch (e) {
-    toast('Wrong master password', true);
+    toast(t('toast.wrongMasterPassword'), true);
     encKey = null;
     privateKey = null;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Unlock';
+    btn.textContent = t('auth.unlock');
   }
 }
 
@@ -615,9 +720,9 @@ async function iapSetup() {
   const pw = document.getElementById('iap-setup-password').value;
   const confirm = document.getElementById('iap-setup-confirm').value;
 
-  if (!pw) return toast('Enter a master password', true);
-  if (pw !== confirm) return toast('Passwords do not match', true);
-  if (pw.length < 8) return toast('Password must be at least 8 characters', true);
+  if (!pw) return toast(t('toast.enterMasterPassword'), true);
+  if (pw !== confirm) return toast(t('toast.passwordsMismatch'), true);
+  if (pw.length < 8) return toast(t('toast.passwordTooShort'), true);
 
   const btn = document.getElementById('btn-iap-setup');
   btn.disabled = true;
@@ -652,7 +757,7 @@ async function iapSetup() {
 
     lockContext = { email: iapSession.email, encryptedPrivateKey: encryptedPrivKey };
     startAutoLock();
-    toast('Encryption set up successfully');
+    toast(t('toast.encryptionSetup'));
     await Promise.all([loadVaults(), loadTeams()]);
 
     showRecoveryKeyScreen(recoveryKey, () => {
@@ -661,10 +766,10 @@ async function iapSetup() {
       setHash('/');
     });
   } catch (e) {
-    toast('Setup failed: ' + e.message, true);
+    toast(t('toast.setupFailed', { error: e.message }), true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Set Up Encryption';
+    btn.textContent = t('auth.iap.setupTitle');
   }
 }
 
@@ -685,9 +790,9 @@ async function recover() {
   const pw = document.getElementById('recover-password').value;
   const confirm = document.getElementById('recover-confirm').value;
 
-  if (!email || !recoveryKeyInput || !pw) return toast('Fill all fields', true);
-  if (pw !== confirm) return toast('Passwords do not match', true);
-  if (pw.length < 8) return toast('Password must be at least 8 characters', true);
+  if (!email || !recoveryKeyInput || !pw) return toast(t('toast.fillAllFields'), true);
+  if (pw !== confirm) return toast(t('toast.passwordsMismatch'), true);
+  if (pw.length < 8) return toast(t('toast.passwordTooShort'), true);
 
   const btn = document.getElementById('btn-recover');
   btn.disabled = true;
@@ -704,7 +809,7 @@ async function recover() {
       const json = await decrypt(recoveryAesKey, recoveryData.recovery_encrypted_private_key);
       privateKeyJwk = JSON.parse(json);
     } catch {
-      throw new Error('Invalid recovery key');
+      throw new Error(t('toast.invalidRecoveryKey'));
     }
 
     // 2b. Prove possession of the recovery key to the server: decrypt a nonce the
@@ -739,16 +844,16 @@ async function recover() {
       recovery_encrypted_private_key: newRecoveryEncPrivKey,
     });
 
-    toast('Password reset successful!');
+    toast(t('toast.passwordResetSuccess'));
     showRecoveryKeyScreen(newRecoveryKey, () => {
       showAuthScreen('login');
       document.getElementById('login-email').value = email;
     });
   } catch (e) {
-    toast('Recovery failed: ' + e.message, true);
+    toast(t('toast.recoveryFailed', { error: e.message }), true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Reset Password';
+    btn.textContent = t('recover.submit');
   }
 }
 
@@ -765,7 +870,7 @@ async function renderSidebar() {
       const key = await getVaultDecryptionKey(v);
       name = await decrypt(key, v.name_encrypted);
     } catch {}
-    const sharedBadge = v.team_id ? '<span class="badge-shared">&#128101;</span>' : '';
+    const sharedBadge = v.team_id ? `<span class="badge-shared" title="${escAttr(t('vault.shared'))}">&#128101;</span>` : '';
     const activeClass = currentVault && currentVault.id === v.id && sidebarMode === 'vaults' ? ' active' : '';
     vaultCards.push(`<button class="sidebar-item${activeClass}" data-vault-id="${v.id}">
       <span class="sidebar-item-icon">&#128274;</span>
@@ -779,11 +884,11 @@ async function renderSidebar() {
   });
 
   // Render teams
-  const teamCards = teams.map(t => {
-    const activeClass = currentTeam && currentTeam.id === t.id && sidebarMode === 'team' ? ' active' : '';
-    return `<button class="sidebar-item${activeClass}" data-team-id="${t.id}">
+  const teamCards = teams.map(tm => {
+    const activeClass = currentTeam && currentTeam.id === tm.id && sidebarMode === 'team' ? ' active' : '';
+    return `<button class="sidebar-item${activeClass}" data-team-id="${tm.id}">
       <span class="sidebar-item-icon">&#128101;</span>
-      <span class="sidebar-item-name">${esc(t.name)}</span>
+      <span class="sidebar-item-name">${esc(tm.name)}</span>
     </button>`;
   }).join('');
   teamList.innerHTML = teamCards;
@@ -810,7 +915,7 @@ async function loadVaults() {
 async function createVault() {
   const nameInput = document.getElementById('vault-name-input');
   const name = nameInput.value.trim();
-  if (!name) return toast('Enter a name', true);
+  if (!name) return toast(t('toast.enterName'), true);
 
   try {
     const nameEnc = await encrypt(encKey, name);
@@ -819,11 +924,32 @@ async function createVault() {
     nameInput.value = '';
     await loadVaults();
     renderSidebar();
-    toast('Vault created');
+    toast(t('vault.created'));
     if (newVault?.id) await selectVault(newVault.id);
   } catch (e) {
     toast(e.message, true);
   }
+}
+
+// --- Vault shares (which teams a vault is shared with) ---
+async function loadVaultShares(vault) {
+  const el = document.getElementById('vault-shares');
+  if (!el || !vault) return;
+  el.style.display = 'none';
+  el.innerHTML = '';
+  let entry = vaultSharesCache[vault.id];
+  if (!entry || Date.now() - entry.at > 60000) {
+    let shares = [];
+    try { shares = (await api('GET', `/api/vaults/${vault.id}/shares`)) || []; } catch {}
+    entry = { at: Date.now(), teams: shares };
+    vaultSharesCache[vault.id] = entry;
+  }
+  // The user may have navigated away while we were fetching.
+  if (!currentVault || currentVault.id !== vault.id || sidebarMode !== 'vaults') return;
+  if (!entry.teams.length) return;
+  el.innerHTML = `<span class="vault-shares-label">${icon('users', { size: 12 })} ${esc(t('vault.sharedWith'))}</span>` +
+    entry.teams.map(s => `<span class="team-chip">${esc(s.team_name)}</span>`).join('');
+  el.style.display = 'flex';
 }
 
 // --- Items ---
@@ -859,11 +985,35 @@ async function renderItems() {
 }
 
 function itemSubtitle(data) {
-  const t = itemType(data);
-  if (t === 'card') return data.card_number ? '•••• ' + data.card_number.replace(/\s/g, '').slice(-4) : 'Card';
-  if (t === 'identity') return data.id_email || data.id_fullname || 'Identity';
-  if (t === 'note') return 'Secure note';
+  const ty = itemType(data);
+  if (ty === 'card') return data.card_number ? '•••• ' + data.card_number.replace(/\s/g, '').slice(-4) : typeLabel('card');
+  if (ty === 'identity') return data.id_email || data.id_fullname || typeLabel('identity');
+  if (ty === 'note') return typeLabel('note');
   return data.username || '';
+}
+
+// Item icon, in priority: custom emoji (data.icon) -> site favicon -> type icon.
+// The favicon <img> falls back to the type icon on load error.
+function itemIconHtml(data, size = 16) {
+  const typeIco = `<span class="item-emoji">${ITEM_TYPES[itemType(data)].icon}</span>`;
+  if (data && data.icon) {
+    return `<span class="item-emoji">${esc(String(data.icon).slice(0, 8))}</span>`;
+  }
+  const fav = data && data.url ? faviconUrl(data.url, 32) : null;
+  if (fav) {
+    return `<img class="favicon-img" src="${escAttr(fav)}" width="${size}" height="${size}" alt="" loading="lazy"
+      onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline';">` +
+      `<span class="item-emoji" style="display:none;">${ITEM_TYPES[itemType(data)].icon}</span>`;
+  }
+  return typeIco;
+}
+
+// Small tag chips shown on list rows (max 3 + '+N').
+function rowTagsHtml(tags) {
+  if (!tags || !tags.length) return '';
+  const shown = tags.slice(0, 3).map(tg => `<span class="row-tag">${esc(tg)}</span>`).join('');
+  const more = tags.length > 3 ? `<span class="row-tag more">+${tags.length - 3}</span>` : '';
+  return `<div class="row-tags">${shown}${more}</div>`;
 }
 
 // Render the favorites/tags filter chips above the item list.
@@ -874,12 +1024,12 @@ function renderTagBar() {
   let hasFav = false;
   for (const { data } of decryptedItemsCache) {
     if (data.favorite) hasFav = true;
-    (data.tags || []).forEach(t => tagSet.add(t));
+    (data.tags || []).forEach(tg => tagSet.add(tg));
   }
   const chips = [];
-  if (hasFav) chips.push(`<button class="filter-chip${activeTag === '__fav__' ? ' active' : ''}" data-tag="__fav__">★ Favorites</button>`);
-  for (const t of [...tagSet].sort()) {
-    chips.push(`<button class="filter-chip${activeTag === t ? ' active' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`);
+  if (hasFav) chips.push(`<button class="filter-chip${activeTag === '__fav__' ? ' active' : ''}" data-tag="__fav__">★ ${esc(t('items.favorites'))}</button>`);
+  for (const tg of [...tagSet].sort()) {
+    chips.push(`<button class="filter-chip${activeTag === tg ? ' active' : ''}" data-tag="${escAttr(tg)}">${esc(tg)}</button>`);
   }
   bar.innerHTML = chips.join('');
   bar.style.display = chips.length ? 'flex' : 'none';
@@ -904,7 +1054,7 @@ function renderFilteredItems() {
     (i.data.title || '').toLowerCase().includes(query) ||
     (i.data.username || '').toLowerCase().includes(query) ||
     (i.data.url || '').toLowerCase().includes(query) ||
-    (i.data.tags || []).some(t => t.toLowerCase().includes(query)));
+    (i.data.tags || []).some(tg => tg.toLowerCase().includes(query)));
 
   // Favorites first, then alphabetical by title.
   filtered = [...filtered].sort((a, b) =>
@@ -920,15 +1070,18 @@ function renderFilteredItems() {
 
   const cards = filtered.map(({ id, data }) => {
     const activeClass = currentItem && currentItem.id === id ? ' active' : '';
-    const totpDot = data.totp_secret ? '<span class="totp-indicator" title="Has TOTP"></span>' : '';
-    const favDot = data.favorite ? '<span class="fav-indicator" title="Favorite">★</span>' : '';
+    const totpDot = data.totp_secret ? `<span class="totp-indicator" title="${escAttr(t('items.hasTotp'))}"></span>` : '';
+    const favDot = data.favorite ? `<span class="fav-indicator" title="${escAttr(t('items.favorite'))}">★</span>` : '';
+    const weakDot = (itemType(data) === 'login' && data.password && strengthScore(data.password) <= 1)
+      ? `<span class="weak-indicator" title="${escAttr(t('watchtower.weak'))}">${icon('alert', { size: 13 })}</span>` : '';
     return `<div class="item-card${activeClass}" data-id="${id}">
-      <div class="card-icon">${ITEM_TYPES[itemType(data)].icon}</div>
+      <div class="card-icon">${itemIconHtml(data, 18)}</div>
       <div class="card-info">
-        <h3>${esc(data.title || 'Untitled')}</h3>
+        <h3>${esc(data.title || t('items.untitled'))}</h3>
         <p>${esc(itemSubtitle(data))}</p>
+        ${rowTagsHtml(data.tags)}
       </div>
-      ${favDot}${totpDot}
+      ${weakDot}${favDot}${totpDot}
     </div>`;
   });
   list.innerHTML = cards.join('');
@@ -944,7 +1097,7 @@ async function openItem(id) {
   await openItemDirect(id);
 }
 
-// Build a single detail field row. Copy/reveal use event delegation (see wireDetailDelegation).
+// Build a single detail field row. Copy/reveal use event delegation (see wireCopyReveal).
 function fieldRow(label, value, opts = {}) {
   if (value == null || value === '') return '';
   const { mono = false, masked = false, url = false } = opts;
@@ -952,19 +1105,19 @@ function fieldRow(label, value, opts = {}) {
   let valHtml;
   if (url) {
     const href = /^https?:\/\//i.test(value) ? value : 'https://' + value;
-    valHtml = `<a class="field-value link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>`;
+    valHtml = `<a class="field-value link" href="${escAttr(href)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>`;
   } else {
     valHtml = `<div class="field-value ${mono ? 'mono' : ''} ${masked ? 'masked' : ''}" data-raw="${enc}">${masked ? '••••••••••' : esc(value)}</div>`;
   }
-  const reveal = masked ? `<button class="btn-icon js-reveal" title="Show">&#128065;</button>` : '';
-  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="Copy">&#128203;</button>`;
+  const reveal = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">&#128065;</button>` : '';
+  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">&#128203;</button>`;
   return `<div class="field"><div class="field-main"><div class="field-label">${esc(label)}</div>${valHtml}</div><div class="field-actions">${reveal}${copy}</div></div>`;
 }
 
 function totpFieldHtml() {
   return `<div class="field" id="totp-field-container">
     <div class="field-main">
-      <div class="field-label">One-Time Password</div>
+      <div class="field-label">${esc(t('fields.totp'))}</div>
       <div class="totp-display">
         <span class="totp-code" id="detail-totp-code"></span>
         <svg class="totp-countdown" viewBox="0 0 36 36">
@@ -976,8 +1129,19 @@ function totpFieldHtml() {
       </div>
     </div>
     <div class="field-actions">
-      <button class="btn-icon js-copy" data-copy="totp" title="Copy code">&#128203;</button>
+      <button class="btn-icon js-copy" data-copy="totp" title="${escAttr(t('totp.copyCode'))}">&#128203;</button>
     </div>
+  </div>`;
+}
+
+// One attachment row (used in detail view and in the shared-item view).
+function attachmentRowHtml(att) {
+  const name = att.name || 'file';
+  return `<div class="attachment-row">
+    <span class="attachment-icon">${icon('attachment', { size: 15 })}</span>
+    <span class="attachment-name">${esc(name)}</span>
+    <span class="attachment-size">${esc(formatSize(att.size))}</span>
+    <a class="btn-icon" href="${escAttr(attachmentDataUrl(att))}" download="${escAttr(name)}" title="${escAttr(t('Descargar'))}">${icon('download', { size: 15 })}</a>
   </div>`;
 }
 
@@ -986,42 +1150,67 @@ function renderDetail(data) {
   const type = itemType(data);
   document.getElementById('detail-empty').style.display = 'none';
   document.getElementById('detail-content').style.display = 'block';
-  document.getElementById('detail-title').textContent = data.title || 'Untitled';
+  document.getElementById('detail-title').textContent = data.title || t('items.untitled');
+  document.getElementById('detail-item-icon').innerHTML = itemIconHtml(data, 20);
 
   const favBtn = document.getElementById('btn-fav-item');
   favBtn.textContent = data.favorite ? '★' : '☆';
   favBtn.classList.toggle('active', !!data.favorite);
 
-  const tags = (data.tags || []).map(t => `<button class="tag-chip" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
-  document.getElementById('detail-meta').innerHTML =
-    `<span class="type-badge">${ITEM_TYPES[type].icon} ${esc(ITEM_TYPES[type].label)}</span>${tags}`;
+  const tags = (data.tags || []).map(tg => `<button class="tag-chip" data-tag="${escAttr(tg)}">${esc(tg)}</button>`).join('');
+  let metaHtml = `<span class="type-badge">${ITEM_TYPES[type].icon} ${esc(typeLabel(type))}</span>${tags}`;
+  // "Last edited by X, 5 min ago" — uses display_name with email fallback.
+  if (currentItem && currentItem.updated_at) {
+    const by = currentItem.updated_by_name || currentItem.updated_by_email;
+    if (by) {
+      metaHtml += `<span class="detail-edited">${icon('clock', { size: 12 })} ${esc(t('items.lastEdited', { name: by, when: formatRelative(currentItem.updated_at) }))}</span>`;
+    }
+  }
+  document.getElementById('detail-meta').innerHTML = metaHtml;
 
   let html = '';
   if (type === 'login') {
-    html += fieldRow('Username', data.username);
-    html += fieldRow('Password', data.password, { mono: true, masked: true });
+    html += fieldRow(t('fields.username'), data.username);
+    html += fieldRow(t('fields.password'), data.password, { mono: true, masked: true });
     if (data.totp_secret) html += totpFieldHtml();
-    html += fieldRow('Website', data.url, { url: true });
-    html += fieldRow('Notes', data.notes);
+    html += fieldRow(t('fields.website'), data.url, { url: true });
+    html += fieldRow(t('fields.notes'), data.notes);
   } else if (type === 'card') {
-    html += fieldRow('Cardholder', data.card_holder);
-    html += fieldRow('Card Number', data.card_number, { mono: true, masked: true });
-    html += fieldRow('Brand', data.card_brand);
-    html += fieldRow('Expires', data.card_exp, { mono: true });
-    html += fieldRow('CVV', data.card_cvv, { mono: true, masked: true });
-    html += fieldRow('PIN', data.card_pin, { mono: true, masked: true });
-    html += fieldRow('Notes', data.notes);
+    html += fieldRow(t('fields.cardholder'), data.card_holder);
+    html += fieldRow(t('fields.cardNumber'), data.card_number, { mono: true, masked: true });
+    html += fieldRow(t('fields.cardBrand'), data.card_brand);
+    html += fieldRow(t('fields.cardExpiry'), data.card_exp, { mono: true });
+    html += fieldRow(t('fields.cvv'), data.card_cvv, { mono: true, masked: true });
+    html += fieldRow(t('fields.pin'), data.card_pin, { mono: true, masked: true });
+    html += fieldRow(t('fields.notes'), data.notes);
   } else if (type === 'identity') {
-    html += fieldRow('Full Name', data.id_fullname);
-    html += fieldRow('Email', data.id_email);
-    html += fieldRow('Phone', data.id_phone);
-    html += fieldRow('Address', data.id_address);
-    html += fieldRow('Company', data.id_company);
-    html += fieldRow('Notes', data.notes);
+    html += fieldRow(t('fields.fullName'), data.id_fullname);
+    html += fieldRow(t('fields.email'), data.id_email);
+    html += fieldRow(t('fields.phone'), data.id_phone);
+    html += fieldRow(t('fields.address'), data.id_address);
+    html += fieldRow(t('fields.company'), data.id_company);
+    html += fieldRow(t('fields.notes'), data.notes);
   } else {
-    html += fieldRow('Note', data.notes) ||
-      `<div class="field"><div class="field-main"><div class="field-label">Note</div><div class="field-value">-</div></div></div>`;
+    html += fieldRow(t('fields.notes'), data.notes) ||
+      `<div class="field"><div class="field-main"><div class="field-label">${esc(t('fields.notes'))}</div><div class="field-value">-</div></div></div>`;
   }
+
+  // Custom fields (inside the encrypted blob): hidden ones masked with reveal toggle.
+  const cfs = data.customFields || [];
+  if (cfs.length) {
+    html += `<div class="detail-section-title">${esc(t('items.customFields'))}</div>`;
+    for (const cf of cfs) {
+      html += fieldRow(cf.label || t('items.customFields.label'), cf.value, { masked: !!cf.hidden, mono: !!cf.hidden });
+    }
+  }
+
+  // Attachments (inside the encrypted blob): download as data URLs, nothing leaves the device.
+  const atts = data.attachments || [];
+  if (atts.length) {
+    html += `<div class="detail-section-title">${esc(t('items.attachments'))}</div>`;
+    html += atts.map(att => attachmentRowHtml(att)).join('');
+  }
+
   document.getElementById('detail-fields').innerHTML = html;
 
   const extras = document.getElementById('detail-extras');
@@ -1066,7 +1255,8 @@ async function toggleFavorite() {
     await api('PUT', `/api/vaults/${currentVault.id}/items/${currentItem.id}`, {
       data_encrypted: dataEnc, version: currentItem.version,
     });
-    toast(data.favorite ? 'Added to favorites' : 'Removed from favorites');
+    toast(data.favorite ? t('toast.favoriteAdded') : t('toast.favoriteRemoved'));
+    globalIndex = null;
     await loadItems();
     await openItem(currentItem.id);
   } catch (e) { toast(e.message, true); }
@@ -1075,53 +1265,117 @@ async function toggleFavorite() {
 // Delete the currently open item (uses the DELETE endpoint).
 async function deleteCurrentItem() {
   if (!currentItem) return;
-  if (!confirm('Delete this item? This cannot be undone.')) return;
+  if (!confirm(t('toast.deleteConfirm'))) return;
   try {
     await api('DELETE', `/api/vaults/${currentVault.id}/items/${currentItem.id}`);
-    toast('Item deleted');
+    toast(t('toast.itemDeleted'));
     currentItem = null;
+    globalIndex = null;
     await loadItems();
     showDetailEmpty();
     setHash(`/vault/${currentVault.id}`);
   } catch (e) { toast(e.message, true); }
 }
 
-// Show the server-stored password history (prior encrypted versions, decrypted locally).
+// --- Item history (server-stored encrypted versions, decrypted locally) ---
+// Each entry shows version + author + date, with "view" (read-only mini detail)
+// and "restore" (prefills the edit form; saving creates a new version).
 async function showItemHistory() {
   if (!currentItem) return;
   try {
     const history = await api('GET', `/api/vaults/${currentVault.id}/items/${currentItem.id}/history`) || [];
     const key = await getVaultDecryptionKey(currentVault);
-    const rows = [];
+    historyEntries = [];
     for (const h of history) {
       let d = {};
       try { d = JSON.parse(await decrypt(key, h.data_encrypted)); } catch {}
-      const when = new Date(h.created_at).toLocaleString();
-      const pw = d.password || '(no password)';
-      rows.push(`<div class="history-row">
-        <div class="history-meta">v${h.version} · ${esc(when)}</div>
-        <div class="history-pw"><span class="mono" data-raw="${encodeURIComponent(pw)}">${esc(pw)}</span>
-        <button class="btn-icon js-copy" data-copy="${encodeURIComponent(pw)}" title="Copy">&#128203;</button></div>
-      </div>`);
+      historyEntries.push({
+        version: h.version,
+        by: h.changed_by_name || h.changed_by_email || '',
+        createdAt: h.created_at,
+        data: d,
+      });
     }
-    document.getElementById('history-body').innerHTML = rows.length
-      ? rows.join('') : '<p class="empty-text">No previous versions.</p>';
+    renderHistoryEntries();
     openModal('modal-history');
   } catch (e) { toast(e.message, true); }
+}
+
+function renderHistoryEntries() {
+  const body = document.getElementById('history-body');
+  if (!historyEntries.length) {
+    body.innerHTML = `<p class="empty-text">${esc(t('history.empty'))}</p>`;
+    return;
+  }
+  body.innerHTML = historyEntries.map((h, i) => {
+    const when = new Date(h.createdAt).toLocaleString(getLocale());
+    const by = h.by ? ` · ${esc(h.by)}` : '';
+    return `<div class="history-row">
+      <div class="history-line">
+        <div class="history-meta">${icon('history', { size: 13 })} <strong>v${Number(h.version) || 0}</strong>${by} · ${esc(when)}</div>
+        <div class="history-actions">
+          <button class="btn-icon js-hist-view" data-i="${i}" title="${escAttr(t('actions.show'))}">${icon('eye', { size: 15 })}</button>
+          <button class="btn-icon js-hist-restore" data-i="${i}" title="${escAttr(t('Restaurar'))}">${icon('refresh', { size: 15 })}</button>
+        </div>
+      </div>
+      <div class="history-mini" data-mini="${i}" style="display:none;"></div>
+    </div>`;
+  }).join('');
+}
+
+// Read-only compact rendering of an item's decrypted data (history view,
+// shared-item view). Values are copyable; sensitive ones start masked.
+function miniDetailHtml(data) {
+  const rows = [];
+  const add = (label, value, masked = false) => {
+    if (value == null || value === '') return;
+    const enc = encodeURIComponent(value);
+    const revealBtn = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">${icon('eye', { size: 14 })}</button>` : '';
+    rows.push(`<div class="mini-field">
+      <span class="mini-label">${esc(label)}</span>
+      <span class="mini-value${masked ? ' masked' : ''}" data-raw="${enc}">${masked ? '••••••••' : esc(value)}</span>
+      <span class="mini-actions">${revealBtn}<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 14 })}</button></span>
+    </div>`);
+  };
+  const type = itemType(data);
+  if (type === 'login') {
+    add(t('fields.username'), data.username);
+    add(t('fields.password'), data.password, true);
+    add(t('fields.website'), data.url);
+    if (data.totp_secret) add(t('fields.totpSecret'), data.totp_secret, true);
+  } else if (type === 'card') {
+    add(t('fields.cardholder'), data.card_holder);
+    add(t('fields.cardNumber'), data.card_number, true);
+    add(t('fields.cardBrand'), data.card_brand);
+    add(t('fields.cardExpiry'), data.card_exp);
+    add(t('fields.cvv'), data.card_cvv, true);
+    add(t('fields.pin'), data.card_pin, true);
+  } else if (type === 'identity') {
+    add(t('fields.fullName'), data.id_fullname);
+    add(t('fields.email'), data.id_email);
+    add(t('fields.phone'), data.id_phone);
+    add(t('fields.address'), data.id_address);
+    add(t('fields.company'), data.id_company);
+  }
+  add(t('fields.notes'), data.notes);
+  for (const cf of data.customFields || []) {
+    add(cf.label || t('items.customFields.label'), cf.value, !!cf.hidden);
+  }
+  return rows.join('') || `<p class="empty-text">-</p>`;
 }
 
 // Check the current password against Have I Been Pwned (k-anonymity: only a hash prefix leaves the device).
 async function checkCurrentBreach() {
   if (!currentItem?._data?.password) return;
   const out = document.getElementById('detail-breach-result');
-  out.innerHTML = '<span class="strength-detail">Checking…</span>';
+  out.innerHTML = `<span class="strength-detail">${esc(t('breach.checking'))}</span>`;
   try {
     const count = await checkPwnedCount(currentItem._data.password);
     out.innerHTML = count > 0
-      ? `<span class="breach-bad">⚠ Found in ${count.toLocaleString()} known breaches — change it.</span>`
-      : `<span class="breach-ok">✓ Not found in known breaches.</span>`;
+      ? `<span class="breach-bad">⚠ ${esc(t('breach.found', { count: count.toLocaleString(getLocale()) }))}</span>`
+      : `<span class="breach-ok">✓ ${esc(t('breach.notFound'))}</span>`;
   } catch {
-    out.innerHTML = '<span class="strength-detail">Breach check unavailable (offline?)</span>';
+    out.innerHTML = `<span class="strength-detail">${esc(t('breach.unavailable'))}</span>`;
   }
 }
 
@@ -1149,7 +1403,7 @@ async function updateTOTP(secret) {
     document.getElementById('totp-countdown-circle').setAttribute('stroke-dashoffset', offset);
     document.getElementById('totp-countdown-text').textContent = remaining;
   } catch {
-    document.getElementById('detail-totp-code').textContent = 'Invalid';
+    document.getElementById('detail-totp-code').textContent = t('totp.invalid');
     document.getElementById('totp-countdown-text').textContent = '-';
   }
 }
@@ -1176,11 +1430,66 @@ function setItemFormType(type) {
 
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 
+// --- Item form: attachments (kept in memory, embedded in the blob before encryption) ---
+function renderFormAttachments() {
+  const list = document.getElementById('item-attachments-list');
+  if (!list) return;
+  list.innerHTML = formAttachments.map((att, i) => `
+    <div class="attachment-row">
+      <span class="attachment-icon">${icon('attachment', { size: 14 })}</span>
+      <span class="attachment-name">${esc(att.name)}</span>
+      <span class="attachment-size">${esc(formatSize(att.size))}</span>
+      <button type="button" class="btn-icon btn-icon-danger js-remove-att" data-i="${i}" title="${escAttr(t('actions.delete'))}">${icon('x', { size: 14 })}</button>
+    </div>`).join('');
+}
+
+async function addFormAttachments(fileList) {
+  for (const f of fileList) {
+    if (formAttachments.length >= MAX_ATTACHMENTS) {
+      toast(t('Máximo {n} adjuntos por elemento', { n: MAX_ATTACHMENTS }), true);
+      break;
+    }
+    try {
+      formAttachments.push(await fileToAttachment(f));
+    } catch (err) {
+      if (err && err.message === 'too-big') toast(t('items.attachments.tooBig'), true);
+      else toast(err?.message || 'Error', true);
+    }
+  }
+  renderFormAttachments();
+}
+
+// --- Item form: custom fields (state lives in the DOM rows) ---
+function addCustomFieldRow(cf = { label: '', value: '', hidden: false }) {
+  const list = document.getElementById('custom-fields-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'cf-row';
+  row.innerHTML = `
+    <input type="text" class="cf-label" placeholder="${escAttr(t('items.customFields.label'))}" autocomplete="off">
+    <input type="text" class="cf-value" placeholder="${escAttr(t('items.customFields.value'))}" autocomplete="off">
+    <label class="cf-hidden-toggle" title="${escAttr(t('actions.hide'))}"><input type="checkbox" class="cf-hidden">${icon('eyeOff', { size: 14 })}</label>
+    <button type="button" class="btn-icon btn-icon-danger cf-remove" title="${escAttr(t('actions.delete'))}">${icon('x', { size: 14 })}</button>`;
+  row.querySelector('.cf-label').value = cf.label || '';
+  row.querySelector('.cf-value').value = cf.value || '';
+  row.querySelector('.cf-hidden').checked = !!cf.hidden;
+  row.querySelector('.cf-remove').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+}
+
+function readCustomFields() {
+  return [...document.querySelectorAll('#custom-fields-list .cf-row')].map(row => ({
+    label: row.querySelector('.cf-label').value.trim(),
+    value: row.querySelector('.cf-value').value,
+    hidden: row.querySelector('.cf-hidden').checked,
+  })).filter(cf => cf.label || cf.value);
+}
+
 async function saveItem() {
   const title = val('item-title-input');
-  if (!title) return toast('Enter a title', true);
+  if (!title) return toast(t('toast.enterTitle'), true);
 
-  const tags = val('item-tags-input').split(',').map(t => t.trim()).filter(Boolean);
+  const tags = val('item-tags-input').split(',').map(s => s.trim()).filter(Boolean);
   const favorite = document.getElementById('item-fav-input').checked;
 
   const dataObj = { type: itemFormType, title, favorite, notes: val('item-notes-input') };
@@ -1211,6 +1520,13 @@ async function saveItem() {
     dataObj.id_company = val('item-id-company');
   }
 
+  // Common extras — ALL stored inside the encrypted blob (zero-knowledge).
+  const iconVal = val('item-icon-input');
+  if (iconVal) dataObj.icon = [...iconVal].slice(0, 4).join('');
+  const customFields = readCustomFields();
+  if (customFields.length) dataObj.customFields = customFields;
+  if (formAttachments.length) dataObj.attachments = formAttachments;
+
   const key = await getVaultDecryptionKey(currentVault);
   const dataEnc = await encrypt(key, JSON.stringify(dataObj));
 
@@ -1222,14 +1538,15 @@ async function saveItem() {
         version: editingItem.version,
       });
       savedItemId = editingItem.id;
-      toast('Item updated');
+      toast(t('toast.itemUpdated'));
     } else {
       const newItem = await api('POST', `/api/vaults/${currentVault.id}/items`, { data_encrypted: dataEnc });
       if (newItem?.id) savedItemId = newItem.id;
-      toast('Item saved');
+      toast(t('toast.itemSaved'));
     }
     closeModal('modal-item');
     clearItemForm();
+    globalIndex = null;
     await loadItems();
     if (savedItemId) {
       const item = items.find(i => i.id === savedItemId);
@@ -1242,7 +1559,7 @@ async function saveItem() {
 
 const FORM_FIELDS = [
   'item-title-input', 'item-user-input', 'item-pw-input', 'item-url-input',
-  'item-totp-input', 'item-notes-input', 'item-tags-input',
+  'item-totp-input', 'item-notes-input', 'item-tags-input', 'item-icon-input',
   'item-card-holder', 'item-card-number', 'item-card-brand', 'item-card-exp',
   'item-card-cvv', 'item-card-pin',
   'item-id-fullname', 'item-id-email', 'item-id-phone', 'item-id-address', 'item-id-company',
@@ -1251,6 +1568,9 @@ const FORM_FIELDS = [
 function clearItemForm() {
   FORM_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('item-fav-input').checked = false;
+  formAttachments = [];
+  renderFormAttachments();
+  document.getElementById('custom-fields-list').innerHTML = '';
   renderStrengthInto('item-pw-strength', '');
   setItemFormType('login');
   editingItem = null;
@@ -1263,6 +1583,7 @@ function fillItemForm(data) {
   document.getElementById('item-notes-input').value = data.notes || '';
   document.getElementById('item-tags-input').value = (data.tags || []).join(', ');
   document.getElementById('item-fav-input').checked = !!data.favorite;
+  document.getElementById('item-icon-input').value = data.icon || '';
   document.getElementById('item-user-input').value = data.username || '';
   document.getElementById('item-pw-input').value = data.password || '';
   document.getElementById('item-url-input').value = data.url || '';
@@ -1278,6 +1599,10 @@ function fillItemForm(data) {
   document.getElementById('item-id-phone').value = data.id_phone || '';
   document.getElementById('item-id-address').value = data.id_address || '';
   document.getElementById('item-id-company').value = data.id_company || '';
+  formAttachments = [...(data.attachments || [])];
+  renderFormAttachments();
+  document.getElementById('custom-fields-list').innerHTML = '';
+  (data.customFields || []).forEach(cf => addCustomFieldRow(cf));
   renderStrengthInto('item-pw-strength', data.password || '');
 }
 
@@ -1289,7 +1614,7 @@ async function loadTeams() {
 async function createTeam() {
   const nameInput = document.getElementById('team-name-input');
   const name = nameInput.value.trim();
-  if (!name) return toast('Enter a team name', true);
+  if (!name) return toast(t('toast.enterTeamName'), true);
 
   try {
     await api('POST', '/api/teams', { name });
@@ -1297,7 +1622,7 @@ async function createTeam() {
     nameInput.value = '';
     await loadTeams();
     renderSidebar();
-    toast('Team created');
+    toast(t('toast.teamCreated'));
   } catch (e) {
     toast(e.message, true);
   }
@@ -1308,7 +1633,7 @@ async function loadTeamMembers() {
   const list = document.getElementById('member-list');
 
   if (!members.length) {
-    list.innerHTML = '<p class="empty-text">No members</p>';
+    list.innerHTML = `<p class="empty-text">${esc(t('teams.noMembers'))}</p>`;
     return;
   }
 
@@ -1319,20 +1644,25 @@ async function loadTeamMembers() {
 
   list.innerHTML = members.map(m => {
     const isOwner = m.user_id === ownerId;
+    const displayName = m.display_name || m.email;
     let actions = '';
     if (isAdmin && !isOwner) {
       if (m.role === 'member') {
-        actions += `<button class="btn-icon btn-promote" data-user-id="${m.user_id}" title="Promote to admin">&#8593;</button>`;
+        actions += `<button class="btn-icon btn-promote" data-user-id="${m.user_id}" title="${escAttr(t('teams.promote'))}">&#8593;</button>`;
       } else if (m.role === 'admin') {
-        actions += `<button class="btn-icon btn-demote" data-user-id="${m.user_id}" title="Demote to member">&#8595;</button>`;
+        actions += `<button class="btn-icon btn-demote" data-user-id="${m.user_id}" title="${escAttr(t('teams.demote'))}">&#8595;</button>`;
       }
-      actions += `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="Remove">&#10005;</button>`;
+      actions += `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="${escAttr(t('teams.removeMember'))}">&#10005;</button>`;
     }
+    const roleBadge = `<span class="badge-role badge-${escAttr(m.role)}">${esc(t('teams.role.' + m.role))}</span>`;
+    const ownerBadge = isOwner ? ` <span class="badge-role badge-owner">${esc(t('teams.role.owner'))}</span>` : '';
+    const pendingBadge = !m.has_public_key ? ` <span class="badge-role badge-pending">${esc(t('teams.role.pending'))}</span>` : '';
     return `<div class="member-card">
       <div class="card-info">
-        <h3>${esc(m.email)} <span class="badge-role badge-${m.role}">${m.role}</span>${isOwner ? ' <span class="badge-role badge-owner">owner</span>' : ''}${!m.has_public_key ? ' <span class="badge-role badge-pending">pending</span>' : ''}</h3>
+        <h3><span class="member-name">${esc(displayName)}</span> ${roleBadge}${ownerBadge}${pendingBadge}</h3>
+        <p class="member-email">${esc(m.email)}</p>
       </div>
-      ${actions}
+      <div class="member-actions">${actions}</div>
     </div>`;
   }).join('');
 
@@ -1340,7 +1670,7 @@ async function loadTeamMembers() {
     btn.addEventListener('click', async () => {
       try {
         await api('PUT', `/api/teams/${currentTeam.id}/members/${btn.dataset.userId}/role`, { role: 'admin' });
-        toast('Promoted to admin');
+        toast(t('toast.promoted'));
         await loadTeamMembers();
       } catch (e) { toast(e.message, true); }
     });
@@ -1350,7 +1680,7 @@ async function loadTeamMembers() {
     btn.addEventListener('click', async () => {
       try {
         await api('PUT', `/api/teams/${currentTeam.id}/members/${btn.dataset.userId}/role`, { role: 'member' });
-        toast('Demoted to member');
+        toast(t('toast.demoted'));
         await loadTeamMembers();
       } catch (e) { toast(e.message, true); }
     });
@@ -1358,10 +1688,10 @@ async function loadTeamMembers() {
 
   list.querySelectorAll('.btn-remove-member').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Remove this member?')) return;
+      if (!confirm(t('teams.removeConfirm'))) return;
       try {
         await api('DELETE', `/api/teams/${currentTeam.id}/members/${btn.dataset.userId}`);
-        toast('Member removed');
+        toast(t('toast.memberRemoved'));
         await loadTeamMembers();
       } catch (e) {
         toast(e.message, true);
@@ -1375,7 +1705,7 @@ async function loadTeamVaults() {
   const list = document.getElementById('team-vault-list');
 
   if (!teamVaults.length) {
-    list.innerHTML = '<p class="empty-text">No vaults</p>';
+    list.innerHTML = `<p class="empty-text">${esc(t('teams.noVaults'))}</p>`;
     return;
   }
 
@@ -1390,7 +1720,7 @@ async function loadTeamVaults() {
       <div class="card-icon">&#128274;</div>
       <div class="card-info">
         <h3>${esc(name)}</h3>
-        <p>${new Date(v.created_at).toLocaleDateString()}</p>
+        <p>${new Date(v.created_at).toLocaleDateString(getLocale())}</p>
       </div>
     </div>`);
   }
@@ -1449,7 +1779,7 @@ async function processPendingVaultKeys() {
 async function addTeamMember() {
   const emailInput = document.getElementById('member-email-input');
   const email = emailInput.value.trim();
-  if (!email) return toast('Enter an email', true);
+  if (!email) return toast(t('toast.enterEmail'), true);
 
   try {
     const member = await api('POST', `/api/teams/${currentTeam.id}/members`, { email });
@@ -1481,7 +1811,7 @@ async function addTeamMember() {
     closeModal('modal-add-member');
     emailInput.value = '';
     await loadTeamMembers();
-    toast(shared ? 'Member added' : 'Member invited (pending encryption setup)');
+    toast(shared ? t('toast.memberAdded') : t('toast.memberInvited'));
   } catch (e) {
     toast(e.message, true);
   }
@@ -1490,7 +1820,7 @@ async function addTeamMember() {
 async function createTeamVault() {
   const nameInput = document.getElementById('team-vault-name-input');
   const name = nameInput.value.trim();
-  if (!name) return toast('Enter a name', true);
+  if (!name) return toast(t('toast.enterName'), true);
 
   try {
     const vaultKeyBase64 = await generateVaultKey();
@@ -1520,10 +1850,135 @@ async function createTeamVault() {
     nameInput.value = '';
     await Promise.all([loadTeamVaults(), loadVaults()]);
     renderSidebar();
-    toast('Team vault created');
+    toast(t('toast.teamVaultCreated'));
   } catch (e) {
     toast(e.message, true);
   }
+}
+
+// --- One-time share links -------------------------------------------------
+// The item's decrypted data is re-encrypted client-side with a fresh random
+// key (sharelink.js); the server stores only opaque ciphertext. The key
+// travels exclusively in the URL fragment, which browsers never send.
+
+function openShareModal() {
+  if (!currentItem || !currentItem._data || !currentVault) return;
+  document.getElementById('share-result').style.display = 'none';
+  document.getElementById('share-url-input').value = '';
+  document.getElementById('share-links-list').innerHTML = '';
+  openModal('modal-share');
+  loadShareLinks();
+}
+
+async function createShareLink() {
+  if (!currentItem || !currentItem._data || !currentVault) return;
+  const hours = Number(document.getElementById('share-expiry-select').value) || 24;
+  const btn = document.getElementById('btn-create-share');
+  btn.disabled = true;
+  try {
+    const { payloadB64, keyB64 } = await createSharePayload(currentItem._data);
+    const resp = await api('POST', `/api/vaults/${currentVault.id}/items/${currentItem.id}/share-link`, {
+      payload_encrypted: payloadB64,
+      expires_in_hours: hours,
+    });
+    const url = buildShareUrl(location.origin, resp.id, keyB64);
+    const input = document.getElementById('share-url-input');
+    input.value = url;
+    document.getElementById('share-result').style.display = 'block';
+    input.focus();
+    input.select();
+    loadShareLinks();
+  } catch (e) {
+    if (e.status === 403) toast(t('Solo el propietario o un administrador puede crear enlaces'), true);
+    else toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadShareLinks() {
+  const list = document.getElementById('share-links-list');
+  if (!currentItem || !currentVault) { list.innerHTML = ''; return; }
+  let links = [];
+  try {
+    links = (await api('GET', `/api/vaults/${currentVault.id}/items/${currentItem.id}/share-links`)) || [];
+  } catch {
+    list.innerHTML = '';
+    return;
+  }
+  if (!links.length) { list.innerHTML = ''; return; }
+  const now = Date.now();
+  list.innerHTML = links.map(l => {
+    let state;
+    if (l.redeemed_at) {
+      state = `<span class="share-state share-used">${esc(t('Usado'))} · ${esc(formatRelative(l.redeemed_at))}</span>`;
+    } else if (new Date(l.expires_at).getTime() < now) {
+      state = `<span class="share-state share-expired">${esc(t('Caducado'))}</span>`;
+    } else {
+      state = `<span class="share-state share-active">${esc(t('share.expires'))} ${esc(formatRelative(l.expires_at))}</span>`;
+    }
+    return `<div class="share-link-row">
+      <span class="share-link-icon">${icon('link', { size: 14 })}</span>
+      <span class="share-link-info">
+        <span class="share-link-date">${esc(new Date(l.created_at).toLocaleString(getLocale()))}</span>
+        ${state}
+      </span>
+      <button class="btn-icon btn-icon-danger js-revoke-share" data-share-id="${escAttr(l.id)}" title="${escAttr(t('actions.delete'))}">${icon('trash', { size: 14 })}</button>
+    </div>`;
+  }).join('');
+}
+
+// --- Share link recipient flow (public, no login) ---
+async function renderShareOpen(share) {
+  showScreenNoHash('share-open');
+  renderVersion();
+  const body = document.getElementById('share-open-body');
+  body.innerHTML = `<div class="cmd-loading">${esc(t('breach.checking'))}</div>`;
+  let status = 'gone';
+  try {
+    // Public endpoint; intentionally plain fetch (no Authorization header needed).
+    const res = await fetch(`/auth/share-links/${encodeURIComponent(share.id)}/status`);
+    if (res.ok) status = (await res.json())?.status || 'gone';
+  } catch {}
+  if (status !== 'available') {
+    body.innerHTML = `<div class="share-gone">${icon('alert', { size: 16 })} ${esc(t('share.open.gone'))}</div>`;
+    return;
+  }
+  body.innerHTML = `
+    <p class="share-open-hint">${icon('alert', { size: 13 })} ${esc(t('share.oneUse'))}</p>
+    <button class="btn btn-primary" id="btn-open-share">${esc(t('share.open.title'))}</button>`;
+  document.getElementById('btn-open-share').addEventListener('click', () => redeemShare(share));
+}
+
+async function redeemShare(share) {
+  const btn = document.getElementById('btn-open-share');
+  const body = document.getElementById('share-open-body');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+  try {
+    const res = await fetch(`/auth/share-links/${encodeURIComponent(share.id)}/redeem`, { method: 'POST' });
+    if (!res.ok) throw new Error('gone');
+    const resp = await res.json();
+    // The key comes from the URL fragment and is used ONLY here, locally.
+    const data = await decryptSharePayload(resp.payload_encrypted, share.key);
+    renderSharedItem(data);
+  } catch {
+    body.innerHTML = `<div class="share-gone">${icon('alert', { size: 16 })} ${esc(t('share.open.gone'))}</div>`;
+  }
+}
+
+function renderSharedItem(data) {
+  const body = document.getElementById('share-open-body');
+  let html = `<div class="share-item-card">
+    <div class="share-item-title">${itemIconHtml(data, 20)}<h3>${esc(data.title || t('items.untitled'))}</h3>
+      <span class="type-badge">${ITEM_TYPES[itemType(data)].icon} ${esc(typeLabel(itemType(data)))}</span></div>
+    <div class="share-item-fields">${miniDetailHtml(data)}</div>`;
+  const atts = data.attachments || [];
+  if (atts.length) {
+    html += `<div class="detail-section-title">${esc(t('items.attachments'))}</div>` + atts.map(att => attachmentRowHtml(att)).join('');
+  }
+  html += '</div>';
+  body.innerHTML = html;
+  wireCopyReveal(body);
 }
 
 // --- Modals ---
@@ -1556,8 +2011,14 @@ function closeMobileDetail() {
 // --- Helpers ---
 function esc(s) {
   const d = document.createElement('div');
-  d.textContent = s;
+  d.textContent = s ?? '';
   return d.innerHTML;
+}
+
+// esc() for attribute values: also neutralizes quotes so user-controlled
+// strings can't break out of href/title/data-* attributes.
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function getCurrentUserId() {
@@ -1572,7 +2033,7 @@ function getCurrentUserId() {
 window.copyField = function(id) {
   const el = document.getElementById(id);
   const text = el.textContent.replace(/\s/g, ''); // strip spaces (TOTP formatting)
-  navigator.clipboard.writeText(text).then(() => toast('Copied'));
+  navigator.clipboard.writeText(text).then(() => toast(t('toast.copied')));
 };
 
 // --- Import (1Password CSV + 1PIF) ---
@@ -1580,7 +2041,7 @@ window.copyField = function(id) {
 // handles the DOM + per-item encryption/upload.
 
 async function importItems(parsedItems) {
-  if (!currentVault) return toast('Select a vault first', true);
+  if (!currentVault) return toast(t('toast.selectVaultFirst'), true);
   if (!parsedItems.length) return;
 
   // Show progress step
@@ -1607,10 +2068,10 @@ async function importItems(parsedItems) {
       const pct = Math.round(((i + 1) / total) * 100);
       document.getElementById('import-progress-bar').style.width = pct + '%';
       document.getElementById('import-progress-text').textContent =
-        `${i + 1} of ${total} items processed...`;
+        t('import.progress', { done: i + 1, total });
     }
   } catch (err) {
-    toast('Import failed: ' + err.message, true);
+    toast(t('import.failed', { error: err.message }), true);
     resetImportModal();
     closeModal('modal-import');
     return;
@@ -1620,9 +2081,9 @@ async function importItems(parsedItems) {
   document.getElementById('import-step-progress').style.display = 'none';
   document.getElementById('import-step-results').style.display = 'block';
 
-  let summary = `${imported} of ${total} item(s) imported successfully.`;
+  let summary = t('import.summary', { imported, total });
   if (errors.length) {
-    summary += `\n${errors.length} error(s).`;
+    summary += '\n' + t('import.errors', { count: errors.length });
   }
   document.getElementById('import-results-summary').textContent = summary;
 
@@ -1635,6 +2096,7 @@ async function importItems(parsedItems) {
   }
 
   // Refresh items list
+  globalIndex = null;
   await loadItems();
 }
 
@@ -1643,22 +2105,23 @@ function resetImportModal() {
   document.getElementById('import-step-progress').style.display = 'none';
   document.getElementById('import-step-results').style.display = 'none';
   document.getElementById('import-file-input').value = '';
-  document.getElementById('import-file-label-text').textContent = 'Choose file...';
+  document.getElementById('import-file-label-text').textContent = t('import.chooseFile');
   document.getElementById('import-file-label').classList.remove('has-file');
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-errors-preview').style.display = 'none';
   document.getElementById('import-errors-preview').textContent = '';
   document.getElementById('import-progress-bar').style.width = '0%';
-  document.getElementById('import-progress-text').textContent = '0 of 0 items processed...';
+  document.getElementById('import-progress-text').textContent = t('import.progress', { done: 0, total: 0 });
   document.getElementById('import-results-summary').textContent = '';
   document.getElementById('import-results-errors').style.display = 'none';
   document.getElementById('import-results-errors').innerHTML = '';
   document.getElementById('btn-start-import').disabled = true;
 }
 
-// --- Global index (all vaults), used by command palette + security dashboard ---
-// Decrypts every item across every accessible vault. Zero-knowledge preserved:
-// all decryption happens locally with keys already in memory.
+// --- Global index (all vaults), used by command palette, global search and
+// the security dashboard. Decrypts every item across every accessible vault.
+// Zero-knowledge preserved: all decryption happens locally with keys already
+// in memory.
 async function collectAllItems() {
   const out = [];
   for (const v of vaults) {
@@ -1684,6 +2147,65 @@ async function openVaultItem(vaultId, itemId) {
   await navigateToItem(itemId);
 }
 
+// --- Global search (sidebar): searches across ALL vaults, cached ~60s ---
+let gsToken = 0;
+
+async function getGlobalIndex() {
+  if (!encKey) return [];
+  if (globalIndex && Date.now() - globalIndexAt < 60000) return globalIndex;
+  globalIndex = await collectAllItems();
+  globalIndexAt = Date.now();
+  return globalIndex;
+}
+
+function hideGlobalSearch(clear = false) {
+  gsToken++;
+  const results = document.getElementById('global-search-results');
+  if (results) { results.style.display = 'none'; results.innerHTML = ''; }
+  if (clear) {
+    const input = document.getElementById('global-search-input');
+    if (input) input.value = '';
+  }
+}
+
+async function runGlobalSearch(query) {
+  const my = ++gsToken;
+  const results = document.getElementById('global-search-results');
+  results.style.display = 'block';
+  results.innerHTML = `<div class="cmd-loading">${esc(t('cmd.indexing'))}</div>`;
+  let index = [];
+  try { index = await getGlobalIndex(); } catch {}
+  if (my !== gsToken) return; // a newer query or a hide superseded us
+
+  const q = query.toLowerCase();
+  const matches = index.filter(e =>
+    (e.data.title || '').toLowerCase().includes(q) ||
+    (e.data.username || '').toLowerCase().includes(q) ||
+    (e.data.url || '').toLowerCase().includes(q) ||
+    (e.vaultName || '').toLowerCase().includes(q)).slice(0, 20);
+
+  if (!matches.length) {
+    results.innerHTML = `<div class="cmd-empty">${esc(t('cmd.noMatches'))}</div>`;
+    return;
+  }
+  results.innerHTML = matches.map(e => `
+    <div class="gs-row" data-vault="${escAttr(e.vaultId)}" data-item="${escAttr(e.id)}">
+      <span class="gs-icon">${itemIconHtml(e.data, 14)}</span>
+      <span class="gs-main">
+        <span class="gs-title">${esc(e.data.title || t('items.untitled'))}</span>
+        <span class="gs-sub">${esc(e.vaultName)}${e.data.username ? ' · ' + esc(e.data.username) : ''}</span>
+      </span>
+    </div>`).join('');
+  results.querySelectorAll('.gs-row').forEach(row => {
+    // pointerdown fires before the input's blur, so the click isn't lost.
+    row.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      hideGlobalSearch(true);
+      openVaultItem(row.dataset.vault, row.dataset.item);
+    });
+  });
+}
+
 // --- Command palette (Cmd/Ctrl+K) ---
 let cmdIndex = [];   // cached { vaultId, vaultName, id, data } across all vaults
 let cmdList = [];     // currently visible palette rows
@@ -1691,12 +2213,12 @@ let cmdSel = 0;
 
 function cmdActions() {
   return [
-    { kind: 'action', icon: '➕', label: 'New item', run: () => { closeCmdPalette(); document.getElementById('btn-add-item').click(); } },
-    { kind: 'action', icon: '\u{1F5C4}️', label: 'New vault', run: () => { closeCmdPalette(); openModal('modal-vault'); } },
-    { kind: 'action', icon: '\u{1F6E1}️', label: 'Security dashboard', run: () => { closeCmdPalette(); openWatchtower(); } },
-    { kind: 'action', icon: '\u{1F3B2}', label: 'Password generator', run: () => { closeCmdPalette(); openGenerator(); } },
-    { kind: 'action', icon: '\u{1F311}', label: 'Toggle dark mode', run: () => { toggleTheme(); } },
-    { kind: 'action', icon: '\u{1F512}', label: 'Lock vault', run: () => { closeCmdPalette(); lockVault(); } },
+    { kind: 'action', icon: '➕', label: t('form.newItem'), run: () => { closeCmdPalette(); document.getElementById('btn-add-item').click(); } },
+    { kind: 'action', icon: '\u{1F5C4}️', label: t('vault.new'), run: () => { closeCmdPalette(); openModal('modal-vault'); } },
+    { kind: 'action', icon: '\u{1F6E1}️', label: t('sidebar.watchtower'), run: () => { closeCmdPalette(); openWatchtower(); } },
+    { kind: 'action', icon: '\u{1F3B2}', label: t('sidebar.generator'), run: () => { closeCmdPalette(); openGenerator(); } },
+    { kind: 'action', icon: '\u{1F311}', label: t('cmd.toggleTheme'), run: () => { toggleTheme(); } },
+    { kind: 'action', icon: '\u{1F512}', label: t('sidebar.lockVault'), run: () => { closeCmdPalette(); lockVault(); } },
   ];
 }
 
@@ -1706,7 +2228,7 @@ async function openCmdPalette() {
   overlay.classList.add('active');
   const input = document.getElementById('cmd-input');
   input.value = '';
-  document.getElementById('cmd-results').innerHTML = '<div class="cmd-loading">Indexing your vaults…</div>';
+  document.getElementById('cmd-results').innerHTML = `<div class="cmd-loading">${esc(t('cmd.indexing'))}</div>`;
   cmdIndex = await collectAllItems();
   renderCmdResults('');
   input.focus();
@@ -1731,7 +2253,7 @@ function renderCmdResults(query) {
   const itemRows = matches.map(e => ({
     kind: 'item',
     icon: ITEM_TYPES[itemType(e.data)].icon,
-    title: e.data.title || 'Untitled',
+    title: e.data.title || t('items.untitled'),
     sub: e.vaultName + (e.data.username ? ' · ' + e.data.username : ''),
     run: () => { closeCmdPalette(); openVaultItem(e.vaultId, e.id); },
   }));
@@ -1743,12 +2265,12 @@ function renderCmdResults(query) {
 
 function paintCmd() {
   const results = document.getElementById('cmd-results');
-  if (!cmdList.length) { results.innerHTML = '<div class="cmd-empty">No matches</div>'; return; }
+  if (!cmdList.length) { results.innerHTML = `<div class="cmd-empty">${esc(t('cmd.noMatches'))}</div>`; return; }
   results.innerHTML = cmdList.map((e, i) => `
     <div class="cmd-row${i === cmdSel ? ' active' : ''}" data-i="${i}">
       <span class="cmd-icon">${e.icon || '•'}</span>
       <span class="cmd-main"><span class="cmd-title">${esc(e.title || e.label)}</span>${e.sub ? `<span class="cmd-sub">${esc(e.sub)}</span>` : ''}</span>
-      ${e.kind === 'action' ? '<span class="cmd-tag">action</span>' : ''}
+      ${e.kind === 'action' ? `<span class="cmd-tag">${esc(t('cmd.action'))}</span>` : ''}
     </div>`).join('');
   results.querySelectorAll('.cmd-row').forEach(row => {
     const i = Number(row.dataset.i);
@@ -1771,7 +2293,7 @@ async function openWatchtower() {
   if (!encKey) return;
   openModal('modal-watchtower');
   const body = document.getElementById('watchtower-body');
-  body.innerHTML = '<div class="cmd-loading">Scanning your vaults…</div>';
+  body.innerHTML = `<div class="cmd-loading">${esc(t('watchtower.scanning'))}</div>`;
 
   const all = await collectAllItems();
   const logins = all.filter(e => itemType(e.data) === 'login' && e.data.password);
@@ -1786,14 +2308,17 @@ async function openWatchtower() {
   const now = Date.now();
   const stale = logins.filter(e => e.data.pwChangedAt && (now - e.data.pwChangedAt) > YEAR);
 
-  renderWatchtower({ total: logins.length, weak, reused, stale });
+  // Duplicate items (same title + username + site) across all vaults.
+  const dups = findDuplicateGroups(all);
+
+  renderWatchtower({ total: logins.length, weak, reused, stale, dups });
   checkWatchtowerBreaches(logins);
 }
 
 function wtItemRow(e, extra = '') {
   return `<div class="wt-item" data-vault="${e.vaultId}" data-item="${e.id}">
-    <span class="cmd-icon">${ITEM_TYPES[itemType(e.data)].icon}</span>
-    <span class="cmd-main"><span class="cmd-title">${esc(e.data.title || 'Untitled')}</span>
+    <span class="cmd-icon">${itemIconHtml(e.data, 14)}</span>
+    <span class="cmd-main"><span class="cmd-title">${esc(e.data.title || t('items.untitled'))}</span>
       <span class="cmd-sub">${esc(e.vaultName)}${e.data.username ? ' · ' + esc(e.data.username) : ''}${extra}</span></span>
   </div>`;
 }
@@ -1806,21 +2331,25 @@ function wtSection(title, entries, severity, note) {
   </div>`;
 }
 
+function wtGroupSection(title, groups, severity, note) {
+  if (!groups.length) return '';
+  const groupsHtml = groups.map(g =>
+    `<div class="wt-group">${g.map(e => wtItemRow(e)).join('')}</div>`).join('');
+  return `<div class="wt-section wt-${severity}">
+    <div class="wt-head"><span class="wt-badge">${groups.length}</span> ${esc(title)}<span class="wt-note">${esc(note || '')}</span></div>
+    ${groupsHtml}</div>`;
+}
+
 function renderWatchtower(r) {
   const body = document.getElementById('watchtower-body');
-  const clean = !r.weak.length && !r.reused.length && !r.stale.length;
-  let html = `<div class="wt-summary">Scanned ${r.total} login${r.total === 1 ? '' : 's'} across ${vaults.length} vault${vaults.length === 1 ? '' : 's'}.</div>`;
-  if (clean) html += '<div class="wt-allclear">✓ No weak, reused, or stale passwords found.</div>';
-  html += wtSection('Weak passwords', r.weak, 'bad', 'Easy to guess — strengthen these.');
-  if (r.reused.length) {
-    const groups = r.reused.map(g =>
-      `<div class="wt-group">${g.map(e => wtItemRow(e)).join('')}</div>`).join('');
-    html += `<div class="wt-section wt-warn">
-      <div class="wt-head"><span class="wt-badge">${r.reused.length}</span> Reused passwords<span class="wt-note">The same password protects multiple items.</span></div>
-      ${groups}</div>`;
-  }
-  html += wtSection('Aging passwords', r.stale, 'warn', 'Unchanged for over a year.');
-  html += '<div id="wt-breaches"><div class="cmd-loading">Checking Have I Been Pwned…</div></div>';
+  const clean = !r.weak.length && !r.reused.length && !r.stale.length && !r.dups.length;
+  let html = `<div class="wt-summary">${esc(t('watchtower.summary', { logins: r.total, vaults: vaults.length }))}</div>`;
+  if (clean) html += `<div class="wt-allclear">✓ ${esc(t('watchtower.allClear'))}</div>`;
+  html += wtSection(t('watchtower.weak'), r.weak, 'bad', t('watchtower.weak.note'));
+  html += wtGroupSection(t('watchtower.reused'), r.reused, 'warn', t('watchtower.reused.note'));
+  html += wtSection(t('watchtower.aging'), r.stale, 'warn', t('watchtower.aging.note'));
+  html += wtGroupSection(t('watchtower.duplicates'), r.dups, 'warn', t('watchtower.duplicates.note'));
+  html += `<div id="wt-breaches"><div class="cmd-loading">${esc(t('watchtower.breaches.checking'))}</div></div>`;
   body.innerHTML = html;
   wireWatchtowerNav(body);
 }
@@ -1835,18 +2364,18 @@ async function checkWatchtowerBreaches(logins) {
     try {
       if (!(p in seen)) seen[p] = await checkPwnedCount(p);
     } catch {
-      el.innerHTML = '<div class="wt-note">Breach check unavailable (offline).</div>';
+      el.innerHTML = `<div class="wt-note">${esc(t('watchtower.breaches.unavailable'))}</div>`;
       return;
     }
     if (seen[p] > 0) breached.push({ ...e, _count: seen[p] });
   }
   if (!breached.length) {
-    el.innerHTML = '<div class="wt-allclear">✓ No passwords found in known breaches.</div>';
+    el.innerHTML = `<div class="wt-allclear">✓ ${esc(t('watchtower.breaches.none'))}</div>`;
     return;
   }
   el.innerHTML = `<div class="wt-section wt-bad">
-    <div class="wt-head"><span class="wt-badge">${breached.length}</span> Breached passwords<span class="wt-note">Seen in known data breaches — change now.</span></div>
-    <div class="wt-list">${breached.map(e => wtItemRow(e, ' · in ' + e._count.toLocaleString() + ' breaches')).join('')}</div>
+    <div class="wt-head"><span class="wt-badge">${breached.length}</span> ${esc(t('watchtower.breaches'))}<span class="wt-note">${esc(t('watchtower.breaches.note'))}</span></div>
+    <div class="wt-list">${breached.map(e => wtItemRow(e, ' · ' + esc(t('watchtower.breaches.count', { count: e._count.toLocaleString(getLocale()) })))).join('')}</div>
   </div>`;
   wireWatchtowerNav(el);
 }
@@ -1880,11 +2409,10 @@ function useGenerated() {
   closeModal('modal-generator');
 }
 
-// --- Detail panel event delegation (copy / reveal / tag filter) ---
-function wireDetailDelegation() {
-  const root = document.getElementById('detail-content');
-  if (!root || root._wired) return;
-  root._wired = true;
+// --- Copy / reveal event delegation (detail panel, history modal, shared item) ---
+function wireCopyReveal(root) {
+  if (!root || root._copyWired) return;
+  root._copyWired = true;
   root.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.js-copy');
     if (copyBtn) {
@@ -1894,21 +2422,22 @@ function wireDetailDelegation() {
       } else {
         text = decodeURIComponent(copyBtn.dataset.copy || '');
       }
-      navigator.clipboard.writeText(text).then(() => toast('Copied'));
+      navigator.clipboard.writeText(text).then(() => toast(t('toast.copied')));
       return;
     }
     const reveal = e.target.closest('.js-reveal');
     if (reveal) {
-      const val = reveal.closest('.field')?.querySelector('.field-value');
-      if (val) {
-        if (val.classList.contains('masked')) {
-          val.textContent = decodeURIComponent(val.dataset.raw || '');
-          val.classList.remove('masked');
-          reveal.innerHTML = '&#128584;';
+      const valEl = reveal.closest('.field, .mini-field')?.querySelector('.field-value, .mini-value');
+      if (valEl) {
+        const svgStyle = !!reveal.querySelector('svg');
+        if (valEl.classList.contains('masked')) {
+          valEl.textContent = decodeURIComponent(valEl.dataset.raw || '');
+          valEl.classList.remove('masked');
+          reveal.innerHTML = svgStyle ? icon('eyeOff', { size: 14 }) : '&#128584;';
         } else {
-          val.textContent = '••••••••••';
-          val.classList.add('masked');
-          reveal.innerHTML = '&#128065;';
+          valEl.textContent = '••••••••••';
+          valEl.classList.add('masked');
+          reveal.innerHTML = svgStyle ? icon('eye', { size: 14 }) : '&#128065;';
         }
       }
       return;
@@ -1925,6 +2454,32 @@ function wireDetailDelegation() {
 
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', async () => {
+  // i18n first: resolve locale, inject flat SVG icons, translate static markup.
+  initI18n();
+  document.documentElement.lang = getLocale();
+  document.querySelectorAll('[data-icon]').forEach(el => {
+    el.innerHTML = icon(el.dataset.icon, { size: Number(el.dataset.iconSize) || 16 });
+  });
+  applyI18n();
+
+  // Language selector (ES/EN/FR) in the sidebar footer.
+  const localeSel = document.getElementById('locale-select');
+  LOCALES.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l;
+    opt.textContent = l.toUpperCase();
+    localeSel.appendChild(opt);
+  });
+  localeSel.value = getLocale();
+  localeSel.addEventListener('change', () => {
+    setLocale(localeSel.value);
+    location.reload();
+  });
+
+  renderVersion();
+  // Sync the theme button label (translated) with the already-applied theme.
+  applyTheme(currentTheme());
+
   // Auth
   document.getElementById('btn-login').addEventListener('click', login);
   document.getElementById('btn-signup').addEventListener('click', signup);
@@ -1936,13 +2491,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
   document.getElementById('signup-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') signup(); });
 
-  // Search
+  // Search (per-vault filter)
   document.getElementById('search-input').addEventListener('input', e => {
     searchQuery = e.target.value;
     if (currentVault && sidebarMode === 'vaults') {
       renderFilteredItems();
     }
   });
+
+  // Global search (all vaults, sidebar)
+  const gsInput = document.getElementById('global-search-input');
+  gsInput.addEventListener('input', () => {
+    const q = gsInput.value.trim();
+    if (q.length < 2) { hideGlobalSearch(); return; }
+    runGlobalSearch(q);
+  });
+  gsInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { hideGlobalSearch(); gsInput.blur(); }
+  });
+  gsInput.addEventListener('blur', () => setTimeout(() => hideGlobalSearch(), 150));
 
   // Sidebar add buttons
   document.getElementById('btn-sidebar-add-vault').addEventListener('click', () => openModal('modal-vault'));
@@ -1955,9 +2522,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Items
   document.getElementById('btn-add-item').addEventListener('click', () => {
-    if (!currentVault) return toast('Select a vault first', true);
+    if (!currentVault) return toast(t('toast.selectVaultFirst'), true);
     editingItem = null;
-    document.getElementById('modal-item-title').textContent = 'New Item';
+    document.getElementById('modal-item-title').textContent = t('form.newItem');
     clearItemForm();
     openModal('modal-item');
   });
@@ -1974,24 +2541,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderStrengthInto('item-pw-strength', e.target.value);
   });
 
-  // Detail actions (favorite / edit / delete / history / breach check)
-  wireDetailDelegation();
+  // Item form: attachments + custom fields
+  document.getElementById('item-attachment-input').addEventListener('change', async (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';
+    await addFormAttachments(files);
+  });
+  document.getElementById('item-attachments-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-remove-att');
+    if (!btn) return;
+    formAttachments.splice(Number(btn.dataset.i), 1);
+    renderFormAttachments();
+  });
+  document.getElementById('btn-add-custom-field').addEventListener('click', () => addCustomFieldRow());
+
+  // Detail actions (favorite / share / edit / delete / history / breach check)
+  wireCopyReveal(document.getElementById('detail-content'));
   document.getElementById('btn-fav-item').addEventListener('click', toggleFavorite);
   document.getElementById('btn-item-history').addEventListener('click', showItemHistory);
   document.getElementById('btn-check-breach').addEventListener('click', checkCurrentBreach);
+  document.getElementById('btn-share-item').addEventListener('click', openShareModal);
 
   document.getElementById('btn-edit-item').addEventListener('click', () => {
     if (!currentItem || !currentItem._data) return;
     editingItem = currentItem;
-    document.getElementById('modal-item-title').textContent = 'Edit Item';
+    document.getElementById('modal-item-title').textContent = t('form.editItem');
     fillItemForm(currentItem._data);
     openModal('modal-item');
   });
 
   document.getElementById('btn-delete-item').addEventListener('click', deleteCurrentItem);
 
-  // History modal close
-  document.getElementById('btn-close-history').addEventListener('click', () => closeModal('modal-history'));
+  // Share modal
+  document.getElementById('btn-create-share').addEventListener('click', createShareLink);
+  document.getElementById('btn-close-share').addEventListener('click', () => closeModal('modal-share'));
+  document.getElementById('btn-copy-share').addEventListener('click', () => {
+    const url = document.getElementById('share-url-input').value;
+    if (url) navigator.clipboard.writeText(url).then(() => toast(t('toast.copied'))).catch(() => toast(t('toast.copyFailed'), true));
+  });
+  document.getElementById('share-links-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.js-revoke-share');
+    if (!btn) return;
+    try {
+      await api('DELETE', `/api/share-links/${btn.dataset.shareId}`);
+      toast(t('share.revoked'));
+      loadShareLinks();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  // History modal: view (read-only mini detail) + restore (prefill edit form)
+  const historyBody = document.getElementById('history-body');
+  wireCopyReveal(historyBody);
+  historyBody.addEventListener('click', (e) => {
+    const viewBtn = e.target.closest('.js-hist-view');
+    if (viewBtn) {
+      const i = Number(viewBtn.dataset.i);
+      const mini = historyBody.querySelector(`[data-mini="${i}"]`);
+      if (mini) {
+        if (mini.style.display === 'none') {
+          mini.innerHTML = miniDetailHtml(historyEntries[i]?.data || {});
+          mini.style.display = 'block';
+        } else {
+          mini.style.display = 'none';
+          mini.innerHTML = '';
+        }
+      }
+      return;
+    }
+    const restoreBtn = e.target.closest('.js-hist-restore');
+    if (restoreBtn) {
+      const h = historyEntries[Number(restoreBtn.dataset.i)];
+      if (!h || !currentItem) return;
+      editingItem = currentItem;
+      document.getElementById('modal-item-title').textContent = t('form.editItem');
+      fillItemForm(h.data);
+      closeModal('modal-history');
+      openModal('modal-item');
+    }
+  });
+  document.getElementById('btn-close-history').addEventListener('click', () => {
+    closeModal('modal-history');
+    historyEntries = [];
+    historyBody.innerHTML = '';
+  });
 
   // Generator modal
   document.querySelectorAll('input[name="gen-mode"]').forEach(r => r.addEventListener('change', refreshGenerator));
@@ -2000,7 +2632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById(id).addEventListener('change', refreshGenerator));
   document.getElementById('btn-gen-refresh').addEventListener('click', refreshGenerator);
   document.getElementById('btn-gen-copy').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('gen-output').textContent).then(() => toast('Copied'));
+    navigator.clipboard.writeText(document.getElementById('gen-output').textContent).then(() => toast(t('toast.copied')));
   });
   document.getElementById('btn-gen-use').addEventListener('click', useGenerated);
   document.getElementById('btn-gen-close').addEventListener('click', () => closeModal('modal-generator'));
@@ -2078,7 +2710,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const detailPanel = document.querySelector('.detail-panel');
   const backRow = document.createElement('div');
   backRow.className = 'mobile-back-row';
-  backRow.innerHTML = '<button class="btn-icon" id="btn-mobile-back-detail">&larr;</button><h2>Details</h2>';
+  backRow.innerHTML = `<button class="btn-icon" id="btn-mobile-back-detail">&larr;</button><h2>${esc(t('detail.title'))}</h2>`;
   detailPanel.insertBefore(backRow, detailPanel.firstChild);
   document.getElementById('btn-mobile-back-detail').addEventListener('click', closeMobileDetail);
 
@@ -2086,7 +2718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let parsedImportItems = [];
 
   document.getElementById('btn-import-items').addEventListener('click', () => {
-    if (!currentVault) return toast('Select a vault first', true);
+    if (!currentVault) return toast(t('toast.selectVaultFirst'), true);
     resetImportModal();
     openModal('modal-import');
   });
@@ -2106,7 +2738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (parsedImportItems.length === 0) {
           document.getElementById('import-preview').style.display = 'block';
-          document.getElementById('import-preview-text').textContent = 'No items found in file.';
+          document.getElementById('import-preview-text').textContent = t('import.noItems');
           document.getElementById('btn-start-import').disabled = true;
           return;
         }
@@ -2115,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const format = ext === '1pif' ? '1PIF' : 'CSV';
         document.getElementById('import-preview').style.display = 'block';
         document.getElementById('import-preview-text').textContent =
-          `Found ${parsedImportItems.length} item(s) — Format: ${format}`;
+          t('import.found', { count: parsedImportItems.length, format });
         document.getElementById('btn-start-import').disabled = false;
       } catch (err) {
         document.getElementById('import-errors-preview').style.display = 'block';
@@ -2138,7 +2770,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('recover-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') recover(); });
   document.getElementById('btn-copy-recovery-key').addEventListener('click', () => {
     const key = document.getElementById('recovery-key-display').textContent;
-    navigator.clipboard.writeText(key).then(() => toast('Copied!')).catch(() => toast('Copy failed', true));
+    navigator.clipboard.writeText(key).then(() => toast(t('toast.copied'))).catch(() => toast(t('toast.copyFailed'), true));
   });
   document.getElementById('recovery-key-saved-checkbox').addEventListener('change', e => {
     document.getElementById('btn-recovery-key-continue').disabled = !e.target.checked;
@@ -2161,9 +2793,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Routing: handle hash changes
   window.addEventListener('hashchange', () => handleRoute());
 
-  // Detect auth mode and initialize
+  // Detect auth mode and initialize. Share links (#/share/...) bypass auth
+  // entirely — the recipient may have no account.
   iapMode = await detectAuthMode();
-  if (iapMode) {
+  if (parseShareHash(location.hash)) {
+    await handleRoute();
+  } else if (iapMode) {
     await initIAPSession();
   } else {
     handleRoute();

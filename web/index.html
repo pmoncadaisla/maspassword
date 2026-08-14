@@ -28,114 +28,115 @@
   <!-- AUTH: Login -->
   <div id="screen-login" class="screen auth-screen active">
     <div class="auth-container">
-      <h2>Vault Internal</h2>
-      <p>Zero-Knowledge Password Manager.<br>Your passwords never leave your device unencrypted.</p>
+      <h2 data-i18n="app.name">Vault Internal</h2>
+      <p><span data-i18n="app.tagline">Gestor de contraseñas de conocimiento cero.</span><br><span data-i18n="app.zeroKnowledge">Tus contraseñas nunca salen de tu dispositivo sin cifrar.</span></p>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+        <label data-i18n="auth.email">Email</label>
+        <input type="email" id="login-email" placeholder="tu@ejemplo.com" data-i18n-placeholder="auth.email.placeholder" autocomplete="email">
       </div>
       <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="login-password" placeholder="Your master password" autocomplete="current-password">
+        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+        <input type="password" id="login-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
       </div>
-      <button class="btn btn-primary" id="btn-login">Log in</button>
-      <p>Don't have an account? <button class="link-btn" id="btn-show-signup">Sign up</button></p>
-      <p><button class="link-btn" id="btn-show-recover">Forgot password?</button></p>
+      <button class="btn btn-primary" id="btn-login" data-i18n="auth.login">Iniciar sesión</button>
+      <p><span data-i18n="auth.noAccount">¿No tienes cuenta?</span> <button class="link-btn" id="btn-show-signup" data-i18n="auth.signup">Regístrate</button></p>
+      <p><button class="link-btn" id="btn-show-recover" data-i18n="auth.forgotPassword">¿Has olvidado tu contraseña?</button></p>
+      <p class="version-footer" id="app-version-login"></p>
     </div>
   </div>
 
   <!-- AUTH: Signup -->
   <div id="screen-signup" class="screen auth-screen">
     <div class="auth-container">
-      <h2>Create Account</h2>
-      <p>Your master password is used to derive encryption keys locally. We never see it.</p>
+      <h2 data-i18n="auth.signup.title">Crear cuenta</h2>
+      <p data-i18n="auth.signup.hint">Tu contraseña maestra se usa para derivar las claves de cifrado localmente. Nunca la vemos.</p>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+        <label data-i18n="auth.email">Email</label>
+        <input type="email" id="signup-email" placeholder="tu@ejemplo.com" data-i18n-placeholder="auth.email.placeholder" autocomplete="email">
       </div>
       <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="signup-password" placeholder="Choose a strong password" autocomplete="new-password">
+        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+        <input type="password" id="signup-password" placeholder="Elige una contraseña fuerte" data-i18n-placeholder="auth.signup.passwordPlaceholder" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Confirm Password</label>
-        <input type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password">
+        <label data-i18n="auth.confirmPassword">Confirmar contraseña</label>
+        <input type="password" id="signup-confirm" placeholder="Confirma la contraseña" data-i18n-placeholder="auth.confirmPassword.placeholder" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-signup">Create Account</button>
-      <p>Already have an account? <button class="link-btn" id="btn-show-login">Log in</button></p>
+      <button class="btn btn-primary" id="btn-signup" data-i18n="auth.signup.title">Crear cuenta</button>
+      <p><span data-i18n="auth.haveAccount">¿Ya tienes cuenta?</span> <button class="link-btn" id="btn-show-login" data-i18n="auth.login">Iniciar sesión</button></p>
     </div>
   </div>
 
   <!-- AUTH: IAP Unlock (master password only) -->
   <div id="screen-iap-unlock" class="screen auth-screen">
     <div class="auth-container">
-      <h2>Vault Internal</h2>
-      <p>Authenticated via Google IAP.<br>Enter your master password to unlock your vault.</p>
+      <h2 data-i18n="app.name">Vault Internal</h2>
+      <p data-i18n="auth.iap.unlockHint">Autenticado con Google IAP. Introduce tu contraseña maestra para desbloquear tu caja fuerte.</p>
       <div id="iap-unlock-email" style="margin-bottom:12px; font-weight:600;"></div>
       <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="iap-unlock-password" placeholder="Your master password" autocomplete="current-password">
+        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+        <input type="password" id="iap-unlock-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
       </div>
-      <button class="btn btn-primary" id="btn-iap-unlock">Unlock</button>
+      <button class="btn btn-primary" id="btn-iap-unlock" data-i18n="auth.unlock">Desbloquear</button>
     </div>
   </div>
 
   <!-- AUTH: IAP Setup (first time — create master password) -->
   <div id="screen-iap-setup" class="screen auth-screen">
     <div class="auth-container">
-      <h2>Set Up Encryption</h2>
-      <p>Authenticated via Google IAP.<br>Create a master password to encrypt your data. We never see it.</p>
+      <h2 data-i18n="auth.iap.setupTitle">Configurar cifrado</h2>
+      <p data-i18n="auth.iap.setupHint">Autenticado con Google IAP. Crea una contraseña maestra para cifrar tus datos. Nunca la vemos.</p>
       <div id="iap-setup-email" style="margin-bottom:12px; font-weight:600;"></div>
       <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="iap-setup-password" placeholder="Choose a strong password" autocomplete="new-password">
+        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+        <input type="password" id="iap-setup-password" placeholder="Elige una contraseña fuerte" data-i18n-placeholder="auth.signup.passwordPlaceholder" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Confirm Password</label>
-        <input type="password" id="iap-setup-confirm" placeholder="Confirm password" autocomplete="new-password">
+        <label data-i18n="auth.confirmPassword">Confirmar contraseña</label>
+        <input type="password" id="iap-setup-confirm" placeholder="Confirma la contraseña" data-i18n-placeholder="auth.confirmPassword.placeholder" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-iap-setup">Set Up Encryption</button>
+      <button class="btn btn-primary" id="btn-iap-setup" data-i18n="auth.iap.setupTitle">Configurar cifrado</button>
     </div>
   </div>
 
   <!-- AUTH: Show Recovery Key (after signup or recovery) -->
   <div id="screen-show-recovery-key" class="screen auth-screen">
     <div class="auth-container">
-      <h2>Save Your Recovery Key</h2>
-      <p>This key allows you to recover your account if you forget your master password. <strong>Save it somewhere safe — it will only be shown once.</strong></p>
+      <h2 data-i18n="recovery.title">Guarda tu clave de recuperación</h2>
+      <p data-i18n="recovery.hint">Esta clave te permite recuperar tu cuenta si olvidas tu contraseña maestra. Guárdala en un lugar seguro: solo se mostrará una vez.</p>
       <code id="recovery-key-display" style="display:block; word-break:break-all; background:#f4f4f4; padding:16px; border-radius:8px; font-size:14px; margin:16px 0; user-select:all; color:#333;"></code>
-      <button class="btn btn-secondary" id="btn-copy-recovery-key" style="margin-bottom:16px; width:100%;">Copy to clipboard</button>
+      <button class="btn btn-secondary" id="btn-copy-recovery-key" style="margin-bottom:16px; width:100%;" data-i18n="recovery.copy">Copiar al portapapeles</button>
       <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px; cursor:pointer;">
         <input type="checkbox" id="recovery-key-saved-checkbox">
-        <span>I have saved this recovery key</span>
+        <span data-i18n="recovery.saved">He guardado esta clave de recuperación</span>
       </label>
-      <button class="btn btn-primary" id="btn-recovery-key-continue" disabled>Continue</button>
+      <button class="btn btn-primary" id="btn-recovery-key-continue" disabled data-i18n="recovery.continue">Continuar</button>
     </div>
   </div>
 
   <!-- AUTH: Recover Account (forgot password) -->
   <div id="screen-recover" class="screen auth-screen">
     <div class="auth-container">
-      <h2>Account Recovery</h2>
-      <p>Enter your email, recovery key, and a new master password to regain access.</p>
+      <h2 data-i18n="recover.title">Recuperación de cuenta</h2>
+      <p data-i18n="recover.hint">Introduce tu email, tu clave de recuperación y una nueva contraseña maestra para recuperar el acceso.</p>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="recover-email" placeholder="you@example.com" autocomplete="email">
+        <label data-i18n="auth.email">Email</label>
+        <input type="email" id="recover-email" placeholder="tu@ejemplo.com" data-i18n-placeholder="auth.email.placeholder" autocomplete="email">
       </div>
       <div class="form-group">
-        <label>Recovery Key</label>
-        <input type="text" id="recover-key" placeholder="Paste your recovery key" autocomplete="off">
+        <label data-i18n="recover.key">Clave de recuperación</label>
+        <input type="text" id="recover-key" placeholder="Pega tu clave de recuperación" data-i18n-placeholder="recover.key.placeholder" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>New Master Password</label>
-        <input type="password" id="recover-password" placeholder="Choose a new password" autocomplete="new-password">
+        <label data-i18n="recover.newPassword">Nueva contraseña maestra</label>
+        <input type="password" id="recover-password" placeholder="Elige una nueva contraseña" data-i18n-placeholder="recover.newPassword.placeholder" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Confirm New Password</label>
-        <input type="password" id="recover-confirm" placeholder="Confirm new password" autocomplete="new-password">
+        <label data-i18n="recover.confirm">Confirmar nueva contraseña</label>
+        <input type="password" id="recover-confirm" placeholder="Confirma la nueva contraseña" data-i18n-placeholder="recover.confirm.placeholder" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-recover">Reset Password</button>
-      <p><button class="link-btn" id="btn-recover-back-login">Back to login</button></p>
+      <button class="btn btn-primary" id="btn-recover" data-i18n="recover.submit">Restablecer contraseña</button>
+      <p><button class="link-btn" id="btn-recover-back-login" data-i18n="recover.backToLogin">Volver a iniciar sesión</button></p>
     </div>
   </div>
 
@@ -143,15 +144,26 @@
   <div id="screen-lock" class="screen auth-screen">
     <div class="auth-container">
       <div style="text-align:center; font-size:40px;">&#128274;</div>
-      <h2>Vault Locked</h2>
-      <p>Locked for your security. Enter your master password to unlock.</p>
+      <h2 data-i18n="lock.title">Caja fuerte bloqueada</h2>
+      <p data-i18n="lock.hint">Bloqueada por tu seguridad. Introduce tu contraseña maestra para desbloquear.</p>
       <div id="lock-email" style="text-align:center; font-weight:600; margin-bottom:4px;"></div>
       <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="lock-password" placeholder="Your master password" autocomplete="current-password">
+        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+        <input type="password" id="lock-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
       </div>
-      <button class="btn btn-primary" id="btn-unlock">Unlock</button>
-      <p><button class="link-btn" id="btn-lock-logout">Log out instead</button></p>
+      <button class="btn btn-primary" id="btn-unlock" data-i18n="auth.unlock">Desbloquear</button>
+      <p><button class="link-btn" id="btn-lock-logout" data-i18n="lock.logoutInstead">Prefiero cerrar sesión</button></p>
+    </div>
+  </div>
+
+  <!-- SHARE: standalone recipient screen for one-time share links (no login required).
+       The decryption key lives ONLY in the URL fragment and never leaves the browser. -->
+  <div id="screen-share-open" class="screen auth-screen">
+    <div class="auth-container share-open-container">
+      <div style="text-align:center; font-size:40px;">&#128279;</div>
+      <h2 data-i18n="share.open.title">Elemento compartido</h2>
+      <div id="share-open-body"></div>
+      <p class="version-footer" id="app-version-share"></p>
     </div>
   </div>
 
@@ -161,70 +173,79 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h1 class="sidebar-logo">Vault Internal</h1>
+        <h1 class="sidebar-logo" data-i18n="app.name">Vault Internal</h1>
+      </div>
+      <div class="sidebar-global-search">
+        <input type="text" id="global-search-input" class="search-input" placeholder="Buscar en todas las cajas fuertes…" data-i18n-placeholder="search.global.placeholder" autocomplete="off" spellcheck="false">
+        <div id="global-search-results" class="global-search-results" style="display:none;"></div>
       </div>
       <div class="sidebar-content">
         <div class="sidebar-section">
-          <div class="sidebar-section-title">Vaults</div>
+          <div class="sidebar-section-title" data-i18n="sidebar.vaults">Cajas fuertes</div>
           <div id="sidebar-vault-list"></div>
-          <button class="sidebar-add-btn" id="btn-sidebar-add-vault">+ New Vault</button>
+          <button class="sidebar-add-btn" id="btn-sidebar-add-vault" data-i18n="sidebar.newVault">+ Nueva caja fuerte</button>
         </div>
         <div class="sidebar-section">
-          <div class="sidebar-section-title">Teams</div>
+          <div class="sidebar-section-title" data-i18n="sidebar.teams">Equipos</div>
           <div id="sidebar-team-list"></div>
-          <button class="sidebar-add-btn" id="btn-sidebar-add-team">+ New Team</button>
+          <button class="sidebar-add-btn" id="btn-sidebar-add-team" data-i18n="sidebar.newTeam">+ Nuevo equipo</button>
         </div>
         <div class="sidebar-section">
-          <div class="sidebar-section-title">Tools</div>
+          <div class="sidebar-section-title" data-i18n="sidebar.tools">Herramientas</div>
           <button class="sidebar-item" id="btn-tool-watchtower">
             <span class="sidebar-item-icon">&#128737;</span>
-            <span class="sidebar-item-name">Security dashboard</span>
+            <span class="sidebar-item-name" data-i18n="sidebar.watchtower">Panel de seguridad</span>
           </button>
           <button class="sidebar-item" id="btn-tool-generator">
             <span class="sidebar-item-icon">&#127922;</span>
-            <span class="sidebar-item-name">Password generator</span>
+            <span class="sidebar-item-name" data-i18n="sidebar.generator">Generador de contraseñas</span>
           </button>
           <button class="sidebar-item" id="btn-cmd-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
             <span class="sidebar-item-icon">&#128269;</span>
-            <span class="sidebar-item-name">Quick search</span>
+            <span class="sidebar-item-name" data-i18n="sidebar.quickSearch">Búsqueda rápida</span>
             <span class="kbd-hint">&#8984;K</span>
           </button>
         </div>
       </div>
       <div class="sidebar-footer">
-        <button class="sidebar-logout-btn" id="btn-theme">&#127769; Dark mode</button>
-        <button class="sidebar-logout-btn" id="btn-lock">&#128274; Lock vault</button>
-        <button class="sidebar-logout-btn" id="btn-logout">Log out</button>
+        <button class="sidebar-logout-btn" id="btn-theme">&#127769; Modo oscuro</button>
+        <button class="sidebar-logout-btn" id="btn-lock">&#128274; <span data-i18n="sidebar.lockVault">Bloquear caja fuerte</span></button>
+        <button class="sidebar-logout-btn" id="btn-logout" data-i18n="sidebar.logout">Cerrar sesión</button>
+        <div class="sidebar-footer-meta">
+          <select id="locale-select" class="locale-select" data-i18n-title="settings.language" title="Idioma"></select>
+          <span class="version-footer" id="app-version-sidebar"></span>
+        </div>
       </div>
     </aside>
 
     <!-- ITEM LIST PANEL -->
     <div class="item-list-panel">
       <div class="item-list-header">
-        <input type="text" id="search-input" class="search-input" placeholder="Search items...">
+        <input type="text" id="search-input" class="search-input" placeholder="Buscar elementos..." data-i18n-placeholder="items.search.placeholder">
       </div>
+      <div id="vault-shares" class="vault-shares" style="display:none;"></div>
       <div id="tag-bar" class="tag-bar" style="display:none;"></div>
       <div id="item-list" class="item-list"></div>
       <div id="items-empty" class="empty-state" style="display:none;">
         <div class="icon">&#128273;</div>
-        <p>No items yet</p>
+        <p data-i18n="items.empty">Aún no hay elementos</p>
       </div>
       <!-- Team detail content (shown when a team is selected) -->
       <div id="team-detail-panel" style="display:none;">
         <div class="section-header">
-          <h3>Members</h3>
-          <button class="btn btn-secondary btn-small" id="btn-team-add-member">Add Member</button>
+          <h3 data-i18n="teams.members">Miembros</h3>
+          <button class="btn btn-secondary btn-small" id="btn-team-add-member" data-i18n="teams.addMember">Añadir miembro</button>
         </div>
         <div id="member-list" class="member-list"></div>
         <div class="section-header" style="margin-top:24px;">
-          <h3>Team Vaults</h3>
-          <button class="btn btn-secondary btn-small" id="btn-team-add-vault">Create Vault</button>
+          <h3 data-i18n="teams.vaults">Cajas fuertes del equipo</h3>
+          <button class="btn btn-secondary btn-small" id="btn-team-add-vault" data-i18n="teams.createVault">Crear caja fuerte</button>
         </div>
         <div id="team-vault-list" class="vault-list"></div>
       </div>
       <div class="item-list-actions" style="display:none;" id="item-list-actions">
-        <button class="item-list-add-btn" id="btn-import-items" title="Import from 1Password">Import</button>
-        <button class="item-list-add-btn" id="btn-add-item" title="New item">+ New Item</button>
+        <button class="item-list-add-btn" id="btn-import-items" data-i18n="items.import" data-i18n-title="import.title" title="Importar desde 1Password">Importar</button>
+        <button class="item-list-add-btn" id="btn-add-item" data-i18n="items.new" data-i18n-title="form.newItem" title="Nuevo elemento">+ Nuevo elemento</button>
       </div>
     </div>
 
@@ -232,27 +253,29 @@
     <div class="detail-panel">
       <div id="detail-empty" class="empty-state">
         <div class="icon">&#128274;</div>
-        <p>Select an item to view details</p>
+        <p data-i18n="items.selectPrompt">Selecciona un elemento para ver los detalles</p>
       </div>
       <div id="detail-content" style="display:none;">
         <div class="detail-header">
           <div class="detail-title-row">
-            <button class="btn-icon fav-star" id="btn-fav-item" title="Favorite">&#9734;</button>
+            <button class="btn-icon fav-star" id="btn-fav-item" data-i18n-title="items.favorite" title="Favorito">&#9734;</button>
+            <span id="detail-item-icon" class="detail-item-icon"></span>
             <h2 id="detail-title">Item</h2>
           </div>
           <div class="detail-actions">
-            <button class="btn-icon" id="btn-item-history" title="Password history">&#128340;</button>
-            <button class="btn-icon" id="btn-edit-item" title="Edit">&#9998;</button>
-            <button class="btn-icon btn-icon-danger" id="btn-delete-item" title="Delete">&#128465;</button>
+            <button class="btn-icon" id="btn-share-item" data-icon="share" data-i18n-title="share.title" title="Compartir elemento">&#128279;</button>
+            <button class="btn-icon" id="btn-item-history" data-i18n-title="history.title" title="Historial de contraseñas">&#128340;</button>
+            <button class="btn-icon" id="btn-edit-item" data-i18n-title="actions.edit" title="Editar">&#9998;</button>
+            <button class="btn-icon btn-icon-danger" id="btn-delete-item" data-i18n-title="actions.delete" title="Eliminar">&#128465;</button>
           </div>
         </div>
         <div id="detail-meta" class="detail-meta"></div>
         <div id="detail-fields" class="field-group"></div>
         <div id="detail-extras" class="detail-extras" style="display:none;">
-          <div class="extras-title">Password health</div>
+          <div class="extras-title" data-i18n="health.title">Salud de la contraseña</div>
           <div id="detail-pw-strength" class="strength"></div>
           <div class="extras-breach-row">
-            <button class="btn btn-secondary btn-small" id="btn-check-breach">Check for breaches</button>
+            <button class="btn btn-secondary btn-small" id="btn-check-breach" data-i18n="breach.check">Comprobar filtraciones</button>
             <span id="detail-breach-result"></span>
           </div>
         </div>
@@ -267,25 +290,25 @@
 <nav id="bottom-nav" class="bottom-nav" style="display:none;">
   <button class="nav-item active" data-tab="vaults">
     <span class="nav-icon">&#128274;</span>
-    <span class="nav-label">Vaults</span>
+    <span class="nav-label" data-i18n="sidebar.vaults">Cajas fuertes</span>
   </button>
   <button class="nav-item" data-tab="teams">
     <span class="nav-icon">&#128101;</span>
-    <span class="nav-label">Teams</span>
+    <span class="nav-label" data-i18n="sidebar.teams">Equipos</span>
   </button>
 </nav>
 
 <!-- MODAL: New Vault -->
 <div class="modal-overlay" id="modal-vault">
   <div class="modal">
-    <h3>New Vault</h3>
+    <h3 data-i18n="vault.new">Nueva caja fuerte</h3>
     <div class="form-group">
-      <label>Vault Name</label>
-      <input type="text" id="vault-name-input" placeholder="e.g. Personal, Work">
+      <label data-i18n="vault.name">Nombre de la caja fuerte</label>
+      <input type="text" id="vault-name-input" placeholder="p. ej. Personal, Trabajo" data-i18n-placeholder="vault.name.placeholder">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-cancel-vault">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-vault">Create</button>
+      <button class="btn btn-secondary" id="btn-cancel-vault" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-vault" data-i18n="actions.create">Crear</button>
     </div>
   </div>
 </div>
@@ -293,72 +316,79 @@
 <!-- MODAL: New/Edit Item -->
 <div class="modal-overlay" id="modal-item">
   <div class="modal">
-    <h3 id="modal-item-title">New Item</h3>
+    <h3 id="modal-item-title">Nuevo elemento</h3>
 
     <div id="item-type-selector" class="type-selector">
-      <button class="type-tab active" data-type="login">&#128273; Login</button>
-      <button class="type-tab" data-type="card">&#128179; Card</button>
-      <button class="type-tab" data-type="note">&#128221; Note</button>
-      <button class="type-tab" data-type="identity">&#128100; Identity</button>
+      <button class="type-tab active" data-type="login">&#128273; <span data-i18n="type.login">Login</span></button>
+      <button class="type-tab" data-type="card">&#128179; <span data-i18n="type.card">Tarjeta</span></button>
+      <button class="type-tab" data-type="note">&#128221; <span data-i18n="type.note">Nota</span></button>
+      <button class="type-tab" data-type="identity">&#128100; <span data-i18n="type.identity">Identidad</span></button>
     </div>
 
-    <div class="form-group">
-      <label>Title</label>
-      <input type="text" id="item-title-input" placeholder="e.g. GitHub, Gmail">
+    <div class="form-row">
+      <div class="form-group" style="flex:3;">
+        <label data-i18n="fields.title">Título</label>
+        <input type="text" id="item-title-input" placeholder="p. ej. GitHub, Gmail" data-i18n-placeholder="fields.title.placeholder">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label data-i18n="items.icon.change">Cambiar icono</label>
+        <input type="text" id="item-icon-input" maxlength="4" placeholder="&#127760;" autocomplete="off">
+      </div>
     </div>
+    <p class="label-hint icon-hint">Vacío = favicon automático del sitio web</p>
 
     <!-- Login fields -->
     <div data-type-fields="login">
       <div class="form-group">
-        <label>Username / Email</label>
-        <input type="text" id="item-user-input" placeholder="username" autocomplete="off">
+        <label data-i18n="fields.usernameOrEmail">Usuario / Email</label>
+        <input type="text" id="item-user-input" placeholder="usuario" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Password</label>
+        <label data-i18n="fields.password">Contraseña</label>
         <div style="display:flex;gap:8px;">
-          <input type="text" id="item-pw-input" placeholder="password" autocomplete="off" style="flex:1;">
-          <button class="btn btn-secondary btn-small" id="btn-gen-pw" title="Generate" style="white-space:nowrap;">&#127922; Gen</button>
+          <input type="text" id="item-pw-input" placeholder="contraseña" autocomplete="off" style="flex:1;">
+          <button class="btn btn-secondary btn-small" id="btn-gen-pw" data-i18n-title="form.generate" title="Generar" style="white-space:nowrap;">&#127922; <span data-i18n="form.generate">Generar</span></button>
         </div>
         <div id="item-pw-strength" class="strength"></div>
       </div>
       <div class="form-group">
-        <label>URL</label>
+        <label data-i18n="fields.url">URL</label>
         <input type="text" id="item-url-input" placeholder="https://..." autocomplete="off">
       </div>
       <div class="form-group">
-        <label>One-Time Password Secret (TOTP)</label>
-        <input type="text" id="item-totp-input" placeholder="Base32 secret, e.g. JBSWY3DPEHPK3PXP" autocomplete="off">
+        <label data-i18n="fields.totpSecret">Secreto TOTP (contraseña de un solo uso)</label>
+        <input type="text" id="item-totp-input" placeholder="Secreto Base32, p. ej. JBSWY3DPEHPK3PXP" data-i18n-placeholder="fields.totpSecret.placeholder" autocomplete="off">
       </div>
     </div>
 
     <!-- Card fields -->
     <div data-type-fields="card" style="display:none;">
       <div class="form-group">
-        <label>Cardholder Name</label>
-        <input type="text" id="item-card-holder" placeholder="Name on card" autocomplete="off">
+        <label data-i18n="fields.cardholder">Titular de la tarjeta</label>
+        <input type="text" id="item-card-holder" placeholder="Nombre en la tarjeta" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Card Number</label>
+        <label data-i18n="fields.cardNumber">Número de tarjeta</label>
         <input type="text" id="item-card-number" placeholder="1234 5678 9012 3456" autocomplete="off" inputmode="numeric">
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Brand</label>
+          <label data-i18n="fields.cardBrand">Marca</label>
           <input type="text" id="item-card-brand" placeholder="Visa" autocomplete="off">
         </div>
         <div class="form-group">
-          <label>Expires</label>
+          <label data-i18n="fields.cardExpiry">Caducidad</label>
           <input type="text" id="item-card-exp" placeholder="MM/YY" autocomplete="off">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>CVV</label>
+          <label data-i18n="fields.cvv">CVV</label>
           <input type="text" id="item-card-cvv" placeholder="123" autocomplete="off" inputmode="numeric">
         </div>
         <div class="form-group">
-          <label>PIN</label>
-          <input type="text" id="item-card-pin" placeholder="••••" autocomplete="off" inputmode="numeric">
+          <label data-i18n="fields.pin">PIN</label>
+          <input type="text" id="item-card-pin" placeholder="&#8226;&#8226;&#8226;&#8226;" autocomplete="off" inputmode="numeric">
         </div>
       </div>
     </div>
@@ -366,46 +396,67 @@
     <!-- Identity fields -->
     <div data-type-fields="identity" style="display:none;">
       <div class="form-group">
-        <label>Full Name</label>
+        <label data-i18n="fields.fullName">Nombre completo</label>
         <input type="text" id="item-id-fullname" placeholder="Jane Doe" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Email</label>
+        <label data-i18n="fields.email">Email</label>
         <input type="text" id="item-id-email" placeholder="jane@example.com" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Phone</label>
+        <label data-i18n="fields.phone">Teléfono</label>
         <input type="text" id="item-id-phone" placeholder="+34 600 000 000" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Address</label>
-        <input type="text" id="item-id-address" placeholder="Street, City" autocomplete="off">
+        <label data-i18n="fields.address">Dirección</label>
+        <input type="text" id="item-id-address" placeholder="Calle, Ciudad" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Company</label>
-        <input type="text" id="item-id-company" placeholder="Company" autocomplete="off">
+        <label data-i18n="fields.company">Empresa</label>
+        <input type="text" id="item-id-company" placeholder="Empresa" autocomplete="off">
       </div>
     </div>
 
     <!-- Note field (also shown for note type as the primary body) -->
     <div class="form-group">
-      <label>Notes</label>
-      <input type="text" id="item-notes-input" placeholder="Optional notes" autocomplete="off">
+      <label data-i18n="fields.notes">Notas</label>
+      <input type="text" id="item-notes-input" placeholder="Notas opcionales" data-i18n-placeholder="fields.notes.placeholder" autocomplete="off">
     </div>
 
     <!-- Common: tags + favorite -->
     <div class="form-group">
-      <label>Tags <span class="label-hint">(comma-separated)</span></label>
-      <input type="text" id="item-tags-input" placeholder="work, social, finance" autocomplete="off">
+      <label><span data-i18n="fields.tags">Etiquetas</span> <span class="label-hint" data-i18n="fields.tags.hint">(separadas por comas)</span></label>
+      <input type="text" id="item-tags-input" placeholder="trabajo, social, finanzas" data-i18n-placeholder="fields.tags.placeholder" autocomplete="off">
     </div>
     <label class="checkbox-row">
       <input type="checkbox" id="item-fav-input">
-      <span>&#9733; Mark as favorite</span>
+      <span>&#9733; <span data-i18n="form.markFavorite">Marcar como favorito</span></span>
     </label>
 
+    <!-- Custom fields (stored inside the encrypted blob) -->
+    <div class="form-group" style="margin-top:14px;">
+      <label data-i18n="items.customFields">Campos personalizados</label>
+      <div id="custom-fields-list" class="custom-fields-list"></div>
+      <button type="button" class="attach-add-btn" id="btn-add-custom-field">
+        <span data-icon="plus" data-icon-size="14"></span>
+        <span data-i18n="items.customFields.add">Añadir campo</span>
+      </button>
+    </div>
+
+    <!-- Attachments (stored inside the encrypted blob) -->
+    <div class="form-group">
+      <label data-i18n="items.attachments">Adjuntos</label>
+      <div id="item-attachments-list" class="attachments-list"></div>
+      <label class="attach-add-btn" id="item-attachment-label">
+        <span data-icon="attachment" data-icon-size="14"></span>
+        <span data-i18n="items.attachments.add">Añadir adjunto</span>
+        <input type="file" id="item-attachment-input" multiple class="import-file-input-hidden">
+      </label>
+    </div>
+
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-cancel-item">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-item">Save</button>
+      <button class="btn btn-secondary" id="btn-cancel-item" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-item" data-i18n="actions.save">Guardar</button>
     </div>
   </div>
 </div>
@@ -413,14 +464,14 @@
 <!-- MODAL: New Team -->
 <div class="modal-overlay" id="modal-team">
   <div class="modal">
-    <h3>New Team</h3>
+    <h3 data-i18n="teams.new">Nuevo equipo</h3>
     <div class="form-group">
-      <label>Team Name</label>
-      <input type="text" id="team-name-input" placeholder="e.g. Engineering, Design">
+      <label data-i18n="teams.name">Nombre del equipo</label>
+      <input type="text" id="team-name-input" placeholder="p. ej. Ingeniería, Diseño" data-i18n-placeholder="teams.name.placeholder">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-cancel-team">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-team">Create</button>
+      <button class="btn btn-secondary" id="btn-cancel-team" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-team" data-i18n="actions.create">Crear</button>
     </div>
   </div>
 </div>
@@ -428,14 +479,14 @@
 <!-- MODAL: Add Member -->
 <div class="modal-overlay" id="modal-add-member">
   <div class="modal">
-    <h3>Add Member</h3>
+    <h3 data-i18n="teams.addMember">Añadir miembro</h3>
     <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="member-email-input" placeholder="member@example.com" autocomplete="off">
+      <label data-i18n="auth.email">Email</label>
+      <input type="email" id="member-email-input" placeholder="miembro@ejemplo.com" data-i18n-placeholder="teams.memberEmail.placeholder" autocomplete="off">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-cancel-member">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-member">Add</button>
+      <button class="btn btn-secondary" id="btn-cancel-member" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-member" data-i18n="actions.add">Añadir</button>
     </div>
   </div>
 </div>
@@ -443,14 +494,41 @@
 <!-- MODAL: New Team Vault -->
 <div class="modal-overlay" id="modal-team-vault">
   <div class="modal">
-    <h3>New Team Vault</h3>
+    <h3 data-i18n="teams.vault.new">Nueva caja fuerte de equipo</h3>
     <div class="form-group">
-      <label>Vault Name</label>
-      <input type="text" id="team-vault-name-input" placeholder="e.g. Shared Passwords">
+      <label data-i18n="vault.name">Nombre de la caja fuerte</label>
+      <input type="text" id="team-vault-name-input" placeholder="p. ej. Contraseñas compartidas" data-i18n-placeholder="teams.vault.name.placeholder">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-cancel-team-vault">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-team-vault">Create</button>
+      <button class="btn btn-secondary" id="btn-cancel-team-vault" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-team-vault" data-i18n="actions.create">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Share item (one-time links) -->
+<div class="modal-overlay" id="modal-share">
+  <div class="modal">
+    <h3><span data-icon="share" data-icon-size="16"></span> <span data-i18n="share.title">Compartir elemento</span></h3>
+    <div class="form-group">
+      <label data-i18n="share.expires">Caduca</label>
+      <select id="share-expiry-select" class="select">
+        <option value="1">1 h</option>
+        <option value="24" selected>24 h</option>
+        <option value="72">72 h</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="btn-create-share" data-i18n="share.create">Crear enlace</button>
+    <div id="share-result" class="share-result" style="display:none;">
+      <div class="share-url-row">
+        <input type="text" id="share-url-input" readonly spellcheck="false">
+        <button class="btn-icon" id="btn-copy-share" data-icon="copy" data-i18n-title="share.copy" title="Copiar enlace"></button>
+      </div>
+      <p class="share-warning"><span data-icon="alert" data-icon-size="14"></span> <span data-i18n="share.oneUse">Un solo uso</span></p>
+    </div>
+    <div id="share-links-list" class="share-links-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-close-share" data-i18n="actions.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -460,11 +538,11 @@
   <div class="modal">
     <!-- Step 1: Selection -->
     <div id="import-step-select">
-      <h3>Import from 1Password</h3>
-      <p class="import-description">Select a <strong>.csv</strong> or <strong>.1pif</strong> file exported from 1Password.</p>
+      <h3 data-i18n="import.title">Importar desde 1Password</h3>
+      <p class="import-description" data-i18n="import.description">Selecciona un archivo .csv o .1pif exportado desde 1Password.</p>
       <div class="form-group">
         <label class="import-file-label" id="import-file-label">
-          <span id="import-file-label-text">Choose file...</span>
+          <span id="import-file-label-text" data-i18n="import.chooseFile">Elegir archivo...</span>
           <input type="file" id="import-file-input" accept=".csv,.1pif" class="import-file-input-hidden">
         </label>
       </div>
@@ -473,25 +551,25 @@
       </div>
       <div id="import-errors-preview" class="import-errors-preview" style="display:none;"></div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="btn-cancel-import">Cancel</button>
-        <button class="btn btn-primary" id="btn-start-import" disabled>Import</button>
+        <button class="btn btn-secondary" id="btn-cancel-import" data-i18n="actions.cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-start-import" disabled data-i18n="import.start">Importar</button>
       </div>
     </div>
     <!-- Step 2: Progress -->
     <div id="import-step-progress" style="display:none;">
-      <h3>Importing...</h3>
+      <h3 data-i18n="import.importing">Importando...</h3>
       <div class="import-progress-bar-container">
         <div class="import-progress-bar" id="import-progress-bar"></div>
       </div>
-      <p class="import-progress-text" id="import-progress-text">0 of 0 items processed...</p>
+      <p class="import-progress-text" id="import-progress-text"></p>
     </div>
     <!-- Step 3: Results -->
     <div id="import-step-results" style="display:none;">
-      <h3>Import Complete</h3>
+      <h3 data-i18n="import.complete">Importación completada</h3>
       <div id="import-results-summary" class="import-results-summary"></div>
       <div id="import-results-errors" style="display:none;"></div>
       <div class="modal-actions">
-        <button class="btn btn-primary" id="btn-close-import">Done</button>
+        <button class="btn btn-primary" id="btn-close-import" data-i18n="actions.done">Hecho</button>
       </div>
     </div>
   </div>
@@ -500,9 +578,9 @@
 <!-- Command palette (Cmd/Ctrl+K) -->
 <div class="cmd-overlay" id="cmd-palette">
   <div class="cmd-box">
-    <input type="text" id="cmd-input" class="cmd-input" placeholder="Search items or type a command…" autocomplete="off" spellcheck="false">
+    <input type="text" id="cmd-input" class="cmd-input" placeholder="Busca elementos o escribe un comando…" data-i18n-placeholder="cmd.placeholder" autocomplete="off" spellcheck="false">
     <div id="cmd-results" class="cmd-results"></div>
-    <div class="cmd-footer"><span>&#8593;&#8595; navigate</span><span>&#8629; open</span><span>esc close</span></div>
+    <div class="cmd-footer"><span>&#8593;&#8595; <span data-i18n="cmd.navigate">navegar</span></span><span>&#8629; <span data-i18n="cmd.open">abrir</span></span><span>esc <span data-i18n="cmd.close">cerrar</span></span></div>
   </div>
 </div>
 
@@ -510,8 +588,8 @@
 <div class="modal-overlay" id="modal-watchtower">
   <div class="modal modal-lg">
     <div class="modal-lg-header">
-      <h3>&#128737; Security Dashboard</h3>
-      <button class="btn-icon" id="btn-watchtower-close" title="Close">&#10005;</button>
+      <h3>&#128737; <span data-i18n="watchtower.title">Panel de seguridad</span></h3>
+      <button class="btn-icon" id="btn-watchtower-close" data-i18n-title="actions.close" title="Cerrar">&#10005;</button>
     </div>
     <div id="watchtower-body" class="watchtower-body"></div>
   </div>
@@ -520,23 +598,23 @@
 <!-- MODAL: Password generator -->
 <div class="modal-overlay" id="modal-generator">
   <div class="modal">
-    <h3>&#127922; Password Generator</h3>
+    <h3>&#127922; <span data-i18n="generator.title">Generador de contraseñas</span></h3>
     <div class="gen-output-row">
       <code id="gen-output" class="gen-output"></code>
-      <button class="btn-icon" id="btn-gen-refresh" title="Regenerate">&#8635;</button>
-      <button class="btn-icon" id="btn-gen-copy" title="Copy">&#128203;</button>
+      <button class="btn-icon" id="btn-gen-refresh" data-i18n-title="generator.regenerate" title="Regenerar">&#8635;</button>
+      <button class="btn-icon" id="btn-gen-copy" data-i18n-title="actions.copy" title="Copiar">&#128203;</button>
     </div>
     <div id="gen-strength" class="strength"></div>
 
     <div class="gen-mode-row">
-      <label class="radio-pill"><input type="radio" name="gen-mode" value="password" checked><span>Password</span></label>
-      <label class="radio-pill"><input type="radio" name="gen-mode" value="passphrase"><span>Passphrase</span></label>
+      <label class="radio-pill"><input type="radio" name="gen-mode" value="password" checked><span data-i18n="generator.mode.password">Contraseña</span></label>
+      <label class="radio-pill"><input type="radio" name="gen-mode" value="passphrase"><span data-i18n="generator.mode.passphrase">Frase de contraseña</span></label>
     </div>
 
     <!-- Password controls -->
     <div id="gen-password-controls">
       <div class="gen-slider-row">
-        <label>Length</label>
+        <label data-i18n="generator.length">Longitud</label>
         <input type="range" id="gen-length" min="6" max="64" value="20">
         <span id="gen-length-label" class="gen-slider-val">20</span>
       </div>
@@ -545,26 +623,26 @@
         <label class="checkbox-row"><input type="checkbox" id="gen-lower" checked><span>a-z</span></label>
         <label class="checkbox-row"><input type="checkbox" id="gen-digits" checked><span>0-9</span></label>
         <label class="checkbox-row"><input type="checkbox" id="gen-symbols" checked><span>!@#</span></label>
-        <label class="checkbox-row"><input type="checkbox" id="gen-avoid"><span>No ambiguous</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-avoid"><span data-i18n="generator.noAmbiguous">Sin caracteres ambiguos</span></label>
       </div>
     </div>
 
     <!-- Passphrase controls -->
     <div id="gen-passphrase-controls" style="display:none;">
       <div class="gen-slider-row">
-        <label>Words</label>
+        <label data-i18n="generator.words">Palabras</label>
         <input type="range" id="gen-words" min="3" max="10" value="4">
         <span id="gen-words-label" class="gen-slider-val">4</span>
       </div>
       <div class="gen-checks">
-        <label class="checkbox-row"><input type="checkbox" id="gen-cap"><span>Capitalize</span></label>
-        <label class="checkbox-row"><input type="checkbox" id="gen-num"><span>Add number</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-cap"><span data-i18n="generator.capitalize">Mayúscula inicial</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="gen-num"><span data-i18n="generator.addNumber">Añadir número</span></label>
       </div>
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="btn-gen-close">Close</button>
-      <button class="btn btn-primary" id="btn-gen-use" style="display:none;">Use password</button>
+      <button class="btn btn-secondary" id="btn-gen-close" data-i18n="actions.close">Cerrar</button>
+      <button class="btn btn-primary" id="btn-gen-use" style="display:none;" data-i18n="generator.use">Usar contraseña</button>
     </div>
   </div>
 </div>
@@ -572,10 +650,10 @@
 <!-- MODAL: Password history -->
 <div class="modal-overlay" id="modal-history">
   <div class="modal">
-    <h3>&#128340; Password History</h3>
+    <h3>&#128340; <span data-i18n="history.title">Historial de contraseñas</span></h3>
     <div id="history-body" class="history-body"></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" id="btn-close-history">Done</button>
+      <button class="btn btn-primary" id="btn-close-history" data-i18n="actions.done">Hecho</button>
     </div>
   </div>
 </div>

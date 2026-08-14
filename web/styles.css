@@ -1541,3 +1541,418 @@ input::placeholder {
   font-size: 13px;
   word-break: break-all;
 }
+
+/* ============================================================
+   v0.1.0 ADDITIVE STYLES
+   (version footer, locale selector, global search, vault shares,
+   item icons, weak badges, row tags, attachments, custom fields,
+   history view/restore, share links, shared-item screen)
+   ============================================================ */
+
+/* ---- Inline SVG icons (icons.js) ---- */
+svg.icon { vertical-align: -0.125em; flex-shrink: 0; }
+.btn-icon svg.icon { vertical-align: middle; }
+
+/* ---- Version footer + language selector ---- */
+.version-footer {
+  display: block;
+  font-size: 11px;
+  color: var(--text3);
+  text-align: center;
+}
+
+.sidebar-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--border-light);
+  margin-top: 6px;
+}
+
+.sidebar-footer-meta .version-footer { text-align: right; }
+
+.locale-select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.locale-select:hover { color: var(--text); }
+
+/* Generic styled <select> (share expiry, etc.) */
+.select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  width: 100%;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+/* ---- Sidebar global search (all vaults) ---- */
+.sidebar-global-search {
+  position: relative;
+  padding: 0 12px 10px;
+}
+
+.global-search-results {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.gs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gs-row:hover { background: var(--surface-hover); }
+.gs-icon {
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gs-main { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.gs-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gs-sub {
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Vault shares ("Compartida con" + team chips) ---- */
+.vault-shares {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 12px 8px;
+}
+.vault-shares-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+}
+.team-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Item icons (custom emoji / favicon / type fallback) ---- */
+.item-emoji { font-size: 15px; line-height: 1; }
+.favicon-img { border-radius: 4px; display: block; }
+.detail-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.detail-item-icon:empty { display: none; }
+.detail-item-icon .item-emoji { font-size: 17px; }
+.icon-hint { margin: -8px 0 12px; display: block; }
+
+/* ---- Weak password badge (item list) ---- */
+.weak-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* ---- Tag chips on list rows ---- */
+.row-tags { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.row-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text3);
+  white-space: nowrap;
+}
+.row-tag::before { content: "#"; opacity: 0.6; }
+.row-tag.more::before { content: ""; }
+
+/* ---- Detail: last edited + extra sections ---- */
+.detail-edited {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text3);
+}
+.detail-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text3);
+  margin-top: 20px;
+  margin-bottom: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* ---- Attachments (detail + form + shared view) ---- */
+.attachments-list { display: flex; flex-direction: column; gap: 4px; }
+.attachment-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  margin-bottom: 4px;
+}
+.attachment-icon { display: flex; color: var(--text3); flex-shrink: 0; }
+.attachment-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attachment-size { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+.attachment-row a.btn-icon { color: var(--text3); text-decoration: none; }
+.attachment-row a.btn-icon:hover { color: var(--text); }
+
+.attach-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: none;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: fit-content;
+}
+.attach-add-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--text);
+}
+
+/* ---- Custom fields (form rows) ---- */
+.custom-fields-list { display: flex; flex-direction: column; gap: 6px; }
+.cf-row { display: flex; gap: 6px; align-items: center; }
+.cf-row .cf-label { flex: 2; min-width: 0; }
+.cf-row .cf-value { flex: 3; min-width: 0; }
+.cf-hidden-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cf-hidden-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.cf-hidden-toggle:has(input:checked) {
+  color: var(--primary);
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+/* ---- Mini read-only detail (history view / shared item) ---- */
+.mini-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.mini-field:last-child { border-bottom: none; }
+.mini-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+.mini-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  word-break: break-all;
+  color: var(--text);
+}
+.mini-value.masked { color: var(--text3); letter-spacing: 2px; }
+.mini-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* ---- History rows (version + author + view/restore) ---- */
+.history-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.history-meta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.history-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.history-mini {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+/* ---- Team members (display name + email + role badges) ---- */
+.member-name { font-weight: 600; }
+.member-email { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.member-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* ---- Share modal ---- */
+.share-result { margin-top: 14px; }
+.share-url-row { display: flex; gap: 6px; align-items: center; }
+.share-url-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  color: var(--text2);
+}
+.share-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #b45309;
+  background: #fff7e6;
+}
+[data-theme="dark"] .share-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f5a623;
+}
+.share-links-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.share-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.share-link-icon { display: flex; color: var(--text3); flex-shrink: 0; }
+.share-link-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.share-link-date { color: var(--text2); }
+.share-state { font-size: 11px; color: var(--text3); }
+.share-state.share-active { color: var(--success); }
+
+/* ---- Shared item screen (recipient) ---- */
+.share-open-container { text-align: center; }
+.share-item-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg);
+  text-align: left;
+}
+.share-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.share-item-title h3 { font-size: 16px; font-weight: 600; flex: 1; min-width: 0; }
+.share-gone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text2);
+  padding: 20px 0;
+  font-size: 14px;
+}
+.share-open-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
