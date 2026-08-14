@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares this app as a system autofill service (Settings > Passwords &
+     accounts > Autofill service). settingsActivity opens the vault UI from
+     the service's gear icon. -->
+<autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.maspassword.app.ui.RouterActivity" />

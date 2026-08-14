@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MasPassword</string>
+
+    <!-- Link screen -->
+    <string name="link_title">Link this device</string>
+    <string name="link_explainer">In the web vault open Menu → Linked devices, create a device and scan its QR — or paste the code below. Your master password never leaves this phone.</string>
+    <string name="link_scan_button">Scan QR code</string>
+    <string name="link_code_hint">Pairing code or mpd_… token</string>
+    <string name="link_server_hint">Server URL (https://…)</string>
+    <string name="link_password_hint">Master password</string>
+    <string name="link_button">Verify &amp; link</string>
+    <string name="link_scan_prompt">Scan the QR from “Linked devices”</string>
+    <string name="link_payload_ok">Pairing code for %1$s — enter the master password.</string>
+    <string name="link_token_needs_server">Raw token detected — also enter the server URL.</string>
+    <string name="link_code_invalid">This is not a valid pairing code or device token.</string>
+    <string name="link_server_invalid">Enter the server URL, e.g. https://vault.example.com</string>
+    <string name="link_password_required">Enter the master password.</string>
+
+    <!-- Unlock screen -->
+    <string name="unlock_title">Unlock</string>
+    <string name="unlock_account">%1$s\n%2$s</string>
+    <string name="unlock_password_hint">Master password</string>
+    <string name="unlock_button">Unlock</string>
+    <string name="unlock_unlink">Unlink this device…</string>
+
+    <!-- Home -->
+    <string name="home_search_hint">Search items…</string>
+    <string name="home_empty">No items yet. Create some in the web vault and refresh.</string>
+    <string name="menu_refresh">Refresh</string>
+    <string name="menu_biometric">Require biometrics on open</string>
+    <string name="menu_lock">Lock</string>
+    <string name="menu_unlink">Unlink device</string>
+    <string name="item_untitled">(untitled)</string>
+
+    <!-- Item detail -->
+    <string name="detail_vault">%1$s · %2$s</string>
+    <string name="field_username">Username</string>
+    <string name="field_password">Password</string>
+    <string name="field_url">Website</string>
+    <string name="field_totp">One-time code</string>
+    <string name="field_notes">Notes</string>
+    <string name="field_tags">Tags</string>
+    <string name="field_custom">Custom field</string>
+    <string name="field_attachments">Attachments (view in the web vault)</string>
+    <string name="copied">Copied</string>
+    <string name="copied_sensitive">Copied — clipboard clears in 45 s</string>
+    <string name="reveal">Reveal or hide</string>
+    <string name="copy">Copy</string>
+    <string name="totp_remaining">%1$d s</string>
+    <string name="totp_invalid">invalid TOTP secret</string>
+    <string name="type_login">Login</string>
+    <string name="type_card">Card</string>
+    <string name="type_note">Note</string>
+    <string name="type_identity">Identity</string>
+
+    <!-- Biometric gate -->
+    <string name="biometric_title">Unlock MasPassword</string>
+
+    <!-- Unlink -->
+    <string name="unlink_title">Unlink this device?</string>
+    <string name="unlink_message">The stored device token is removed from this phone. Also revoke it in the web vault (Menu → Linked devices). Your data stays on the server.</string>
+    <string name="unlink_confirm">Unlink</string>
+
+    <!-- Autofill -->
+    <string name="autofill_unlock_title">Unlock MasPassword</string>
+    <string name="autofill_search_title">Search MasPassword…</string>
+    <string name="autofill_search_subtitle">No verified match for this app</string>
+    <string name="autofill_confirm_title">Fill “%1$s”?</string>
+    <string name="autofill_confirm_prompt">Confirm to fill</string>
+    <string name="autofill_fill_button">Fill “%1$s”</string>
+    <string name="autofill_pick_title">Choose a login to fill</string>
+    <string name="autofill_pick_title_domain">Choose a login for %1$s</string>
+    <string name="autofill_save_unsupported">MasPassword on Android is read-only; save passwords in the web vault.</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Something went wrong.</string>
+    <string name="error_wrong_password">Wrong master password.</string>
+    <string name="error_encryption_not_setup">This account has no encryption keys yet — sign in to the web vault once first.</string>
+    <string name="error_token_rejected">The server rejected this device token (revoked or invalid).</string>
+    <string name="error_token_revoked">This device was revoked. Create a new QR in the web vault and re-link.</string>
+</resources>

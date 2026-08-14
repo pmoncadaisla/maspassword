@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MasPassword" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mp_primary</item>
+        <item name="colorOnPrimary">@color/mp_on_primary</item>
+        <!-- Secrets on screen: never allow screenshots/recents previews of the
+             vault. Applied via theme-wide secure flag is not possible in XML;
+             see the FLAG_SECURE note in README (deliberate trade-off: autofill
+             picker must stay visible over other apps). -->
+    </style>
+
+    <!-- Autofill auth dialog shown over the app being filled. -->
+    <style name="Theme.MasPassword.AutofillDialog" parent="Theme.Material3.DayNight.Dialog">
+        <item name="colorPrimary">@color/mp_primary</item>
+        <item name="colorOnPrimary">@color/mp_on_primary</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
+</resources>

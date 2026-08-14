@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/detail_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/detail_vault"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/mp_muted"
+            android:textSize="13sp" />
+
+        <!-- Username -->
+        <LinearLayout
+            android:id="@+id/detail_username_row"
+            style="@style/DetailRow">
+
+            <LinearLayout style="@style/DetailRowText">
+                <TextView style="@style/DetailLabel" android:text="@string/field_username" />
+                <TextView android:id="@+id/detail_username" style="@style/DetailValue" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/detail_username_copy"
+                style="@style/DetailIconButton"
+                android:contentDescription="@string/copy"
+                android:src="@drawable/ic_copy" />
+        </LinearLayout>
+
+        <!-- Password -->
+        <LinearLayout
+            android:id="@+id/detail_password_row"
+            style="@style/DetailRow">
+
+            <LinearLayout style="@style/DetailRowText">
+                <TextView style="@style/DetailLabel" android:text="@string/field_password" />
+                <TextView
+                    android:id="@+id/detail_password"
+                    style="@style/DetailValue"
+                    android:fontFamily="monospace"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/detail_password_reveal"
+                style="@style/DetailIconButton"
+                android:contentDescription="@string/reveal"
+                android:src="@drawable/ic_eye" />
+
+            <ImageButton
+                android:id="@+id/detail_password_copy"
+                style="@style/DetailIconButton"
+                android:contentDescription="@string/copy"
+                android:src="@drawable/ic_copy" />
+        </LinearLayout>
+
+        <!-- TOTP -->
+        <LinearLayout
+            android:id="@+id/detail_totp_row"
+            style="@style/DetailRow"
+            android:orientation="vertical">
+
+            <TextView style="@style/DetailLabel" android:text="@string/field_totp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/detail_totp_code"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/mp_primary"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/detail_totp_remaining"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:textColor="@color/mp_muted" />
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/detail_totp_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- URL -->
+        <LinearLayout
+            android:id="@+id/detail_url_row"
+            style="@style/DetailRow">
+
+            <LinearLayout style="@style/DetailRowText">
+                <TextView style="@style/DetailLabel" android:text="@string/field_url" />
+                <TextView android:id="@+id/detail_url" style="@style/DetailValue" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/detail_url_copy"
+                style="@style/DetailIconButton"
+                android:contentDescription="@string/copy"
+                android:src="@drawable/ic_copy" />
+        </LinearLayout>
+
+        <!-- Notes -->
+        <LinearLayout
+            android:id="@+id/detail_notes_row"
+            style="@style/DetailRow"
+            android:orientation="vertical">
+            <TextView style="@style/DetailLabel" android:text="@string/field_notes" />
+            <TextView android:id="@+id/detail_notes" style="@style/DetailValue" />
+        </LinearLayout>
+
+        <!-- Custom fields -->
+        <LinearLayout
+            android:id="@+id/detail_custom_fields_row"
+            style="@style/DetailRow"
+            android:orientation="vertical">
+            <TextView style="@style/DetailLabel" android:text="@string/field_custom" />
+            <LinearLayout
+                android:id="@+id/detail_custom_fields"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Tags -->
+        <LinearLayout
+            android:id="@+id/detail_tags_row"
+            style="@style/DetailRow"
+            android:orientation="vertical">
+            <TextView style="@style/DetailLabel" android:text="@string/field_tags" />
+            <TextView android:id="@+id/detail_tags" style="@style/DetailValue" />
+        </LinearLayout>
+
+        <!-- Attachments (metadata only; see README) -->
+        <LinearLayout
+            android:id="@+id/detail_attachments_row"
+            style="@style/DetailRow"
+            android:orientation="vertical">
+            <TextView style="@style/DetailLabel" android:text="@string/field_attachments" />
+            <TextView android:id="@+id/detail_attachments" style="@style/DetailValue" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,10 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+# The wrapper JAR is not committed; bootstrap it with `gradle wrapper` (see README)
+gradle/wrapper/gradle-wrapper.jar

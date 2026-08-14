@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minWidth="320dp"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/aa_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <!-- MODE_UNLOCK: master password form -->
+    <LinearLayout
+        android:id="@+id/aa_password_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/aa_password_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="@string/unlock_password_hint"
+            android:importantForAutofill="no"
+            android:inputType="textPassword" />
+
+        <Button
+            android:id="@+id/aa_unlock_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/unlock_button" />
+    </LinearLayout>
+
+    <!-- MODE_PICK / after unlock: searchable item picker -->
+    <LinearLayout
+        android:id="@+id/aa_picker_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/aa_search"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/home_search_hint"
+            android:importantForAutofill="no"
+            android:inputType="text|textNoSuggestions" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/aa_list"
+            android:layout_width="match_parent"
+            android:layout_height="320dp" />
+    </LinearLayout>
+
+    <!-- MODE_CONFIRM fallback when no biometrics/credential exist -->
+    <Button
+        android:id="@+id/aa_fill_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/aa_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/mp_error"
+        android:textSize="13sp" />
+
+    <ProgressBar
+        android:id="@+id/aa_progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
+</LinearLayout>

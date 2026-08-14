@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_refresh"
+        android:title="@string/menu_refresh"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_biometric"
+        android:checkable="true"
+        android:title="@string/menu_biometric"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_lock"
+        android:title="@string/menu_lock"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_unlink"
+        android:title="@string/menu_unlink"
+        app:showAsAction="never" />
+</menu>
