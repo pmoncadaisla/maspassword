@@ -1289,6 +1289,32 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: none; box
 }
 .link-btn:hover { text-decoration: underline; }
 
+/* SSO login: one button per identity provider + "or" separator above the
+   SRP email/password form. */
+.sso-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.auth-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.auth-separator::before,
+.auth-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .spinner {
   width: 16px;
   height: 16px;

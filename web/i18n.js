@@ -48,6 +48,8 @@ const es = {
   'auth.noAccount': '¿No tienes cuenta?',
   'auth.signup': 'Regístrate',
   'auth.forgotPassword': '¿Has olvidado tu contraseña?',
+  'auth.continueWith': 'Continuar con {name}',
+  'auth.or': 'o',
   'auth.signup.title': 'Crear cuenta',
   'auth.signup.hint': 'Tu contraseña maestra se usa para derivar las claves de cifrado localmente. Nunca la vemos.',
   'auth.signup.passwordPlaceholder': 'Elige una contraseña fuerte',
@@ -55,9 +57,9 @@ const es = {
   'auth.confirmPassword.placeholder': 'Confirma la contraseña',
   'auth.haveAccount': '¿Ya tienes cuenta?',
   'auth.unlock': 'Desbloquear',
-  'auth.iap.unlockHint': 'Autenticado con Google IAP. Introduce tu contraseña maestra para desbloquear tu caja fuerte.',
+  'auth.iap.unlockHint': 'Identidad verificada con tu cuenta corporativa. Introduce tu contraseña maestra para desbloquear tu caja fuerte.',
   'auth.iap.setupTitle': 'Configurar cifrado',
-  'auth.iap.setupHint': 'Autenticado con Google IAP. Crea una contraseña maestra para cifrar tus datos. Nunca la vemos.',
+  'auth.iap.setupHint': 'Identidad verificada con tu cuenta corporativa. Crea una contraseña maestra para cifrar tus datos. Nunca la vemos.',
 
   // Recovery key screen (after signup / recovery)
   'recovery.title': 'Guarda tu clave de recuperación',
@@ -392,6 +394,8 @@ const en = {
   'auth.noAccount': "Don't have an account?",
   'auth.signup': 'Sign up',
   'auth.forgotPassword': 'Forgot password?',
+  'auth.continueWith': 'Continue with {name}',
+  'auth.or': 'or',
   'auth.signup.title': 'Create Account',
   'auth.signup.hint': 'Your master password is used to derive encryption keys locally. We never see it.',
   'auth.signup.passwordPlaceholder': 'Choose a strong password',
@@ -399,9 +403,9 @@ const en = {
   'auth.confirmPassword.placeholder': 'Confirm password',
   'auth.haveAccount': 'Already have an account?',
   'auth.unlock': 'Unlock',
-  'auth.iap.unlockHint': 'Authenticated via Google IAP. Enter your master password to unlock your vault.',
+  'auth.iap.unlockHint': 'Identity verified with your corporate account. Enter your master password to unlock your vault.',
   'auth.iap.setupTitle': 'Set Up Encryption',
-  'auth.iap.setupHint': 'Authenticated via Google IAP. Create a master password to encrypt your data. We never see it.',
+  'auth.iap.setupHint': 'Identity verified with your corporate account. Create a master password to encrypt your data. We never see it.',
 
   // Recovery key screen (after signup / recovery)
   'recovery.title': 'Save Your Recovery Key',
@@ -736,6 +740,8 @@ const fr = {
   'auth.noAccount': "Vous n'avez pas de compte ?",
   'auth.signup': "S'inscrire",
   'auth.forgotPassword': 'Mot de passe oublié ?',
+  'auth.continueWith': 'Continuer avec {name}',
+  'auth.or': 'ou',
   'auth.signup.title': 'Créer un compte',
   'auth.signup.hint': 'Votre mot de passe maître sert à dériver les clés de chiffrement localement. Nous ne le voyons jamais.',
   'auth.signup.passwordPlaceholder': 'Choisissez un mot de passe fort',
@@ -743,9 +749,9 @@ const fr = {
   'auth.confirmPassword.placeholder': 'Confirmez le mot de passe',
   'auth.haveAccount': 'Vous avez déjà un compte ?',
   'auth.unlock': 'Déverrouiller',
-  'auth.iap.unlockHint': 'Authentifié via Google IAP. Saisissez votre mot de passe maître pour déverrouiller votre coffre.',
+  'auth.iap.unlockHint': 'Identité vérifiée avec votre compte d’entreprise. Saisissez votre mot de passe maître pour déverrouiller votre coffre.',
   'auth.iap.setupTitle': 'Configurer le chiffrement',
-  'auth.iap.setupHint': 'Authentifié via Google IAP. Créez un mot de passe maître pour chiffrer vos données. Nous ne le voyons jamais.',
+  'auth.iap.setupHint': 'Identité vérifiée avec votre compte d’entreprise. Créez un mot de passe maître pour chiffrer vos données. Nous ne le voyons jamais.',
 
   // Recovery key screen (after signup / recovery)
   'recovery.title': 'Enregistrez votre clé de récupération',

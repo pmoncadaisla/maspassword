@@ -12,8 +12,9 @@ import (
 )
 
 type AuthHandler struct {
-	authService service.AuthService
-	adminEmails config.AdminEmails // zero value: nobody is admin
+	authService    service.AuthService
+	adminEmails    config.AdminEmails // zero value: nobody is admin
+	signupDisabled bool               // zero value: signup enabled
 }
 
 func NewAuthHandler(authService service.AuthService) *AuthHandler {
@@ -25,7 +26,19 @@ func (h *AuthHandler) SetAdminEmails(adminEmails config.AdminEmails) {
 	h.adminEmails = adminEmails
 }
 
+// SetSignupEnabled toggles public signup (SIGNUP_ENABLED env; default on).
+// SSO-only deployments set it to false so accounts are provisioned only
+// through the identity provider.
+func (h *AuthHandler) SetSignupEnabled(enabled bool) {
+	h.signupDisabled = !enabled
+}
+
 func (h *AuthHandler) Signup(c *gin.Context) {
+	if h.signupDisabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "signup disabled"})
+		return
+	}
+
 	var req dto.SignupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})

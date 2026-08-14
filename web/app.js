@@ -757,7 +757,7 @@ function formatRelative(ts) {
   return rtf.format(Math.round(diff / (365 * DAY)), 'year');
 }
 
-// --- IAP Authentication ---
+// --- IAP / SSO Authentication ---
 async function detectAuthMode() {
   try {
     const res = await fetch('/auth/mode');
@@ -765,15 +765,47 @@ async function detectAuthMode() {
     appVersion = data.version || '';
     renderVersion();
     rememberDefaultSkin(data.default_theme);
+    renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false);
     return data.iap_enabled === true;
   } catch {
     return false;
   }
 }
 
+// Fills the login screen with one "Continue with {provider}" button per
+// configured SSO provider (above the SRP form, separated by an "or" rule)
+// and hides the signup link when the server has public signup disabled.
+function renderSSOLogin(providers, signupEnabled) {
+  const wrap = document.getElementById('sso-login');
+  if (wrap && providers.length) {
+    const btns = document.getElementById('sso-buttons');
+    btns.innerHTML = '';
+    providers.forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-secondary';
+      b.textContent = t('auth.continueWith', { name: p.name });
+      b.addEventListener('click', () => {
+        location.href = '/auth/sso/' + encodeURIComponent(p.id) + '/start';
+      });
+      btns.appendChild(b);
+    });
+    wrap.style.display = '';
+  }
+  if (!signupEnabled) {
+    const link = document.getElementById('btn-show-signup');
+    const row = link && link.closest('p');
+    if (row) row.style.display = 'none';
+  }
+}
+
+// Shared session bootstrap for IAP (ambient proxy headers) and SSO (Bearer
+// token handed over by the callback): fetch /api/auth/session and route to
+// the unlock or first-time setup screen.
 async function initIAPSession() {
   try {
-    const res = await fetch('/api/auth/session');
+    const opts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : undefined;
+    const res = await fetch('/api/auth/session', opts);
     if (!res.ok) return false;
     iapSession = await res.json();
     token = iapSession.token;
@@ -899,7 +931,7 @@ function startOnboarding(email) {
       item: onboardingAddItem,
       generator: () => openGenerator(),
       extension: () => {
-        window.open('/landing#apps', '_blank', 'noopener');
+        window.open('/#apps', '_blank', 'noopener');
         onboardingStepDone('extension');
       },
       team: () => openModal('modal-team'),
@@ -2693,6 +2725,17 @@ function wireCopyReveal(root) {
 
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', async () => {
+  // SSO callback hand-off: /auth/sso/:provider/callback lands on
+  // /app#sso=<token>. Grab the token BEFORE any routing and scrub it from the
+  // URL (replaceState does not reload and never hits the network — the token
+  // stays out of history, logs and referrers).
+  let ssoToken = null;
+  if (location.hash.startsWith('#sso=')) {
+    try { ssoToken = decodeURIComponent(location.hash.slice(5)); }
+    catch { ssoToken = location.hash.slice(5); }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
   // i18n first: resolve locale, inject flat SVG icons, translate static markup.
   initI18n();
   document.documentElement.lang = getLocale();
@@ -3071,10 +3114,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('hashchange', () => handleRoute());
 
   // Detect auth mode and initialize. Share links (#/share/...) bypass auth
-  // entirely — the recipient may have no account.
+  // entirely — the recipient may have no account. An SSO token from the
+  // callback enters the SAME session flow the IAP mode uses (unlock/setup).
   iapMode = await detectAuthMode();
   if (parseShareHash(location.hash)) {
     await handleRoute();
+  } else if (ssoToken) {
+    token = ssoToken;
+    sessionStorage.setItem('token', token);
+    if (!(await initIAPSession())) {
+      // Invalid or expired token — back to the login screen.
+      token = null;
+      sessionStorage.removeItem('token');
+      handleRoute();
+    }
   } else if (iapMode) {
     await initIAPSession();
   } else {

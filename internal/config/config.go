@@ -21,6 +21,7 @@ type Config struct {
 	MailgunEU       bool
 	AppBaseURL      string
 	AdminEmails     AdminEmails
+	SignupEnabled   bool
 }
 
 // AdminEmails is a case-insensitive set of administrator email addresses.
@@ -94,5 +95,6 @@ func Load() *Config {
 		MailgunEU:       os.Getenv("MAILGUN_EU") == "true",
 		AppBaseURL:      os.Getenv("APP_BASE_URL"),
 		AdminEmails:     ParseAdminEmails(os.Getenv("ADMIN_EMAILS")),
+		SignupEnabled:   os.Getenv("SIGNUP_ENABLED") != "false",
 	}
 }

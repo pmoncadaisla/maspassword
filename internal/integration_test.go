@@ -15,6 +15,7 @@ import (
 	gosrp "github.com/opencoff/go-srp"
 
 	"github.com/masorange/maspassword/internal/handler"
+	"github.com/masorange/maspassword/internal/oidc"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/router"
 	"github.com/masorange/maspassword/internal/service"
@@ -76,7 +77,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	deviceRepo := repository.NewDeviceTokenRepository(db)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo)
 
-	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler, deviceHandler, deviceRepo, jwtSecret, "*", false, nil, userRepo, nil, "test")
+	ssoHandler := handler.NewSSOHandler(oidc.NewRegistry(nil), jwtSecret, "", userRepo)
+	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler, deviceHandler, ssoHandler, deviceRepo, jwtSecret, "*", false, nil, userRepo, nil, true, "test")
 	ts := httptest.NewServer(r)
 
 	cleanup := func() {

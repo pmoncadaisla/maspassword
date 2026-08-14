@@ -98,3 +98,51 @@ func TestSignup_ValidationError(t *testing.T) {
 		t.Errorf("expected 400, got %d", w.Code)
 	}
 }
+
+func TestSignup_Disabled(t *testing.T) {
+	h := NewAuthHandler(&mockAuthService{
+		signupFn: func(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error) {
+			t.Fatal("signup service must not be called when signup is disabled")
+			return nil, nil
+		},
+	})
+	h.SetSignupEnabled(false)
+	r := gin.New()
+	r.POST("/auth/signup", h.Signup)
+
+	body, _ := json.Marshal(dto.SignupRequest{
+		Email:       "test@example.com",
+		SRPSalt:     "salt123",
+		SRPVerifier: "verifier123",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", w.Code)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp["error"] != "signup disabled" {
+		t.Errorf(`expected {"error":"signup disabled"}, got %s`, w.Body.String())
+	}
+
+	// Re-enabling restores the normal flow.
+	h.SetSignupEnabled(true)
+	h.authService = &mockAuthService{
+		signupFn: func(ctx context.Context, req dto.SignupRequest) (*dto.SignupResponse, error) {
+			return &dto.SignupResponse{ID: "id-1", Email: req.Email}, nil
+		},
+	}
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Errorf("expected 201 after re-enabling, got %d", w.Code)
+	}
+}

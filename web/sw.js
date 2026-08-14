@@ -1,7 +1,10 @@
-const CACHE_NAME = 'vault-v10';
+const CACHE_NAME = 'vault-v11';
+// '/app' is the app shell (also the manifest start_url). '/' (landing) and
+// '/index.html' (301 → /app) are intentionally NOT cached: redirects poison
+// the cache for navigations, and the landing should always come from the
+// network so anonymous visitors get fresh content.
 const ASSETS = [
-  '/',
-  '/index.html',
+  '/app',
   '/styles.css',
   '/app.js',
   '/crypto.js',

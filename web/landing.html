@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+// The landing lives at "/" but must never get in the way of the app:
+//  - App hash routes (#/share/…, #/vault/…, #sso=…) bounce to /app keeping
+//    the fragment (share keys and SSO tokens never leave the browser).
+//  - Returning users (any mp-* localStorage the app writes on every boot)
+//    arriving without a hash go straight to /app — PWA, desktop and
+//    bookmarked "/" users skip the landing automatically.
+//  - Anchor visits (e.g. /#apps from the in-app onboarding) and genuinely
+//    new visitors see the landing.
+(function () {
+  var h = location.hash;
+  var appRoute = /^#\/?(share|vault|sso)/.test(h);
+  var known = false;
+  try {
+    known = !!(localStorage.getItem('mp-theme') || localStorage.getItem('mp-skin') || localStorage.getItem('mp-locale'));
+  } catch (e) {}
+  if (appRoute || (known && !h)) location.replace('/app' + h);
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MasPassword — Gestor de contraseñas zero-knowledge</title>
@@ -171,7 +190,7 @@ footer a:hover { color: var(--orange); }
 
 <header>
   <div class="container header-inner">
-    <a class="brand" href="/landing"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <a class="brand" href="/"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
     <nav class="nav" aria-label="Secciones">
       <a href="#como-funciona">Cómo funciona</a>
       <a href="#funciones">Funciones</a>
@@ -179,8 +198,8 @@ footer a:hover { color: var(--orange); }
       <a href="#faq">Preguntas</a>
     </nav>
     <div class="header-actions">
-      <a class="login-link" href="/">Iniciar sesión</a>
-      <a class="btn btn-primary" href="/#/signup">Crear cuenta</a>
+      <a class="login-link" href="/app">Iniciar sesión</a>
+      <a class="btn btn-primary" href="/app#/signup">Crear cuenta</a>
     </div>
   </div>
 </header>
@@ -193,7 +212,7 @@ footer a:hover { color: var(--orange); }
         <h1>Tus contraseñas se cifran antes de salir de tu dispositivo.</h1>
         <p class="lead">MasPassword es un gestor de contraseñas zero-knowledge. Tu contraseña maestra nunca viaja por la red y el servidor solo guarda datos cifrados: ni siquiera los administradores pueden leerlos.</p>
         <div class="hero-ctas">
-          <a class="btn btn-primary" href="/#/signup">Crear cuenta</a>
+          <a class="btn btn-primary" href="/app#/signup">Crear cuenta</a>
           <a class="btn btn-outline" href="#como-funciona">Ver cómo funciona</a>
         </div>
         <p class="hero-note">Sin instalación: funciona en el navegador. Extensión y app de escritorio opcionales.</p>
@@ -296,7 +315,7 @@ footer a:hover { color: var(--orange); }
         <div class="app-card">
           <h3>Aplicación web <span class="app-tag">PWA</span></h3>
           <p>Funciona en cualquier navegador moderno y se puede instalar como aplicación, con soporte offline mediante Service Worker.</p>
-          <a class="btn btn-primary" href="/#/signup">Abrir la aplicación</a>
+          <a class="btn btn-primary" href="/app">Abrir la aplicación</a>
         </div>
         <div class="app-card">
           <h3>Extensión de navegador <span class="app-tag">Chrome · Edge</span></h3>
@@ -346,7 +365,7 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up -d</div>
     <div class="container">
       <h2>Empieza en dos minutos</h2>
       <p>Crea tu cuenta, elige una contraseña maestra y guarda tu primera credencial. La guía de primeros pasos te acompaña dentro de la aplicación.</p>
-      <a class="btn btn-dark" href="/#/signup">Crear cuenta</a>
+      <a class="btn btn-dark" href="/app#/signup">Crear cuenta</a>
     </div>
   </div>
 
@@ -354,9 +373,9 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up -d</div>
 
 <footer>
   <div class="container footer-grid">
-    <a class="brand" href="/landing"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <a class="brand" href="/"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
     <nav aria-label="Enlaces">
-      <a href="/">Abrir la aplicación</a>
+      <a href="/app">Abrir la aplicación</a>
       <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>
       <a href="https://github.com/pmoncadaisla/maspassword/releases/latest">Descargas</a>
     </nav>

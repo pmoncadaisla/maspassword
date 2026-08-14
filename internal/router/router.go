@@ -20,6 +20,7 @@ func Setup(
 	shareLinkHandler *handler.ShareLinkHandler,
 	settingsHandler *handler.SettingsHandler,
 	deviceHandler *handler.DeviceHandler,
+	ssoHandler *handler.SSOHandler,
 	deviceRepo repository.DeviceTokenRepository,
 	jwtSecret string,
 	corsOrigins string,
@@ -27,6 +28,7 @@ func Setup(
 	iapValidator *iap.Validator,
 	userRepo repository.UserRepository,
 	adminEmails config.AdminEmails,
+	signupEnabled bool,
 	version string,
 ) *gin.Engine {
 	r := gin.New()
@@ -34,6 +36,10 @@ func Setup(
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS(corsOrigins))
+
+	// Keep the signup toggle and the /auth/mode advertisement in sync: the
+	// router is the single source of truth for signupEnabled.
+	authHandler.SetSignupEnabled(signupEnabled)
 
 	// Public routes (no JWT)
 	auth := r.Group("/auth")
@@ -43,11 +49,18 @@ func Setup(
 		auth.POST("/login/step2", authHandler.LoginStep2)
 		auth.GET("/mode", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"iap_enabled":   iapEnabled,
-				"version":       version,
-				"default_theme": settingsHandler.DefaultTheme(c.Request.Context()),
+				"iap_enabled":    iapEnabled,
+				"sso_providers":  ssoHandler.ProviderList(),
+				"signup_enabled": signupEnabled,
+				"version":        version,
+				"default_theme":  settingsHandler.DefaultTheme(c.Request.Context()),
 			})
 		})
+
+		// App-level SSO (OIDC authorization-code + PKCE)
+		auth.GET("/sso/providers", ssoHandler.Providers)
+		auth.GET("/sso/:provider/start", ssoHandler.Start)
+		auth.GET("/sso/:provider/callback", ssoHandler.Callback)
 		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
 		auth.POST("/recover/challenge", authHandler.RecoverChallenge)
 		auth.POST("/recover", authHandler.Recover)
@@ -125,10 +138,20 @@ func Setup(
 		}
 	}
 
-	// Static files (PWA frontend)
-	r.StaticFile("/", "web/index.html")
-	r.StaticFile("/index.html", "web/index.html")
-	r.StaticFile("/landing", "web/landing.html")
+	// Static files. The landing page lives at "/"; the app itself at "/app"
+	// (and legacy "/index.html"). The landing's inline head script bounces
+	// returning users (hash routes or mp-* localStorage) straight to /app,
+	// and /landing keeps old links alive via a permanent redirect.
+	r.StaticFile("/", "web/landing.html")
+	r.StaticFile("/app", "web/index.html")
+	// http.ServeFile would 301 any "/index.html" request to "/" (the landing),
+	// so keep the legacy path pointing at the app with an explicit redirect.
+	r.GET("/index.html", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/app")
+	})
+	r.GET("/landing", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/")
+	})
 	r.StaticFile("/styles.css", "web/styles.css")
 	r.StaticFile("/app.js", "web/app.js")
 	r.StaticFile("/crypto.js", "web/crypto.js")

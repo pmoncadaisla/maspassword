@@ -14,6 +14,7 @@ import (
 	"github.com/masorange/maspassword/internal/handler"
 	"github.com/masorange/maspassword/internal/iap"
 	"github.com/masorange/maspassword/internal/mailer"
+	"github.com/masorange/maspassword/internal/oidc"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/router"
 	"github.com/masorange/maspassword/internal/service"
@@ -57,6 +58,15 @@ func main() {
 		log.Printf("IAP authentication enabled (audience: %s)", cfg.IAPAudience)
 	}
 
+	// SSO providers (optional, from OIDC_<ID>_* env vars)
+	ssoRegistry := oidc.RegistryFromEnv()
+	for _, p := range ssoRegistry.List() {
+		log.Printf("SSO provider enabled: %s (%s)", p.ID, p.Name)
+	}
+	if !cfg.SignupEnabled {
+		log.Println("Public signup disabled (SIGNUP_ENABLED=false)")
+	}
+
 	// Mailer (disabled no-op when MAILGUN_API_KEY/MAILGUN_DOMAIN are unset)
 	mail := mailer.New(mailer.Config{
 		APIKey:     cfg.MailgunAPIKey,
@@ -91,6 +101,7 @@ func main() {
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	authHandler.SetAdminEmails(cfg.AdminEmails)
+	// (signup toggle is wired by router.Setup from cfg.SignupEnabled)
 	vaultHandler := handler.NewVaultHandler(vaultService)
 	itemHandler := handler.NewItemHandler(itemService)
 	teamHandler := handler.NewTeamHandler(teamService)
@@ -98,6 +109,7 @@ func main() {
 	shareLinkHandler := handler.NewShareLinkHandler(shareLinkService)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo)
+	ssoHandler := handler.NewSSOHandler(ssoRegistry, cfg.JWTSecret, cfg.AppBaseURL, userRepo)
 
 	if len(cfg.AdminEmails) > 0 {
 		log.Printf("Admin panel enabled for %d email(s)", len(cfg.AdminEmails))
@@ -106,9 +118,10 @@ func main() {
 	// Router
 	r := router.Setup(
 		authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler,
-		deviceHandler, deviceRepo,
+		deviceHandler, ssoHandler, deviceRepo,
 		cfg.JWTSecret, cfg.CORSOrigins,
 		cfg.IAPEnabled, iapValidator, userRepo, cfg.AdminEmails,
+		cfg.SignupEnabled,
 		version,
 	)
 

@@ -412,14 +412,21 @@ func parseRSAPublicKeyJWK(jwkStr string) (*rsa.PublicKey, error) {
 	return &rsa.PublicKey{N: new(big.Int).SetBytes(nBytes), E: e}, nil
 }
 
-func (s *authService) generateJWT(userID uuid.UUID) (string, error) {
+// IssueSessionJWT creates the session JWT shared by every login method (SRP
+// login, the IAP session endpoint and the SSO callback): HS256 with the app
+// secret, user_id claim, 1 hour expiry.
+func IssueSessionJWT(secret []byte, userID uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID.String(),
 		"exp":     time.Now().Add(1 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.jwtSecret)
+	return token.SignedString(secret)
+}
+
+func (s *authService) generateJWT(userID uuid.UUID) (string, error) {
+	return IssueSessionJWT(s.jwtSecret, userID)
 }
 
 func (s *authService) fakeLoginStep1Response() *dto.LoginStep1Response {
