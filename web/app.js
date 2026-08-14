@@ -773,8 +773,11 @@ async function detectAuthMode() {
 }
 
 // Fills the login screen with one "Continue with {provider}" button per
-// configured SSO provider (above the SRP form, separated by an "or" rule)
-// and hides the signup link when the server has public signup disabled.
+// configured SSO provider. SSO-first: when any provider exists, the SRP
+// email/password form is hidden entirely — users sign in with the provider
+// and are asked for the master password afterwards (unlock/setup screens).
+// The recovery link stays visible so an SSO user who forgot their master
+// password can still recover their data with the recovery key.
 function renderSSOLogin(providers, signupEnabled) {
   const wrap = document.getElementById('sso-login');
   if (wrap && providers.length) {
@@ -783,7 +786,7 @@ function renderSSOLogin(providers, signupEnabled) {
     providers.forEach(p => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'btn btn-secondary';
+      b.className = 'btn btn-primary';
       b.textContent = t('auth.continueWith', { name: p.name });
       b.addEventListener('click', () => {
         location.href = '/auth/sso/' + encodeURIComponent(p.id) + '/start';
@@ -791,6 +794,10 @@ function renderSSOLogin(providers, signupEnabled) {
       btns.appendChild(b);
     });
     wrap.style.display = '';
+    const srp = document.getElementById('srp-login');
+    if (srp) srp.style.display = 'none';
+    const sep = wrap.querySelector('.auth-separator');
+    if (sep) sep.style.display = 'none';
   }
   if (!signupEnabled) {
     const link = document.getElementById('btn-show-signup');

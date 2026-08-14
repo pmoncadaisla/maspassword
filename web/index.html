@@ -45,16 +45,19 @@
         <div id="sso-buttons" class="sso-buttons"></div>
         <div class="auth-separator"><span data-i18n="auth.or">o</span></div>
       </div>
-      <div class="form-group">
-        <label data-i18n="auth.email">Email</label>
-        <input type="email" id="login-email" placeholder="tu@ejemplo.com" data-i18n-placeholder="auth.email.placeholder" autocomplete="email">
+      <!-- SRP form: hidden entirely when SSO providers are configured (SSO-first login) -->
+      <div id="srp-login">
+        <div class="form-group">
+          <label data-i18n="auth.email">Email</label>
+          <input type="email" id="login-email" placeholder="tu@ejemplo.com" data-i18n-placeholder="auth.email.placeholder" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label data-i18n="auth.masterPassword">Contraseña maestra</label>
+          <input type="password" id="login-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary" id="btn-login" data-i18n="auth.login">Iniciar sesión</button>
+        <p><span data-i18n="auth.noAccount">¿No tienes cuenta?</span> <button class="link-btn" id="btn-show-signup" data-i18n="auth.signup">Regístrate</button></p>
       </div>
-      <div class="form-group">
-        <label data-i18n="auth.masterPassword">Contraseña maestra</label>
-        <input type="password" id="login-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
-      </div>
-      <button class="btn btn-primary" id="btn-login" data-i18n="auth.login">Iniciar sesión</button>
-      <p><span data-i18n="auth.noAccount">¿No tienes cuenta?</span> <button class="link-btn" id="btn-show-signup" data-i18n="auth.signup">Regístrate</button></p>
       <p><button class="link-btn" id="btn-show-recover" data-i18n="auth.forgotPassword">¿Has olvidado tu contraseña?</button></p>
       <p class="version-footer" id="app-version-login"></p>
     </div>
