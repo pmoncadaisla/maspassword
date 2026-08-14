@@ -10,6 +10,7 @@ import { MAX_ATTACHMENTS, fileToAttachment, attachmentDataUrl, formatSize } from
 import { createSharePayload, decryptSharePayload, buildShareUrl, parseShareHash } from '/sharelink.js';
 import { findDuplicateGroups } from '/duplicates.js';
 import { initOnboarding, onboardingStepDone, shouldShowWelcome } from '/onboarding.js';
+import { qrSvg } from '/qr.js';
 
 // --- Item types (1Password-style) ---
 // Labels are resolved lazily through t() so they follow the active locale.
@@ -492,7 +493,7 @@ function lockVault() {
   // attachments and share metadata.
   ['item-list', 'detail-fields', 'detail-meta', 'detail-breach-result', 'tag-bar',
    'history-body', 'share-links-list', 'vault-shares', 'detail-item-icon',
-   'custom-fields-list', 'item-attachments-list']
+   'custom-fields-list', 'item-attachments-list', 'device-qr-result', 'device-list']
     .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
   formAttachments = [];
   FORM_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -2125,6 +2126,99 @@ function renderSharedItem(data) {
   wireCopyReveal(body);
 }
 
+// --- Linked devices (QR pairing for the mobile apps) -----------------------
+// The pairing QR carries ONLY { v, srv, email, tok } as base64url JSON — the
+// server origin, the account email and the device API token. NEVER any key
+// material: the phone asks for the master password locally and derives the
+// encryption keys on-device (zero-knowledge, same as the web client).
+
+function currentUserEmail() {
+  return lockContext?.email || iapSession?.email || '';
+}
+
+// Restore the modal to its initial state: create form visible, QR/token gone.
+function resetDevicesModal() {
+  const form = document.getElementById('device-create-form');
+  if (form) form.style.display = '';
+  const result = document.getElementById('device-qr-result');
+  if (result) result.innerHTML = '';
+  const name = document.getElementById('device-name-input');
+  if (name) name.value = '';
+}
+
+function openDevicesModal() {
+  resetDevicesModal();
+  openModal('modal-devices');
+  loadDevices();
+}
+
+async function createDevice() {
+  const name = document.getElementById('device-name-input').value.trim();
+  if (!name) return toast(t('toast.enterName'), true);
+  const btn = document.getElementById('btn-create-device');
+  btn.disabled = true;
+  try {
+    const resp = await api('POST', '/api/devices', { name });
+    renderDevicePairing(resp.token); // token is shown exactly ONCE
+    loadDevices();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Replaces the create form with the pairing QR + one-time token readout.
+function renderDevicePairing(deviceToken) {
+  const payload = JSON.stringify({ v: 1, srv: location.origin, email: currentUserEmail(), tok: deviceToken });
+  const b64url = btoa(String.fromCharCode(...new TextEncoder().encode(payload)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  document.getElementById('device-create-form').style.display = 'none';
+  const box = document.getElementById('device-qr-result');
+  // QR stays black-on-white in every theme/skin: scanners need the contrast.
+  box.innerHTML = `
+    <div class="device-qr">${qrSvg(b64url, { size: 208, margin: 2 })}</div>
+    <p class="device-scan-hint">${esc(t('devices.scanHint'))}</p>
+    <div class="share-url-row">
+      <input type="text" id="device-token-output" readonly spellcheck="false" value="${escAttr(deviceToken)}">
+      <button class="btn-icon" id="btn-copy-device-token" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 15 })}</button>
+    </div>
+    <p class="share-warning">${icon('alert', { size: 14 })} <span>${esc(t('devices.tokenOnce'))}</span></p>`;
+  document.getElementById('btn-copy-device-token').addEventListener('click', () => {
+    navigator.clipboard.writeText(deviceToken)
+      .then(() => toast(t('toast.copied')))
+      .catch(() => toast(t('toast.copyFailed'), true));
+  });
+  const out = document.getElementById('device-token-output');
+  out.addEventListener('focus', () => out.select());
+}
+
+async function loadDevices() {
+  const list = document.getElementById('device-list');
+  let devices = [];
+  try {
+    devices = (await api('GET', '/api/devices')) || [];
+  } catch {
+    list.innerHTML = '';
+    return;
+  }
+  if (!devices.length) { list.innerHTML = ''; return; }
+  list.innerHTML = devices.map(d => {
+    const revoked = !!d.revoked_at;
+    const used = d.last_used_at
+      ? `${esc(t('devices.lastUsed'))} ${esc(formatRelative(d.last_used_at))}`
+      : esc(t('devices.never'));
+    return `<div class="device-row${revoked ? ' device-row-revoked' : ''}">
+      <span class="device-row-icon">${icon('link', { size: 14 })}</span>
+      <span class="device-row-info">
+        <span class="device-row-name">${esc(d.name)}${revoked ? ` <span class="device-badge-revoked">${esc(t('devices.revoked'))}</span>` : ''}</span>
+        <span class="device-row-meta">${esc(t('devices.created'))} ${esc(formatRelative(d.created_at))} · ${used}</span>
+      </span>
+      ${revoked ? '' : `<button class="btn-icon btn-icon-danger js-revoke-device" data-device-id="${escAttr(d.id)}" data-device-name="${escAttr(d.name)}" title="${escAttr(t('devices.revoke'))}">${icon('trash', { size: 14 })}</button>`}
+    </div>`;
+  }).join('');
+}
+
 // --- Modals ---
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -2806,6 +2900,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-tool-watchtower').addEventListener('click', openWatchtower);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
   document.getElementById('btn-lock').addEventListener('click', lockVault);
+
+  // Linked devices modal (QR pairing)
+  document.getElementById('btn-link-device').addEventListener('click', openDevicesModal);
+  document.getElementById('btn-create-device').addEventListener('click', createDevice);
+  document.getElementById('device-name-input').addEventListener('keydown', e => { if (e.key === 'Enter') createDevice(); });
+  document.getElementById('btn-close-devices').addEventListener('click', () => {
+    closeModal('modal-devices');
+    resetDevicesModal(); // don't leave the one-time token in the DOM
+  });
+  document.getElementById('device-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.js-revoke-device');
+    if (!btn) return;
+    if (!confirm(t('devices.revokeConfirm', { name: btn.dataset.deviceName }))) return;
+    try {
+      await api('DELETE', `/api/devices/${btn.dataset.deviceId}`);
+      toast(t('devices.revoked'));
+      loadDevices();
+    } catch (err) { toast(err.message, true); }
+  });
 
   // Lock screen unlock
   document.getElementById('btn-unlock').addEventListener('click', unlockVault);

@@ -2364,3 +2364,68 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: none; box
   color: var(--accent-ink);
 }
 .welcome-point p { font-size: 13.5px; color: var(--text2); margin: 0; }
+
+/* ----------------------------------------------------------------------------
+   24. Linked devices (QR pairing modal)
+   Token-driven throughout, so the Orange skin and dark mode apply untouched.
+   The QR tile itself is intentionally white-with-black-modules in every
+   theme: scanners need that contrast.
+   ---------------------------------------------------------------------------- */
+.device-qr-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.device-qr-result:not(:empty) { margin: 4px 0 16px; }
+.device-qr {
+  background: #ffffff;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  line-height: 0;
+}
+.device-qr svg { display: block; }
+.device-scan-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+}
+.device-qr-result .share-url-row { width: 100%; }
+.device-qr-result .share-warning { width: 100%; margin-top: 0; }
+
+.device-list-title { margin-top: 16px; }
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+}
+.device-row-icon { display: flex; color: var(--text3); flex-shrink: 0; }
+.device-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.device-row-name { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-row-meta { font-size: 11px; color: var(--text4); }
+.device-row-revoked .device-row-name,
+.device-row-revoked .device-row-icon { color: var(--text4); }
+.device-badge-revoked {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--danger-ink);
+  background: var(--danger-tint);
+}

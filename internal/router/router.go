@@ -19,6 +19,8 @@ func Setup(
 	userHandler *handler.UserHandler,
 	shareLinkHandler *handler.ShareLinkHandler,
 	settingsHandler *handler.SettingsHandler,
+	deviceHandler *handler.DeviceHandler,
+	deviceRepo repository.DeviceTokenRepository,
 	jwtSecret string,
 	corsOrigins string,
 	iapEnabled bool,
@@ -62,6 +64,8 @@ func Setup(
 	} else {
 		authMiddleware = middleware.JWTAuth(jwtSecret)
 	}
+	// Device tokens (mpd_*) take priority; anything else falls through to JWT/IAP.
+	authMiddleware = middleware.DeviceTokenAuth(deviceRepo, authMiddleware)
 
 	// Protected routes
 	api := r.Group("/api")
@@ -107,6 +111,11 @@ func Setup(
 		api.GET("/users/:userId/public-key", userHandler.GetPublicKey)
 		api.PUT("/users/me", userHandler.UpdateMe)
 
+		// Linked mobile devices (API tokens shown once, hash at rest)
+		api.POST("/devices", deviceHandler.Create)
+		api.GET("/devices", deviceHandler.List)
+		api.DELETE("/devices/:id", deviceHandler.Revoke)
+
 		// Admin-only global settings (auth middleware + admin email check)
 		admin := api.Group("/admin")
 		admin.Use(middleware.AdminOnly(userRepo, adminEmails))
@@ -135,6 +144,7 @@ func Setup(
 	r.StaticFile("/sharelink.js", "web/sharelink.js")
 	r.StaticFile("/duplicates.js", "web/duplicates.js")
 	r.StaticFile("/onboarding.js", "web/onboarding.js")
+	r.StaticFile("/qr.js", "web/qr.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
 	r.Static("/icons", "web/icons")
@@ -150,7 +160,7 @@ func Setup(
 		"/blake2b.js": true, "/generator.js": true, "/strength.js": true,
 		"/breach.js": true, "/import.js": true, "/i18n.js": true,
 		"/icons.js": true, "/attachments.js": true, "/sharelink.js": true,
-		"/duplicates.js": true, "/onboarding.js": true,
+		"/duplicates.js": true, "/onboarding.js": true, "/qr.js": true,
 	}
 	r.Use(func(c *gin.Context) {
 		if jsPaths[c.Request.URL.Path] {

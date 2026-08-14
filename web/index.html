@@ -216,6 +216,10 @@
             <span class="sidebar-item-icon" data-icon="sparkles"></span>
             <span class="sidebar-item-name" data-i18n="sidebar.generator">Generador de contraseñas</span>
           </button>
+          <button class="sidebar-item" id="btn-link-device">
+            <span class="sidebar-item-icon" data-icon="link"></span>
+            <span class="sidebar-item-name" data-i18n="devices.link">Vincular dispositivo</span>
+          </button>
           <button class="sidebar-item" id="btn-cmd-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
             <span class="sidebar-item-icon" data-icon="search"></span>
             <span class="sidebar-item-name" data-i18n="sidebar.quickSearch">Búsqueda rápida</span>
@@ -677,6 +681,29 @@
     <div id="history-body" class="history-body"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="btn-close-history" data-i18n="actions.done">Hecho</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Link device (QR pairing for the mobile apps).
+     ZERO-KNOWLEDGE: the QR payload carries only server origin, account email
+     and the device API token — never any key material. The phone asks for the
+     master password locally. -->
+<div class="modal-overlay" id="modal-devices">
+  <div class="modal">
+    <h3><span data-icon="link" data-icon-size="17"></span> <span data-i18n="devices.link">Vincular dispositivo</span></h3>
+    <div id="device-create-form">
+      <div class="form-group">
+        <label data-i18n="devices.name">Nombre del dispositivo</label>
+        <input type="text" id="device-name-input" placeholder="Nombre del dispositivo" data-i18n-placeholder="devices.name" maxlength="60" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn btn-primary" id="btn-create-device" data-i18n="devices.create">Crear y mostrar QR</button>
+    </div>
+    <div id="device-qr-result" class="device-qr-result"></div>
+    <div class="extras-title device-list-title" data-i18n="devices.list">Dispositivos vinculados</div>
+    <div id="device-list" class="device-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-close-devices" data-i18n="actions.close">Cerrar</button>
     </div>
   </div>
 </div>

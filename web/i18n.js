@@ -352,6 +352,20 @@ const es = {
   'onboarding.welcome.guide': 'La guía de primeros pasos del menú lateral te acompaña hasta que domines lo básico.',
   'onboarding.welcome.start': 'Crear mi primera caja fuerte',
   'onboarding.welcome.skip': 'Explorar por mi cuenta',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Vincular dispositivo',
+  'devices.name': 'Nombre del dispositivo',
+  'devices.create': 'Crear y mostrar QR',
+  'devices.tokenOnce': 'Guárdalo ahora: no se volverá a mostrar',
+  'devices.scanHint': 'Escanéalo con la app móvil de MasPassword',
+  'devices.list': 'Dispositivos vinculados',
+  'devices.revoke': 'Revocar',
+  'devices.revoked': 'Revocado',
+  'devices.revokeConfirm': '¿Revocar "{name}"? La app móvil perderá el acceso.',
+  'devices.created': 'Creado',
+  'devices.lastUsed': 'Último uso',
+  'devices.never': 'Nunca usado',
 };
 
 const en = {
@@ -682,6 +696,20 @@ const en = {
   'onboarding.welcome.guide': 'The first-steps guide in the sidebar walks you through the basics.',
   'onboarding.welcome.start': 'Create my first vault',
   'onboarding.welcome.skip': 'Explore on my own',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Link device',
+  'devices.name': 'Device name',
+  'devices.create': 'Create & show QR',
+  'devices.tokenOnce': "Save it now: it won't be shown again",
+  'devices.scanHint': 'Scan it with the MasPassword mobile app',
+  'devices.list': 'Linked devices',
+  'devices.revoke': 'Revoke',
+  'devices.revoked': 'Revoked',
+  'devices.revokeConfirm': 'Revoke "{name}"? The mobile app will lose access.',
+  'devices.created': 'Created',
+  'devices.lastUsed': 'Last used',
+  'devices.never': 'Never used',
 };
 
 const fr = {
@@ -1012,6 +1040,20 @@ const fr = {
   'onboarding.welcome.guide': 'Le guide des premiers pas du menu latéral vous accompagne pour les bases.',
   'onboarding.welcome.start': 'Créer mon premier coffre-fort',
   'onboarding.welcome.skip': 'Explorer par moi-même',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Associer un appareil',
+  'devices.name': "Nom de l'appareil",
+  'devices.create': 'Créer et afficher le QR',
+  'devices.tokenOnce': 'Enregistrez-le maintenant : il ne sera plus affiché',
+  'devices.scanHint': "Scannez-le avec l'app mobile MasPassword",
+  'devices.list': 'Appareils associés',
+  'devices.revoke': 'Révoquer',
+  'devices.revoked': 'Révoqué',
+  'devices.revokeConfirm': "Révoquer « {name} » ? L'application mobile perdra l'accès.",
+  'devices.created': 'Créé',
+  'devices.lastUsed': 'Dernière utilisation',
+  'devices.never': 'Jamais utilisé',
 };
 
 // Exposed for tests and tooling (key-set parity checks, i18n-keys.md generation).
