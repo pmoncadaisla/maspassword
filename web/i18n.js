@@ -334,6 +334,20 @@ const es = {
   'toast.invalidRecoveryKey': 'Clave de recuperación no válida',
   'toast.encryptionSetup': 'Cifrado configurado correctamente',
   'toast.setupFailed': 'La configuración ha fallado: {error}',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Vincular dispositivo',
+  'devices.name': 'Nombre del dispositivo',
+  'devices.create': 'Crear y mostrar QR',
+  'devices.tokenOnce': 'Guárdalo ahora: no se volverá a mostrar',
+  'devices.scanHint': 'Escanéalo con la app móvil de MasPassword',
+  'devices.list': 'Dispositivos vinculados',
+  'devices.revoke': 'Revocar',
+  'devices.revoked': 'Revocado',
+  'devices.revokeConfirm': '¿Revocar "{name}"? La app móvil perderá el acceso.',
+  'devices.created': 'Creado',
+  'devices.lastUsed': 'Último uso',
+  'devices.never': 'Nunca usado',
 };
 
 const en = {
@@ -646,6 +660,20 @@ const en = {
   'toast.invalidRecoveryKey': 'Invalid recovery key',
   'toast.encryptionSetup': 'Encryption set up successfully',
   'toast.setupFailed': 'Setup failed: {error}',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Link device',
+  'devices.name': 'Device name',
+  'devices.create': 'Create & show QR',
+  'devices.tokenOnce': "Save it now: it won't be shown again",
+  'devices.scanHint': 'Scan it with the MasPassword mobile app',
+  'devices.list': 'Linked devices',
+  'devices.revoke': 'Revoke',
+  'devices.revoked': 'Revoked',
+  'devices.revokeConfirm': 'Revoke "{name}"? The mobile app will lose access.',
+  'devices.created': 'Created',
+  'devices.lastUsed': 'Last used',
+  'devices.never': 'Never used',
 };
 
 const fr = {
@@ -958,6 +986,20 @@ const fr = {
   'toast.invalidRecoveryKey': 'Clé de récupération non valide',
   'toast.encryptionSetup': 'Chiffrement configuré avec succès',
   'toast.setupFailed': 'Échec de la configuration : {error}',
+
+  // Linked devices (QR pairing)
+  'devices.link': 'Associer un appareil',
+  'devices.name': "Nom de l'appareil",
+  'devices.create': 'Créer et afficher le QR',
+  'devices.tokenOnce': 'Enregistrez-le maintenant : il ne sera plus affiché',
+  'devices.scanHint': "Scannez-le avec l'app mobile MasPassword",
+  'devices.list': 'Appareils associés',
+  'devices.revoke': 'Révoquer',
+  'devices.revoked': 'Révoqué',
+  'devices.revokeConfirm': "Révoquer « {name} » ? L'application mobile perdra l'accès.",
+  'devices.created': 'Créé',
+  'devices.lastUsed': 'Dernière utilisation',
+  'devices.never': 'Jamais utilisé',
 };
 
 // Exposed for tests and tooling (key-set parity checks, i18n-keys.md generation).
