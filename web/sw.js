@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-v7';
+const CACHE_NAME = 'vault-v8';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +11,11 @@ const ASSETS = [
   '/strength.js',
   '/breach.js',
   '/import.js',
+  '/i18n.js',
+  '/icons.js',
+  '/attachments.js',
+  '/sharelink.js',
+  '/duplicates.js',
   '/manifest.json',
 ];
 

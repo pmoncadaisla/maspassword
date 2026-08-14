@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#10a37f">
+  <meta name="theme-color" content="#fafbfc">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Vault Internal</title>
@@ -28,6 +28,7 @@
   <!-- AUTH: Login -->
   <div id="screen-login" class="screen auth-screen active">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="vault" data-icon-size="26"></div>
       <h2 data-i18n="app.name">Vault Internal</h2>
       <p><span data-i18n="app.tagline">Gestor de contraseñas de conocimiento cero.</span><br><span data-i18n="app.zeroKnowledge">Tus contraseñas nunca salen de tu dispositivo sin cifrar.</span></p>
       <div class="form-group">
@@ -48,6 +49,7 @@
   <!-- AUTH: Signup -->
   <div id="screen-signup" class="screen auth-screen">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="vault" data-icon-size="26"></div>
       <h2 data-i18n="auth.signup.title">Crear cuenta</h2>
       <p data-i18n="auth.signup.hint">Tu contraseña maestra se usa para derivar las claves de cifrado localmente. Nunca la vemos.</p>
       <div class="form-group">
@@ -70,9 +72,10 @@
   <!-- AUTH: IAP Unlock (master password only) -->
   <div id="screen-iap-unlock" class="screen auth-screen">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="lock" data-icon-size="26"></div>
       <h2 data-i18n="app.name">Vault Internal</h2>
       <p data-i18n="auth.iap.unlockHint">Autenticado con Google IAP. Introduce tu contraseña maestra para desbloquear tu caja fuerte.</p>
-      <div id="iap-unlock-email" style="margin-bottom:12px; font-weight:600;"></div>
+      <div id="iap-unlock-email" class="auth-email-hint"></div>
       <div class="form-group">
         <label data-i18n="auth.masterPassword">Contraseña maestra</label>
         <input type="password" id="iap-unlock-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
@@ -84,9 +87,10 @@
   <!-- AUTH: IAP Setup (first time — create master password) -->
   <div id="screen-iap-setup" class="screen auth-screen">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="shield" data-icon-size="26"></div>
       <h2 data-i18n="auth.iap.setupTitle">Configurar cifrado</h2>
       <p data-i18n="auth.iap.setupHint">Autenticado con Google IAP. Crea una contraseña maestra para cifrar tus datos. Nunca la vemos.</p>
-      <div id="iap-setup-email" style="margin-bottom:12px; font-weight:600;"></div>
+      <div id="iap-setup-email" class="auth-email-hint"></div>
       <div class="form-group">
         <label data-i18n="auth.masterPassword">Contraseña maestra</label>
         <input type="password" id="iap-setup-password" placeholder="Elige una contraseña fuerte" data-i18n-placeholder="auth.signup.passwordPlaceholder" autocomplete="new-password">
@@ -102,11 +106,12 @@
   <!-- AUTH: Show Recovery Key (after signup or recovery) -->
   <div id="screen-show-recovery-key" class="screen auth-screen">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="key" data-icon-size="26"></div>
       <h2 data-i18n="recovery.title">Guarda tu clave de recuperación</h2>
       <p data-i18n="recovery.hint">Esta clave te permite recuperar tu cuenta si olvidas tu contraseña maestra. Guárdala en un lugar seguro: solo se mostrará una vez.</p>
-      <code id="recovery-key-display" style="display:block; word-break:break-all; background:#f4f4f4; padding:16px; border-radius:8px; font-size:14px; margin:16px 0; user-select:all; color:#333;"></code>
-      <button class="btn btn-secondary" id="btn-copy-recovery-key" style="margin-bottom:16px; width:100%;" data-i18n="recovery.copy">Copiar al portapapeles</button>
-      <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px; cursor:pointer;">
+      <code id="recovery-key-display" class="recovery-code"></code>
+      <button class="btn btn-secondary" id="btn-copy-recovery-key" data-i18n="recovery.copy">Copiar al portapapeles</button>
+      <label class="checkbox-row">
         <input type="checkbox" id="recovery-key-saved-checkbox">
         <span data-i18n="recovery.saved">He guardado esta clave de recuperación</span>
       </label>
@@ -117,6 +122,7 @@
   <!-- AUTH: Recover Account (forgot password) -->
   <div id="screen-recover" class="screen auth-screen">
     <div class="auth-container">
+      <div class="auth-mark" data-icon="unlock" data-icon-size="26"></div>
       <h2 data-i18n="recover.title">Recuperación de cuenta</h2>
       <p data-i18n="recover.hint">Introduce tu email, tu clave de recuperación y una nueva contraseña maestra para recuperar el acceso.</p>
       <div class="form-group">
@@ -143,10 +149,10 @@
   <!-- AUTH: Lock screen (vault auto-locked after inactivity) -->
   <div id="screen-lock" class="screen auth-screen">
     <div class="auth-container">
-      <div style="text-align:center; font-size:40px;">&#128274;</div>
+      <div class="auth-mark" data-icon="lock" data-icon-size="26"></div>
       <h2 data-i18n="lock.title">Caja fuerte bloqueada</h2>
       <p data-i18n="lock.hint">Bloqueada por tu seguridad. Introduce tu contraseña maestra para desbloquear.</p>
-      <div id="lock-email" style="text-align:center; font-weight:600; margin-bottom:4px;"></div>
+      <div id="lock-email" class="auth-email-hint"></div>
       <div class="form-group">
         <label data-i18n="auth.masterPassword">Contraseña maestra</label>
         <input type="password" id="lock-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
@@ -160,7 +166,7 @@
        The decryption key lives ONLY in the URL fragment and never leaves the browser. -->
   <div id="screen-share-open" class="screen auth-screen">
     <div class="auth-container share-open-container">
-      <div style="text-align:center; font-size:40px;">&#128279;</div>
+      <div class="auth-mark" data-icon="link" data-icon-size="26"></div>
       <h2 data-i18n="share.open.title">Elemento compartido</h2>
       <div id="share-open-body"></div>
       <p class="version-footer" id="app-version-share"></p>
@@ -173,6 +179,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
+        <span class="brand-mark" data-icon="vault" data-icon-size="15"></span>
         <h1 class="sidebar-logo" data-i18n="app.name">Vault Internal</h1>
       </div>
       <div class="sidebar-global-search">
@@ -193,23 +200,23 @@
         <div class="sidebar-section">
           <div class="sidebar-section-title" data-i18n="sidebar.tools">Herramientas</div>
           <button class="sidebar-item" id="btn-tool-watchtower">
-            <span class="sidebar-item-icon">&#128737;</span>
+            <span class="sidebar-item-icon" data-icon="shield"></span>
             <span class="sidebar-item-name" data-i18n="sidebar.watchtower">Panel de seguridad</span>
           </button>
           <button class="sidebar-item" id="btn-tool-generator">
-            <span class="sidebar-item-icon">&#127922;</span>
+            <span class="sidebar-item-icon" data-icon="sparkles"></span>
             <span class="sidebar-item-name" data-i18n="sidebar.generator">Generador de contraseñas</span>
           </button>
           <button class="sidebar-item" id="btn-cmd-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
-            <span class="sidebar-item-icon">&#128269;</span>
+            <span class="sidebar-item-icon" data-icon="search"></span>
             <span class="sidebar-item-name" data-i18n="sidebar.quickSearch">Búsqueda rápida</span>
             <span class="kbd-hint">&#8984;K</span>
           </button>
         </div>
       </div>
       <div class="sidebar-footer">
-        <button class="sidebar-logout-btn" id="btn-theme">&#127769; Modo oscuro</button>
-        <button class="sidebar-logout-btn" id="btn-lock">&#128274; <span data-i18n="sidebar.lockVault">Bloquear caja fuerte</span></button>
+        <button class="sidebar-logout-btn" id="btn-theme">Modo oscuro</button>
+        <button class="sidebar-logout-btn" id="btn-lock"><span data-icon="lock" data-icon-size="15"></span> <span data-i18n="sidebar.lockVault">Bloquear caja fuerte</span></button>
         <button class="sidebar-logout-btn" id="btn-logout" data-i18n="sidebar.logout">Cerrar sesión</button>
         <div class="sidebar-footer-meta">
           <select id="locale-select" class="locale-select" data-i18n-title="settings.language" title="Idioma"></select>
@@ -227,7 +234,7 @@
       <div id="tag-bar" class="tag-bar" style="display:none;"></div>
       <div id="item-list" class="item-list"></div>
       <div id="items-empty" class="empty-state" style="display:none;">
-        <div class="icon">&#128273;</div>
+        <div class="icon" data-icon="key" data-icon-size="22"></div>
         <p data-i18n="items.empty">Aún no hay elementos</p>
       </div>
       <!-- Team detail content (shown when a team is selected) -->
@@ -252,21 +259,21 @@
     <!-- DETAIL PANEL -->
     <div class="detail-panel">
       <div id="detail-empty" class="empty-state">
-        <div class="icon">&#128274;</div>
+        <div class="icon" data-icon="vault" data-icon-size="22"></div>
         <p data-i18n="items.selectPrompt">Selecciona un elemento para ver los detalles</p>
       </div>
       <div id="detail-content" style="display:none;">
         <div class="detail-header">
           <div class="detail-title-row">
-            <button class="btn-icon fav-star" id="btn-fav-item" data-i18n-title="items.favorite" title="Favorito">&#9734;</button>
             <span id="detail-item-icon" class="detail-item-icon"></span>
             <h2 id="detail-title">Item</h2>
           </div>
           <div class="detail-actions">
-            <button class="btn-icon" id="btn-share-item" data-icon="share" data-i18n-title="share.title" title="Compartir elemento">&#128279;</button>
-            <button class="btn-icon" id="btn-item-history" data-i18n-title="history.title" title="Historial de contraseñas">&#128340;</button>
-            <button class="btn-icon" id="btn-edit-item" data-i18n-title="actions.edit" title="Editar">&#9998;</button>
-            <button class="btn-icon btn-icon-danger" id="btn-delete-item" data-i18n-title="actions.delete" title="Eliminar">&#128465;</button>
+            <button class="btn-icon fav-star" id="btn-fav-item" data-icon="star" data-icon-size="17" data-i18n-title="items.favorite" title="Favorito"></button>
+            <button class="btn-icon" id="btn-share-item" data-icon="share" data-i18n-title="share.title" title="Compartir elemento"></button>
+            <button class="btn-icon" id="btn-item-history" data-icon="history" data-i18n-title="history.title" title="Historial de contraseñas"></button>
+            <button class="btn-icon" id="btn-edit-item" data-icon="edit" data-i18n-title="actions.edit" title="Editar"></button>
+            <button class="btn-icon btn-icon-danger" id="btn-delete-item" data-icon="trash" data-i18n-title="actions.delete" title="Eliminar"></button>
           </div>
         </div>
         <div id="detail-meta" class="detail-meta"></div>
@@ -289,11 +296,11 @@
 <!-- BOTTOM NAV (mobile only) -->
 <nav id="bottom-nav" class="bottom-nav" style="display:none;">
   <button class="nav-item active" data-tab="vaults">
-    <span class="nav-icon">&#128274;</span>
+    <span class="nav-icon" data-icon="vault" data-icon-size="18"></span>
     <span class="nav-label" data-i18n="sidebar.vaults">Cajas fuertes</span>
   </button>
   <button class="nav-item" data-tab="teams">
-    <span class="nav-icon">&#128101;</span>
+    <span class="nav-icon" data-icon="users" data-icon-size="18"></span>
     <span class="nav-label" data-i18n="sidebar.teams">Equipos</span>
   </button>
 </nav>
@@ -319,10 +326,10 @@
     <h3 id="modal-item-title">Nuevo elemento</h3>
 
     <div id="item-type-selector" class="type-selector">
-      <button class="type-tab active" data-type="login">&#128273; <span data-i18n="type.login">Login</span></button>
-      <button class="type-tab" data-type="card">&#128179; <span data-i18n="type.card">Tarjeta</span></button>
-      <button class="type-tab" data-type="note">&#128221; <span data-i18n="type.note">Nota</span></button>
-      <button class="type-tab" data-type="identity">&#128100; <span data-i18n="type.identity">Identidad</span></button>
+      <button class="type-tab active" data-type="login"><span data-icon="key" data-icon-size="14"></span> <span data-i18n="type.login">Login</span></button>
+      <button class="type-tab" data-type="card"><span data-icon="card" data-icon-size="14"></span> <span data-i18n="type.card">Tarjeta</span></button>
+      <button class="type-tab" data-type="note"><span data-icon="note" data-icon-size="14"></span> <span data-i18n="type.note">Nota</span></button>
+      <button class="type-tab" data-type="identity"><span data-icon="identity" data-icon-size="14"></span> <span data-i18n="type.identity">Identidad</span></button>
     </div>
 
     <div class="form-row">
@@ -345,9 +352,9 @@
       </div>
       <div class="form-group">
         <label data-i18n="fields.password">Contraseña</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="item-pw-input" placeholder="contraseña" autocomplete="off" style="flex:1;">
-          <button class="btn btn-secondary btn-small" id="btn-gen-pw" data-i18n-title="form.generate" title="Generar" style="white-space:nowrap;">&#127922; <span data-i18n="form.generate">Generar</span></button>
+        <div class="input-row">
+          <input type="text" id="item-pw-input" placeholder="contraseña" autocomplete="off">
+          <button class="btn btn-secondary btn-small" id="btn-gen-pw" data-i18n-title="form.generate" title="Generar"><span data-icon="sparkles" data-icon-size="14"></span> <span data-i18n="form.generate">Generar</span></button>
         </div>
         <div id="item-pw-strength" class="strength"></div>
       </div>
@@ -430,7 +437,7 @@
     </div>
     <label class="checkbox-row">
       <input type="checkbox" id="item-fav-input">
-      <span>&#9733; <span data-i18n="form.markFavorite">Marcar como favorito</span></span>
+      <span><span data-icon="star" data-icon-size="13"></span> <span data-i18n="form.markFavorite">Marcar como favorito</span></span>
     </label>
 
     <!-- Custom fields (stored inside the encrypted blob) -->
@@ -588,8 +595,8 @@
 <div class="modal-overlay" id="modal-watchtower">
   <div class="modal modal-lg">
     <div class="modal-lg-header">
-      <h3>&#128737; <span data-i18n="watchtower.title">Panel de seguridad</span></h3>
-      <button class="btn-icon" id="btn-watchtower-close" data-i18n-title="actions.close" title="Cerrar">&#10005;</button>
+      <h3><span data-icon="shield" data-icon-size="17"></span> <span data-i18n="watchtower.title">Panel de seguridad</span></h3>
+      <button class="btn-icon" id="btn-watchtower-close" data-icon="x" data-i18n-title="actions.close" title="Cerrar"></button>
     </div>
     <div id="watchtower-body" class="watchtower-body"></div>
   </div>
@@ -598,11 +605,11 @@
 <!-- MODAL: Password generator -->
 <div class="modal-overlay" id="modal-generator">
   <div class="modal">
-    <h3>&#127922; <span data-i18n="generator.title">Generador de contraseñas</span></h3>
+    <h3><span data-icon="sparkles" data-icon-size="17"></span> <span data-i18n="generator.title">Generador de contraseñas</span></h3>
     <div class="gen-output-row">
       <code id="gen-output" class="gen-output"></code>
-      <button class="btn-icon" id="btn-gen-refresh" data-i18n-title="generator.regenerate" title="Regenerar">&#8635;</button>
-      <button class="btn-icon" id="btn-gen-copy" data-i18n-title="actions.copy" title="Copiar">&#128203;</button>
+      <button class="btn-icon" id="btn-gen-refresh" data-icon="refresh" data-i18n-title="generator.regenerate" title="Regenerar"></button>
+      <button class="btn-icon" id="btn-gen-copy" data-icon="copy" data-i18n-title="actions.copy" title="Copiar"></button>
     </div>
     <div id="gen-strength" class="strength"></div>
 
@@ -650,7 +657,7 @@
 <!-- MODAL: Password history -->
 <div class="modal-overlay" id="modal-history">
   <div class="modal">
-    <h3>&#128340; <span data-i18n="history.title">Historial de contraseñas</span></h3>
+    <h3><span data-icon="history" data-icon-size="17"></span> <span data-i18n="history.title">Historial de contraseñas</span></h3>
     <div id="history-body" class="history-body"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="btn-close-history" data-i18n="actions.done">Hecho</button>

@@ -12,14 +12,16 @@ import { findDuplicateGroups } from '/duplicates.js';
 
 // --- Item types (1Password-style) ---
 // Labels are resolved lazily through t() so they follow the active locale.
+// `icon` is a flat SVG icon name from icons.js (rendered via icon()).
 const ITEM_TYPES = {
-  login:    { icon: '\u{1F511}' },  // 🔑
-  card:     { icon: '\u{1F4B3}' },  // 💳
-  note:     { icon: '\u{1F4DD}' },  // 📝
-  identity: { icon: '\u{1F464}' },  // 👤
+  login:    { icon: 'key' },
+  card:     { icon: 'card' },
+  note:     { icon: 'note' },
+  identity: { icon: 'identity' },
 };
 function itemType(data) { return ITEM_TYPES[data?.type] ? data.type : 'login'; }
 function typeLabel(type) { return t('type.' + (ITEM_TYPES[type] ? type : 'login')); }
+function typeIconHtml(type, size = 16) { return icon(ITEM_TYPES[ITEM_TYPES[type] ? type : 'login'].icon, { size }); }
 
 // --- State ---
 let token = null;
@@ -543,9 +545,11 @@ function applyTheme(theme) {
   else document.documentElement.removeAttribute('data-theme');
   try { localStorage.setItem('mp-theme', theme); } catch {}
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0d1117' : '#10a37f');
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0e14' : '#fafbfc');
   const btn = document.getElementById('btn-theme');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️ ' + t('sidebar.lightMode') : '\u{1F319} ' + t('sidebar.darkMode');
+  if (btn) btn.innerHTML = theme === 'dark'
+    ? `${icon('sun', { size: 15 })} <span>${esc(t('sidebar.lightMode'))}</span>`
+    : `${icon('moon', { size: 15 })} <span>${esc(t('sidebar.darkMode'))}</span>`;
 }
 function toggleTheme() {
   applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
@@ -870,10 +874,10 @@ async function renderSidebar() {
       const key = await getVaultDecryptionKey(v);
       name = await decrypt(key, v.name_encrypted);
     } catch {}
-    const sharedBadge = v.team_id ? `<span class="badge-shared" title="${escAttr(t('vault.shared'))}">&#128101;</span>` : '';
+    const sharedBadge = v.team_id ? `<span class="badge-shared" title="${escAttr(t('vault.shared'))}">${icon('users', { size: 12 })}</span>` : '';
     const activeClass = currentVault && currentVault.id === v.id && sidebarMode === 'vaults' ? ' active' : '';
     vaultCards.push(`<button class="sidebar-item${activeClass}" data-vault-id="${v.id}">
-      <span class="sidebar-item-icon">&#128274;</span>
+      <span class="sidebar-item-icon">${icon('vault', { size: 16 })}</span>
       <span class="sidebar-item-name">${esc(name)}</span>
       ${sharedBadge}
     </button>`);
@@ -887,7 +891,7 @@ async function renderSidebar() {
   const teamCards = teams.map(tm => {
     const activeClass = currentTeam && currentTeam.id === tm.id && sidebarMode === 'team' ? ' active' : '';
     return `<button class="sidebar-item${activeClass}" data-team-id="${tm.id}">
-      <span class="sidebar-item-icon">&#128101;</span>
+      <span class="sidebar-item-icon">${icon('users', { size: 16 })}</span>
       <span class="sidebar-item-name">${esc(tm.name)}</span>
     </button>`;
   }).join('');
@@ -992,18 +996,18 @@ function itemSubtitle(data) {
   return data.username || '';
 }
 
-// Item icon, in priority: custom emoji (data.icon) -> site favicon -> type icon.
+// Item icon, in priority: custom emoji (data.icon) -> site favicon -> flat type icon.
 // The favicon <img> falls back to the type icon on load error.
 function itemIconHtml(data, size = 16) {
-  const typeIco = `<span class="item-emoji">${ITEM_TYPES[itemType(data)].icon}</span>`;
+  const typeIco = typeIconHtml(itemType(data), size);
   if (data && data.icon) {
     return `<span class="item-emoji">${esc(String(data.icon).slice(0, 8))}</span>`;
   }
   const fav = data && data.url ? faviconUrl(data.url, 32) : null;
   if (fav) {
     return `<img class="favicon-img" src="${escAttr(fav)}" width="${size}" height="${size}" alt="" loading="lazy"
-      onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline';">` +
-      `<span class="item-emoji" style="display:none;">${ITEM_TYPES[itemType(data)].icon}</span>`;
+      onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-flex';">` +
+      `<span class="item-type-fallback" style="display:none;">${typeIco}</span>`;
   }
   return typeIco;
 }
@@ -1027,7 +1031,7 @@ function renderTagBar() {
     (data.tags || []).forEach(tg => tagSet.add(tg));
   }
   const chips = [];
-  if (hasFav) chips.push(`<button class="filter-chip${activeTag === '__fav__' ? ' active' : ''}" data-tag="__fav__">★ ${esc(t('items.favorites'))}</button>`);
+  if (hasFav) chips.push(`<button class="filter-chip${activeTag === '__fav__' ? ' active' : ''}" data-tag="__fav__">${icon('starFilled', { size: 11 })} ${esc(t('items.favorites'))}</button>`);
   for (const tg of [...tagSet].sort()) {
     chips.push(`<button class="filter-chip${activeTag === tg ? ' active' : ''}" data-tag="${escAttr(tg)}">${esc(tg)}</button>`);
   }
@@ -1071,7 +1075,7 @@ function renderFilteredItems() {
   const cards = filtered.map(({ id, data }) => {
     const activeClass = currentItem && currentItem.id === id ? ' active' : '';
     const totpDot = data.totp_secret ? `<span class="totp-indicator" title="${escAttr(t('items.hasTotp'))}"></span>` : '';
-    const favDot = data.favorite ? `<span class="fav-indicator" title="${escAttr(t('items.favorite'))}">★</span>` : '';
+    const favDot = data.favorite ? `<span class="fav-indicator" title="${escAttr(t('items.favorite'))}">${icon('starFilled', { size: 12 })}</span>` : '';
     const weakDot = (itemType(data) === 'login' && data.password && strengthScore(data.password) <= 1)
       ? `<span class="weak-indicator" title="${escAttr(t('watchtower.weak'))}">${icon('alert', { size: 13 })}</span>` : '';
     return `<div class="item-card${activeClass}" data-id="${id}">
@@ -1109,8 +1113,8 @@ function fieldRow(label, value, opts = {}) {
   } else {
     valHtml = `<div class="field-value ${mono ? 'mono' : ''} ${masked ? 'masked' : ''}" data-raw="${enc}">${masked ? '••••••••••' : esc(value)}</div>`;
   }
-  const reveal = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">&#128065;</button>` : '';
-  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">&#128203;</button>`;
+  const reveal = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">${icon('eye', { size: 15 })}</button>` : '';
+  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 15 })}</button>`;
   return `<div class="field"><div class="field-main"><div class="field-label">${esc(label)}</div>${valHtml}</div><div class="field-actions">${reveal}${copy}</div></div>`;
 }
 
@@ -1129,7 +1133,7 @@ function totpFieldHtml() {
       </div>
     </div>
     <div class="field-actions">
-      <button class="btn-icon js-copy" data-copy="totp" title="${escAttr(t('totp.copyCode'))}">&#128203;</button>
+      <button class="btn-icon js-copy" data-copy="totp" title="${escAttr(t('totp.copyCode'))}">${icon('copy', { size: 15 })}</button>
     </div>
   </div>`;
 }
@@ -1154,11 +1158,11 @@ function renderDetail(data) {
   document.getElementById('detail-item-icon').innerHTML = itemIconHtml(data, 20);
 
   const favBtn = document.getElementById('btn-fav-item');
-  favBtn.textContent = data.favorite ? '★' : '☆';
+  favBtn.innerHTML = icon(data.favorite ? 'starFilled' : 'star', { size: 17 });
   favBtn.classList.toggle('active', !!data.favorite);
 
   const tags = (data.tags || []).map(tg => `<button class="tag-chip" data-tag="${escAttr(tg)}">${esc(tg)}</button>`).join('');
-  let metaHtml = `<span class="type-badge">${ITEM_TYPES[type].icon} ${esc(typeLabel(type))}</span>${tags}`;
+  let metaHtml = `<span class="type-badge">${typeIconHtml(type, 12)} ${esc(typeLabel(type))}</span>${tags}`;
   // "Last edited by X, 5 min ago" — uses display_name with email fallback.
   if (currentItem && currentItem.updated_at) {
     const by = currentItem.updated_by_name || currentItem.updated_by_email;
@@ -1372,8 +1376,8 @@ async function checkCurrentBreach() {
   try {
     const count = await checkPwnedCount(currentItem._data.password);
     out.innerHTML = count > 0
-      ? `<span class="breach-bad">⚠ ${esc(t('breach.found', { count: count.toLocaleString(getLocale()) }))}</span>`
-      : `<span class="breach-ok">✓ ${esc(t('breach.notFound'))}</span>`;
+      ? `<span class="breach-bad">${icon('alert', { size: 13 })} ${esc(t('breach.found', { count: count.toLocaleString(getLocale()) }))}</span>`
+      : `<span class="breach-ok">${icon('check', { size: 13 })} ${esc(t('breach.notFound'))}</span>`;
   } catch {
     out.innerHTML = `<span class="strength-detail">${esc(t('breach.unavailable'))}</span>`;
   }
@@ -1648,11 +1652,11 @@ async function loadTeamMembers() {
     let actions = '';
     if (isAdmin && !isOwner) {
       if (m.role === 'member') {
-        actions += `<button class="btn-icon btn-promote" data-user-id="${m.user_id}" title="${escAttr(t('teams.promote'))}">&#8593;</button>`;
+        actions += `<button class="btn-icon btn-promote" data-user-id="${m.user_id}" title="${escAttr(t('teams.promote'))}">${icon('chevronDown', { size: 14, cls: 'icon-up' })}</button>`;
       } else if (m.role === 'admin') {
-        actions += `<button class="btn-icon btn-demote" data-user-id="${m.user_id}" title="${escAttr(t('teams.demote'))}">&#8595;</button>`;
+        actions += `<button class="btn-icon btn-demote" data-user-id="${m.user_id}" title="${escAttr(t('teams.demote'))}">${icon('chevronDown', { size: 14 })}</button>`;
       }
-      actions += `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="${escAttr(t('teams.removeMember'))}">&#10005;</button>`;
+      actions += `<button class="btn-icon btn-remove-member" data-user-id="${m.user_id}" title="${escAttr(t('teams.removeMember'))}">${icon('x', { size: 14 })}</button>`;
     }
     const roleBadge = `<span class="badge-role badge-${escAttr(m.role)}">${esc(t('teams.role.' + m.role))}</span>`;
     const ownerBadge = isOwner ? ` <span class="badge-role badge-owner">${esc(t('teams.role.owner'))}</span>` : '';
@@ -1717,7 +1721,7 @@ async function loadTeamVaults() {
       name = await decrypt(key, v.name_encrypted);
     } catch {}
     cards.push(`<div class="vault-card" data-id="${v.id}">
-      <div class="card-icon">&#128274;</div>
+      <div class="card-icon">${icon('vault', { size: 16 })}</div>
       <div class="card-info">
         <h3>${esc(name)}</h3>
         <p>${new Date(v.created_at).toLocaleDateString(getLocale())}</p>
@@ -1970,7 +1974,7 @@ function renderSharedItem(data) {
   const body = document.getElementById('share-open-body');
   let html = `<div class="share-item-card">
     <div class="share-item-title">${itemIconHtml(data, 20)}<h3>${esc(data.title || t('items.untitled'))}</h3>
-      <span class="type-badge">${ITEM_TYPES[itemType(data)].icon} ${esc(typeLabel(itemType(data)))}</span></div>
+      <span class="type-badge">${typeIconHtml(itemType(data), 12)} ${esc(typeLabel(itemType(data)))}</span></div>
     <div class="share-item-fields">${miniDetailHtml(data)}</div>`;
   const atts = data.attachments || [];
   if (atts.length) {
@@ -2213,12 +2217,12 @@ let cmdSel = 0;
 
 function cmdActions() {
   return [
-    { kind: 'action', icon: '➕', label: t('form.newItem'), run: () => { closeCmdPalette(); document.getElementById('btn-add-item').click(); } },
-    { kind: 'action', icon: '\u{1F5C4}️', label: t('vault.new'), run: () => { closeCmdPalette(); openModal('modal-vault'); } },
-    { kind: 'action', icon: '\u{1F6E1}️', label: t('sidebar.watchtower'), run: () => { closeCmdPalette(); openWatchtower(); } },
-    { kind: 'action', icon: '\u{1F3B2}', label: t('sidebar.generator'), run: () => { closeCmdPalette(); openGenerator(); } },
-    { kind: 'action', icon: '\u{1F311}', label: t('cmd.toggleTheme'), run: () => { toggleTheme(); } },
-    { kind: 'action', icon: '\u{1F512}', label: t('sidebar.lockVault'), run: () => { closeCmdPalette(); lockVault(); } },
+    { kind: 'action', icon: icon('plus', { size: 15 }), label: t('form.newItem'), run: () => { closeCmdPalette(); document.getElementById('btn-add-item').click(); } },
+    { kind: 'action', icon: icon('vault', { size: 15 }), label: t('vault.new'), run: () => { closeCmdPalette(); openModal('modal-vault'); } },
+    { kind: 'action', icon: icon('shield', { size: 15 }), label: t('sidebar.watchtower'), run: () => { closeCmdPalette(); openWatchtower(); } },
+    { kind: 'action', icon: icon('sparkles', { size: 15 }), label: t('sidebar.generator'), run: () => { closeCmdPalette(); openGenerator(); } },
+    { kind: 'action', icon: icon('moon', { size: 15 }), label: t('cmd.toggleTheme'), run: () => { toggleTheme(); } },
+    { kind: 'action', icon: icon('lock', { size: 15 }), label: t('sidebar.lockVault'), run: () => { closeCmdPalette(); lockVault(); } },
   ];
 }
 
@@ -2252,7 +2256,7 @@ function renderCmdResults(query) {
 
   const itemRows = matches.map(e => ({
     kind: 'item',
-    icon: ITEM_TYPES[itemType(e.data)].icon,
+    icon: typeIconHtml(itemType(e.data), 15),
     title: e.data.title || t('items.untitled'),
     sub: e.vaultName + (e.data.username ? ' · ' + e.data.username : ''),
     run: () => { closeCmdPalette(); openVaultItem(e.vaultId, e.id); },
@@ -2344,7 +2348,7 @@ function renderWatchtower(r) {
   const body = document.getElementById('watchtower-body');
   const clean = !r.weak.length && !r.reused.length && !r.stale.length && !r.dups.length;
   let html = `<div class="wt-summary">${esc(t('watchtower.summary', { logins: r.total, vaults: vaults.length }))}</div>`;
-  if (clean) html += `<div class="wt-allclear">✓ ${esc(t('watchtower.allClear'))}</div>`;
+  if (clean) html += `<div class="wt-allclear">${icon('check', { size: 14 })} ${esc(t('watchtower.allClear'))}</div>`;
   html += wtSection(t('watchtower.weak'), r.weak, 'bad', t('watchtower.weak.note'));
   html += wtGroupSection(t('watchtower.reused'), r.reused, 'warn', t('watchtower.reused.note'));
   html += wtSection(t('watchtower.aging'), r.stale, 'warn', t('watchtower.aging.note'));
@@ -2370,7 +2374,7 @@ async function checkWatchtowerBreaches(logins) {
     if (seen[p] > 0) breached.push({ ...e, _count: seen[p] });
   }
   if (!breached.length) {
-    el.innerHTML = `<div class="wt-allclear">✓ ${esc(t('watchtower.breaches.none'))}</div>`;
+    el.innerHTML = `<div class="wt-allclear">${icon('check', { size: 14 })} ${esc(t('watchtower.breaches.none'))}</div>`;
     return;
   }
   el.innerHTML = `<div class="wt-section wt-bad">
@@ -2429,15 +2433,15 @@ function wireCopyReveal(root) {
     if (reveal) {
       const valEl = reveal.closest('.field, .mini-field')?.querySelector('.field-value, .mini-value');
       if (valEl) {
-        const svgStyle = !!reveal.querySelector('svg');
+        const sz = reveal.closest('.mini-field') ? 14 : 15;
         if (valEl.classList.contains('masked')) {
           valEl.textContent = decodeURIComponent(valEl.dataset.raw || '');
           valEl.classList.remove('masked');
-          reveal.innerHTML = svgStyle ? icon('eyeOff', { size: 14 }) : '&#128584;';
+          reveal.innerHTML = icon('eyeOff', { size: sz });
         } else {
           valEl.textContent = '••••••••••';
           valEl.classList.add('masked');
-          reveal.innerHTML = svgStyle ? icon('eye', { size: 14 }) : '&#128065;';
+          reveal.innerHTML = icon('eye', { size: sz });
         }
       }
       return;
