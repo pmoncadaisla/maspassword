@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-v9';
+const CACHE_NAME = 'vault-v10';
 const ASSETS = [
   '/',
   '/index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   '/attachments.js',
   '/sharelink.js',
   '/duplicates.js',
+  '/onboarding.js',
   '/manifest.json',
 ];
 

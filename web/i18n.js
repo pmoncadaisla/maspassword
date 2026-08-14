@@ -334,6 +334,24 @@ const es = {
   'toast.invalidRecoveryKey': 'Clave de recuperación no válida',
   'toast.encryptionSetup': 'Cifrado configurado correctamente',
   'toast.setupFailed': 'La configuración ha fallado: {error}',
+
+  // Onboarding — welcome + first-steps checklist
+  'onboarding.title': 'Primeros pasos',
+  'onboarding.progress': '{done} de {total}',
+  'onboarding.dismiss': 'Ocultar la guía',
+  'onboarding.complete': 'Todo listo. Ya tienes lo básico.',
+  'onboarding.step.vault': 'Crea tu primera caja fuerte',
+  'onboarding.step.item': 'Guarda tu primera contraseña',
+  'onboarding.step.generator': 'Prueba el generador',
+  'onboarding.step.extension': 'Instala la extensión del navegador',
+  'onboarding.step.team': 'Crea un equipo y comparte',
+  'onboarding.welcome.title': 'Te damos la bienvenida',
+  'onboarding.welcome.intro': 'Tres cosas antes de empezar:',
+  'onboarding.welcome.zk': 'Todo se cifra en tu dispositivo. Ni el servidor ni los administradores ven tus datos en claro.',
+  'onboarding.welcome.vaults': 'Tus contraseñas viven en cajas fuertes. Puedes compartirlas con equipos sin romper el cifrado.',
+  'onboarding.welcome.guide': 'La guía de primeros pasos del menú lateral te acompaña hasta que domines lo básico.',
+  'onboarding.welcome.start': 'Crear mi primera caja fuerte',
+  'onboarding.welcome.skip': 'Explorar por mi cuenta',
 };
 
 const en = {
@@ -646,6 +664,24 @@ const en = {
   'toast.invalidRecoveryKey': 'Invalid recovery key',
   'toast.encryptionSetup': 'Encryption set up successfully',
   'toast.setupFailed': 'Setup failed: {error}',
+
+  // Onboarding — welcome + first-steps checklist
+  'onboarding.title': 'First steps',
+  'onboarding.progress': '{done} of {total}',
+  'onboarding.dismiss': 'Hide guide',
+  'onboarding.complete': 'All set. You know the basics.',
+  'onboarding.step.vault': 'Create your first vault',
+  'onboarding.step.item': 'Save your first password',
+  'onboarding.step.generator': 'Try the generator',
+  'onboarding.step.extension': 'Install the browser extension',
+  'onboarding.step.team': 'Create a team and share',
+  'onboarding.welcome.title': 'Welcome',
+  'onboarding.welcome.intro': 'Three things before you start:',
+  'onboarding.welcome.zk': 'Everything is encrypted on your device. Neither the server nor its admins can read your data.',
+  'onboarding.welcome.vaults': 'Your passwords live in vaults. You can share them with teams without breaking encryption.',
+  'onboarding.welcome.guide': 'The first-steps guide in the sidebar walks you through the basics.',
+  'onboarding.welcome.start': 'Create my first vault',
+  'onboarding.welcome.skip': 'Explore on my own',
 };
 
 const fr = {
@@ -958,6 +994,24 @@ const fr = {
   'toast.invalidRecoveryKey': 'Clé de récupération non valide',
   'toast.encryptionSetup': 'Chiffrement configuré avec succès',
   'toast.setupFailed': 'Échec de la configuration : {error}',
+
+  // Onboarding — welcome + first-steps checklist
+  'onboarding.title': 'Premiers pas',
+  'onboarding.progress': '{done} sur {total}',
+  'onboarding.dismiss': 'Masquer le guide',
+  'onboarding.complete': 'Tout est prêt. Vous maîtrisez les bases.',
+  'onboarding.step.vault': 'Créez votre premier coffre-fort',
+  'onboarding.step.item': 'Enregistrez votre premier mot de passe',
+  'onboarding.step.generator': 'Essayez le générateur',
+  'onboarding.step.extension': 'Installez l\'extension de navigateur',
+  'onboarding.step.team': 'Créez une équipe et partagez',
+  'onboarding.welcome.title': 'Bienvenue',
+  'onboarding.welcome.intro': 'Trois choses avant de commencer :',
+  'onboarding.welcome.zk': 'Tout est chiffré sur votre appareil. Ni le serveur ni ses administrateurs ne peuvent lire vos données.',
+  'onboarding.welcome.vaults': 'Vos mots de passe vivent dans des coffres-forts. Partagez-les avec des équipes sans casser le chiffrement.',
+  'onboarding.welcome.guide': 'Le guide des premiers pas du menu latéral vous accompagne pour les bases.',
+  'onboarding.welcome.start': 'Créer mon premier coffre-fort',
+  'onboarding.welcome.skip': 'Explorer par moi-même',
 };
 
 // Exposed for tests and tooling (key-set parity checks, i18n-keys.md generation).

@@ -2250,3 +2250,117 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: none; box
 [data-skin="orange"][data-theme="dark"] .toast.error {
   color: #000000;
 }
+
+/* ----------------------------------------------------------------------------
+   23. Onboarding — first-steps checklist (sidebar) + welcome dialog
+   ----------------------------------------------------------------------------
+   Theme/skin-agnostic: only system variables, so the orange skin squares and
+   recolors it for free. Rendered/updated by onboarding.js.
+   ---------------------------------------------------------------------------- */
+.onboarding-card {
+  margin: 12px 10px 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.onboarding-title { font-size: 12px; font-weight: 700; color: var(--text2); }
+.onboarding-count { font-size: 11px; color: var(--text4); }
+.onboarding-close {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: 2px;
+  color: var(--text4);
+  cursor: pointer;
+}
+.onboarding-close:hover { color: var(--text2); background: var(--hover); }
+
+.onboarding-bar {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: var(--r-xs);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.onboarding-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--t-fast);
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--text3);
+  font-size: 12.5px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.onboarding-step:hover { background: var(--hover); color: var(--text); }
+.onboarding-step-icon { display: flex; color: var(--accent-ink); }
+.onboarding-step-label { flex: 1; }
+.onboarding-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  color: var(--on-accent);
+}
+.onboarding-step.done .onboarding-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.onboarding-step.done .onboarding-step-label { text-decoration: line-through; color: var(--text4); }
+.onboarding-step.done .onboarding-step-icon { color: var(--text4); }
+
+.onboarding-complete { font-size: 12.5px; color: var(--text3); margin: 2px 0 0; }
+
+/* Welcome dialog */
+.modal-welcome .welcome-mark {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  border-radius: var(--r-md);
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-welcome .welcome-intro { color: var(--text3); font-size: 13.5px; margin-bottom: 14px; }
+.welcome-point {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.welcome-point-icon {
+  display: flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-ink);
+}
+.welcome-point p { font-size: 13.5px; color: var(--text2); margin: 0; }

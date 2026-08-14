@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MasPassword — Gestor de contraseñas zero-knowledge</title>
+<meta name="description" content="MasPassword cifra tus contraseñas en tu dispositivo antes de enviarlas. El servidor solo guarda datos cifrados: ni los administradores pueden leerlos.">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+/* ----------------------------------------------------------------------------
+   Landing MasPassword — Orange Design System (Boosted) look.
+   Black & white carry the page, orange is the accent. Square design language:
+   no rounded corners, hard 2px borders, bold Helvetica, crisp focus outlines.
+   Self-contained: no dependency on the app's styles.css.
+   ---------------------------------------------------------------------------- */
+:root {
+  --orange: #ff7900;        /* brand orange: backgrounds, marks on black */
+  --orange-a11y: #f16e00;   /* accessible orange: text/icons on white */
+  --orange-dark: #d55e00;
+  --ink: #000000;
+  --ink-2: #333333;
+  --ink-3: #595959;
+  --paper: #ffffff;
+  --grey-1: #eeeeee;
+  --grey-2: #dddddd;
+  --grey-3: #cccccc;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'Noto Sans', Arial, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--orange-a11y); outline-offset: 2px; }
+.container { max-width: 1140px; margin: 0 auto; padding: 0 30px; }
+
+/* --- Type scale (ODS: bold black headings, tight leading) --- */
+h1 { font-size: clamp(34px, 5vw, 56px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+h2 { font-size: clamp(26px, 3.5vw, 34px); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+h3 { font-size: 18px; font-weight: 700; }
+p  { color: var(--ink-2); }
+a  { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--orange-a11y); }
+code, pre { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+
+/* --- Buttons (ODS: square, bold, orange bg + black text) --- */
+.btn {
+  display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 700;
+  font-family: inherit; text-decoration: none; border: 2px solid transparent;
+  cursor: pointer; text-align: center;
+}
+.btn-primary { background: var(--orange); border-color: var(--orange); color: var(--ink); }
+.btn-primary:hover { background: var(--orange-a11y); border-color: var(--orange-a11y); color: var(--ink); }
+.btn-outline { background: transparent; border-color: var(--ink); color: var(--ink); }
+.btn-outline:hover { background: var(--ink); color: var(--paper); }
+.btn-outline-inverse { background: transparent; border-color: var(--paper); color: var(--paper); }
+.btn-outline-inverse:hover { background: var(--paper); color: var(--ink); }
+.btn-dark { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.btn-dark:hover { background: var(--ink-2); border-color: var(--ink-2); color: var(--paper); }
+
+/* --- Header (ODS: black bar, orange square mark) --- */
+header {
+  background: var(--ink); color: var(--paper);
+  position: sticky; top: 0; z-index: 10;
+}
+.header-inner { display: flex; align-items: center; gap: 28px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--paper); font-size: 19px; font-weight: 700; }
+.brand:hover { color: var(--paper); }
+.brand-square { width: 22px; height: 22px; background: var(--orange); flex: none; }
+.nav { display: flex; gap: 22px; margin-left: 8px; }
+.nav a { color: var(--paper); text-decoration: none; font-size: 15px; font-weight: 500; }
+.nav a:hover { color: var(--orange); }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+.header-actions .login-link { color: var(--paper); font-size: 15px; }
+.header-actions .btn { padding: 8px 18px; font-size: 15px; }
+@media (max-width: 820px) { .nav { display: none; } }
+
+/* --- Hero --- */
+.hero { padding: 88px 0 72px; }
+.hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 60px; align-items: center; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+.hero p.lead { font-size: 19px; margin: 22px 0 32px; max-width: 54ch; }
+.hero-ctas { display: flex; gap: 16px; flex-wrap: wrap; }
+.hero-note { margin-top: 18px; font-size: 14px; color: var(--ink-3); }
+
+/* Hero visual: CSS mockup of the vault (square, hard borders, no screenshots) */
+.mock { border: 2px solid var(--ink); background: var(--paper); }
+.mock-titlebar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 700; }
+.mock-titlebar .brand-square { width: 12px; height: 12px; }
+.mock-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-top: 1px solid var(--grey-2); }
+.mock-row:first-of-type { border-top: 0; }
+.mock-ico { width: 30px; height: 30px; flex: none; background: var(--grey-1); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: var(--orange-a11y); }
+.mock-name { font-size: 14px; font-weight: 700; }
+.mock-user { font-size: 12px; color: var(--ink-3); }
+.mock-dots { margin-left: auto; letter-spacing: 3px; color: var(--ink-3); font-size: 13px; }
+.mock-footer { padding: 10px 16px; border-top: 2px solid var(--ink); font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+.mock-lock { color: var(--orange-a11y); font-weight: 700; }
+
+/* --- Crypto strip (black band, orange figures) --- */
+.strip { background: var(--ink); color: var(--paper); padding: 34px 0; }
+.strip-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; }
+@media (max-width: 820px) { .strip-grid { grid-template-columns: repeat(2, 1fr); } }
+.strip b { display: block; color: var(--orange); font-size: 21px; font-weight: 700; }
+.strip span { font-size: 13.5px; color: var(--grey-3); }
+
+/* --- Sections --- */
+section { padding: 76px 0; }
+.section-head { max-width: 62ch; margin-bottom: 44px; }
+.section-head p { margin-top: 14px; font-size: 17px; }
+.kicker { display: inline-block; color: var(--orange-a11y); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+
+/* --- Steps (cómo funciona) --- */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+@media (max-width: 820px) { .steps { grid-template-columns: 1fr; } }
+.step { border-top: 4px solid var(--orange); padding-top: 18px; }
+.step-num { font-size: 34px; font-weight: 700; color: var(--orange-a11y); }
+.step h3 { margin: 8px 0 8px; }
+.step p { font-size: 15px; }
+.step code { background: var(--grey-1); padding: 1px 5px; font-size: 13px; }
+
+/* --- Feature cards --- */
+#funciones { background: var(--grey-1); }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+@media (max-width: 980px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--paper); border: 1px solid var(--grey-2); padding: 26px; }
+.card-ico { width: 40px; height: 40px; background: var(--ink); color: var(--orange); display: grid; place-items: center; margin-bottom: 16px; }
+.card-ico svg { width: 20px; height: 20px; }
+.card h3 { margin-bottom: 8px; }
+.card p { font-size: 14.5px; }
+
+/* --- Apps / download --- */
+.apps-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+@media (max-width: 820px) { .apps-grid { grid-template-columns: 1fr; } }
+.app-card { border: 2px solid var(--ink); padding: 26px; display: flex; flex-direction: column; gap: 10px; }
+.app-card h3 { display: flex; align-items: center; gap: 10px; }
+.app-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--grey-1); padding: 3px 8px; }
+.app-card p { font-size: 14.5px; flex: 1; }
+.app-card .btn { align-self: flex-start; padding: 9px 18px; font-size: 15px; }
+.snippet { background: var(--ink); color: var(--paper); padding: 14px 16px; font-size: 12.5px; overflow-x: auto; white-space: pre; line-height: 1.7; }
+.snippet .c { color: #999999; }
+
+/* --- FAQ (native details, square) --- */
+.faq { max-width: 780px; }
+.faq details { border: 1px solid var(--grey-2); border-left: 4px solid var(--ink); margin-bottom: 12px; }
+.faq summary { cursor: pointer; padding: 16px 20px; font-weight: 700; font-size: 16px; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; font-size: 22px; font-weight: 400; color: var(--orange-a11y); flex: none; }
+.faq details[open] { border-left-color: var(--orange); }
+.faq details[open] summary::after { content: '−'; }
+.faq details p { padding: 0 20px 18px; font-size: 15px; }
+
+/* --- Final CTA (orange band, black type) --- */
+.cta-band { background: var(--orange); padding: 64px 0; }
+.cta-band h2, .cta-band p { color: var(--ink); }
+.cta-band p { margin: 12px 0 28px; font-size: 17px; }
+
+/* --- Footer --- */
+footer { background: var(--ink); color: var(--grey-3); padding: 44px 0; font-size: 14px; }
+.footer-grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; justify-content: space-between; }
+footer .brand { font-size: 16px; }
+footer nav { display: flex; gap: 22px; flex-wrap: wrap; }
+footer a { color: var(--paper); }
+footer a:hover { color: var(--orange); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <a class="brand" href="/landing"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="#como-funciona">Cómo funciona</a>
+      <a href="#funciones">Funciones</a>
+      <a href="#apps">Apps</a>
+      <a href="#faq">Preguntas</a>
+    </nav>
+    <div class="header-actions">
+      <a class="login-link" href="/">Iniciar sesión</a>
+      <a class="btn btn-primary" href="/#/signup">Crear cuenta</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="hero">
+    <div class="container hero-grid">
+      <div>
+        <h1>Tus contraseñas se cifran antes de salir de tu dispositivo.</h1>
+        <p class="lead">MasPassword es un gestor de contraseñas zero-knowledge. Tu contraseña maestra nunca viaja por la red y el servidor solo guarda datos cifrados: ni siquiera los administradores pueden leerlos.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="/#/signup">Crear cuenta</a>
+          <a class="btn btn-outline" href="#como-funciona">Ver cómo funciona</a>
+        </div>
+        <p class="hero-note">Sin instalación: funciona en el navegador. Extensión y app de escritorio opcionales.</p>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-titlebar"><span class="brand-square"></span>Caja fuerte personal</div>
+        <div class="mock-row"><span class="mock-ico">G</span><span><span class="mock-name">GitHub</span><br><span class="mock-user">ana@ejemplo.com</span></span><span class="mock-dots">••••••••••••</span></div>
+        <div class="mock-row"><span class="mock-ico">W</span><span><span class="mock-name">Workday</span><br><span class="mock-user">ana.perez</span></span><span class="mock-dots">••••••••</span></div>
+        <div class="mock-row"><span class="mock-ico">V</span><span><span class="mock-name">VPN corporativa</span><br><span class="mock-user">aperez</span></span><span class="mock-dots">••••••••••</span></div>
+        <div class="mock-footer"><span class="mock-lock">CIFRADO</span> AES-256-GCM · descifrado solo en tu navegador</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip" role="group" aria-label="Criptografía empleada">
+    <div class="container strip-grid">
+      <div><b>AES-256-GCM</b><span>Cifrado de cada elemento en el cliente</span></div>
+      <div><b>PBKDF2 · 600.000</b><span>Iteraciones para derivar tu clave localmente</span></div>
+      <div><b>RSA-OAEP 4096</b><span>Compartición de bóvedas cifrada por usuario</span></div>
+      <div><b>SRP-6a</b><span>Login sin transmitir la contraseña</span></div>
+    </div>
+  </div>
+
+  <section id="como-funciona">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Cómo funciona</span>
+        <h2>Zero-knowledge, de verdad</h2>
+        <p>Todo el cifrado ocurre en tu navegador con la API Web Crypto. Lo que llega al servidor ya es ilegible.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Eliges una contraseña maestra</h3>
+          <p>De ella se deriva tu clave de cifrado en tu dispositivo, con PBKDF2 y 600.000 iteraciones. La contraseña maestra no se envía nunca: para el login se usa el protocolo SRP-6a.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Todo se cifra en tu navegador</h3>
+          <p>Contraseñas, notas, tarjetas y adjuntos se cifran con AES-256-GCM antes de cada petición. Las bóvedas compartidas usan una clave propia, cifrada para cada miembro con RSA-OAEP de 4096 bits.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>El servidor solo guarda blobs cifrados</h3>
+          <p>La base de datos contiene datos cifrados, claves públicas y el verificador SRP. Una copia de seguridad es un <code>pg_dump</code>: no hay nada sensible en claro que proteger.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="funciones">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Funciones</span>
+        <h2>Para ti y para tu equipo</h2>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Equipos y bóvedas compartidas</h3>
+          <p>Comparte una bóveda con tu equipo sin renunciar al cifrado: la clave de la bóveda se cifra individualmente para cada miembro. Roles de administrador y miembro.</p>
+        </div>
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16"/><path d="M2 8h20"/><circle cx="6" cy="6" r="0"/></svg></div>
+          <h3>Extensión de navegador</h3>
+          <p>Autocompletado de credenciales en Chrome y Edge (Manifest V3). Detecta el sitio y te ofrece los logins que encajan.</p>
+        </div>
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20"/><path d="M12 18h.01"/></svg></div>
+          <h3>Web, escritorio y móvil</h3>
+          <p>PWA instalable con soporte offline, app de escritorio para macOS y la misma interfaz en el móvil. Tus datos, en el dispositivo que toque.</p>
+        </div>
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+          <h3>Enlaces de un solo uso</h3>
+          <p>Envía una credencial a alguien sin cuenta mediante un enlace que caduca y se consume al abrirse. La clave de descifrado viaja en el fragmento de la URL y nunca toca el servidor.</p>
+        </div>
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Panel de seguridad</h3>
+          <p>Detecta contraseñas débiles, repetidas, antiguas o filtradas. La comprobación de filtraciones usa k-anonimato: solo salen de tu equipo 5 caracteres de un hash.</p>
+        </div>
+        <div class="card">
+          <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+          <h3>Generador y TOTP</h3>
+          <p>Generador de contraseñas y frases de paso con medidor de entropía, códigos TOTP integrados, historial de versiones y adjuntos cifrados.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="apps">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Apps</span>
+        <h2>Úsalo donde trabajes</h2>
+        <p>La aplicación web no requiere instalación. El resto de clientes se descargan desde las releases de GitHub.</p>
+      </div>
+      <div class="apps-grid">
+        <div class="app-card">
+          <h3>Aplicación web <span class="app-tag">PWA</span></h3>
+          <p>Funciona en cualquier navegador moderno y se puede instalar como aplicación, con soporte offline mediante Service Worker.</p>
+          <a class="btn btn-primary" href="/#/signup">Abrir la aplicación</a>
+        </div>
+        <div class="app-card">
+          <h3>Extensión de navegador <span class="app-tag">Chrome · Edge</span></h3>
+          <p>Autocompleta credenciales en el sitio en el que estás. Se descarga como zip y se carga desde <code>chrome://extensions</code> en modo desarrollador.</p>
+          <a class="btn btn-outline" href="https://github.com/pmoncadaisla/maspassword/releases/latest">Descargar extensión</a>
+        </div>
+        <div class="app-card">
+          <h3>App de escritorio <span class="app-tag">macOS</span></h3>
+          <p>Binario universal para Apple Silicon e Intel. Cada release incluye <code>SHA256SUMS.txt</code> para verificar la descarga.</p>
+          <a class="btn btn-outline" href="https://github.com/pmoncadaisla/maspassword/releases/latest">Descargar .dmg</a>
+        </div>
+        <div class="app-card">
+          <h3>Autoalojado <span class="app-tag">Docker</span></h3>
+          <p>Servidor en Go con PostgreSQL, imagen multi-arch (amd64/arm64) y migraciones automáticas. En marcha con dos comandos:</p>
+          <div class="snippet"><span class="c"># requiere Docker</span>
+git clone https://github.com/pmoncadaisla/maspassword.git &amp;&amp; cd maspassword
+JWT_SECRET=$(openssl rand -hex 32) docker compose up -d</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Preguntas frecuentes</span>
+        <h2>Lo que se suele preguntar antes de entrar</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>¿Qué pasa si olvido mi contraseña maestra?</summary>
+          <p>Al crear la cuenta se genera una clave de recuperación que se muestra una sola vez. Con ella puedes restablecer la contraseña maestra sin perder tus datos. Sin contraseña y sin clave de recuperación no hay acceso posible: es el precio del zero-knowledge, nadie puede descifrar por ti.</p>
+        </details>
+        <details>
+          <summary>¿Qué ve exactamente el servidor?</summary>
+          <p>Blobs cifrados con AES-256-GCM, tu clave pública RSA y el verificador SRP. Nunca recibe tu contraseña maestra ni ningún dato en claro. Además responde igual ante emails que existen y que no existen, para impedir la enumeración de usuarios.</p>
+        </details>
+        <details>
+          <summary>¿Puedo alojarlo en mi propia infraestructura?</summary>
+          <p>Sí. El servidor se despliega con Docker Compose o en Cloud Run con Cloud SQL; el <a href="https://github.com/pmoncadaisla/maspassword#readme">README</a> documenta ambos caminos. Solo necesitas HTTPS delante (requisito de la API Web Crypto) y copias de seguridad de PostgreSQL.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <div class="container">
+      <h2>Empieza en dos minutos</h2>
+      <p>Crea tu cuenta, elige una contraseña maestra y guarda tu primera credencial. La guía de primeros pasos te acompaña dentro de la aplicación.</p>
+      <a class="btn btn-dark" href="/#/signup">Crear cuenta</a>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="container footer-grid">
+    <a class="brand" href="/landing"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <nav aria-label="Enlaces">
+      <a href="/">Abrir la aplicación</a>
+      <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>
+      <a href="https://github.com/pmoncadaisla/maspassword/releases/latest">Descargas</a>
+    </nav>
+    <span>Cifrado de extremo a extremo. El servidor nunca ve tus datos en claro.</span>
+  </div>
+</footer>
+
+</body>
+</html>

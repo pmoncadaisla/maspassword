@@ -9,6 +9,7 @@ import { icon, faviconUrl } from '/icons.js';
 import { MAX_ATTACHMENTS, fileToAttachment, attachmentDataUrl, formatSize } from '/attachments.js';
 import { createSharePayload, decryptSharePayload, buildShareUrl, parseShareHash } from '/sharelink.js';
 import { findDuplicateGroups } from '/duplicates.js';
+import { initOnboarding, onboardingStepDone, shouldShowWelcome } from '/onboarding.js';
 
 // --- Item types (1Password-style) ---
 // Labels are resolved lazily through t() so they follow the active locale.
@@ -386,6 +387,7 @@ async function login() {
     startAutoLock();
     toast(t('toast.loggedIn'));
     await Promise.all([loadVaults(), loadTeams()]);
+    startOnboarding(email);
 
     // Navigate to pending route or show main app
     if (pendingRoute) {
@@ -809,6 +811,7 @@ async function iapUnlock() {
     startAutoLock();
     toast(t('toast.unlocked'));
     await Promise.all([loadVaults(), loadTeams()]);
+    startOnboarding(iapSession.email);
     showMainApp();
     renderSidebar();
     setHash('/');
@@ -870,6 +873,8 @@ async function iapSetup() {
       showMainApp();
       renderSidebar();
       setHash('/');
+      // First IAP login = brand-new account: kick off the onboarding guide.
+      startOnboarding(iapSession.email);
     });
   } catch (e) {
     toast(t('toast.setupFailed', { error: e.message }), true);
@@ -877,6 +882,36 @@ async function iapSetup() {
     btn.disabled = false;
     btn.textContent = t('auth.iap.setupTitle');
   }
+}
+
+// --- Onboarding (welcome + first-steps guide in the sidebar) ---
+// Called once per login, after vaults/teams are loaded: decides whether this
+// account is new (guide + welcome dialog) or established (nothing shown).
+function startOnboarding(email) {
+  initOnboarding({
+    email,
+    vaultCount: vaults.length,
+    teamCount: teams.length,
+    deps: { t, icon },
+    actions: {
+      vault: () => openModal('modal-vault'),
+      item: onboardingAddItem,
+      generator: () => openGenerator(),
+      extension: () => {
+        window.open('/landing#apps', '_blank', 'noopener');
+        onboardingStepDone('extension');
+      },
+      team: () => openModal('modal-team'),
+    },
+  });
+  if (shouldShowWelcome()) openModal('modal-welcome');
+}
+
+async function onboardingAddItem() {
+  // The item form needs a selected vault; fall back to creating one.
+  if (!currentVault && vaults.length) await selectVault(vaults[0].id);
+  if (!currentVault) return openModal('modal-vault');
+  document.getElementById('btn-add-item').click();
 }
 
 // --- Recovery Key ---
@@ -1031,6 +1066,7 @@ async function createVault() {
     await loadVaults();
     renderSidebar();
     toast(t('vault.created'));
+    onboardingStepDone('vault');
     if (newVault?.id) await selectVault(newVault.id);
   } catch (e) {
     toast(e.message, true);
@@ -1062,6 +1098,7 @@ async function loadVaultShares(vault) {
 async function loadItems() {
   activeTag = null;
   items = (await api('GET', `/api/vaults/${currentVault.id}/items`)) || [];
+  if (items.length) onboardingStepDone('item');
   await renderItems();
 }
 
@@ -1729,6 +1766,7 @@ async function createTeam() {
     await loadTeams();
     renderSidebar();
     toast(t('toast.teamCreated'));
+    onboardingStepDone('team');
   } catch (e) {
     toast(e.message, true);
   }
@@ -2500,6 +2538,7 @@ let generatorTarget = null; // input id to fill when opened from a form, else nu
 
 function openGenerator(targetId = null) {
   generatorTarget = targetId;
+  onboardingStepDone('generator');
   openModal('modal-generator');
   const useBtn = document.getElementById('btn-gen-use');
   if (useBtn) useBtn.style.display = targetId ? 'flex' : 'none';
@@ -2632,6 +2671,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sidebar add buttons
   document.getElementById('btn-sidebar-add-vault').addEventListener('click', () => openModal('modal-vault'));
   document.getElementById('btn-sidebar-add-team').addEventListener('click', () => openModal('modal-team'));
+
+  // Welcome dialog (first login of a new account)
+  document.getElementById('btn-welcome-skip').addEventListener('click', () => closeModal('modal-welcome'));
+  document.getElementById('btn-welcome-start').addEventListener('click', () => {
+    closeModal('modal-welcome');
+    openModal('modal-vault');
+  });
 
   // Vault modal
   document.getElementById('btn-save-vault').addEventListener('click', createVault);

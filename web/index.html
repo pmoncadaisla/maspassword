@@ -222,6 +222,8 @@
             <span class="kbd-hint">&#8984;K</span>
           </button>
         </div>
+        <!-- First-steps onboarding checklist (rendered by onboarding.js) -->
+        <div id="onboarding-card" class="onboarding-card" style="display:none;"></div>
       </div>
       <div class="sidebar-footer">
         <button class="sidebar-logout-btn" id="btn-theme">Modo oscuro</button>
@@ -693,6 +695,31 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btn-cancel-global-settings" data-i18n="actions.cancel">Cancelar</button>
       <button class="btn btn-primary" id="btn-save-global-settings" data-i18n="actions.save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome (first login of a new account) -->
+<div class="modal-overlay" id="modal-welcome">
+  <div class="modal modal-welcome">
+    <div class="welcome-mark" data-icon="vault" data-icon-size="24"></div>
+    <h3 data-i18n="onboarding.welcome.title">Te damos la bienvenida</h3>
+    <p class="welcome-intro" data-i18n="onboarding.welcome.intro">Tres cosas antes de empezar:</p>
+    <div class="welcome-point">
+      <span class="welcome-point-icon" data-icon="shield" data-icon-size="16"></span>
+      <p data-i18n="onboarding.welcome.zk">Todo se cifra en tu dispositivo. Ni el servidor ni los administradores ven tus datos en claro.</p>
+    </div>
+    <div class="welcome-point">
+      <span class="welcome-point-icon" data-icon="vault" data-icon-size="16"></span>
+      <p data-i18n="onboarding.welcome.vaults">Tus contraseñas viven en cajas fuertes. Puedes compartirlas con equipos sin romper el cifrado.</p>
+    </div>
+    <div class="welcome-point">
+      <span class="welcome-point-icon" data-icon="sparkles" data-icon-size="16"></span>
+      <p data-i18n="onboarding.welcome.guide">La guía de primeros pasos del menú lateral te acompaña hasta que domines lo básico.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-welcome-skip" data-i18n="onboarding.welcome.skip">Explorar por mi cuenta</button>
+      <button class="btn btn-primary" id="btn-welcome-start" data-i18n="onboarding.welcome.start">Crear mi primera caja fuerte</button>
     </div>
   </div>
 </div>
