@@ -143,3 +143,25 @@ func (h *VaultHandler) ListByTeam(c *gin.Context) {
 
 	c.JSON(http.StatusOK, vaults)
 }
+
+// ListShares handles GET /api/vaults/:id/shares — teams this vault is shared with.
+func (h *VaultHandler) ListShares(c *gin.Context) {
+	vaultID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "invalid vault id"}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	shares, err := h.vaultService.ListShares(c.Request.Context(), userID, vaultID)
+	if err != nil {
+		if errors.Is(err, service.ErrNoVaultAccess) || errors.Is(err, repository.ErrVaultNotFound) {
+			c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "FORBIDDEN", "message": "access denied"}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to list vault shares"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, shares)
+}

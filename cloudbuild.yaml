@@ -7,9 +7,10 @@
 #     --substitutions _IMAGE=<region>-docker.pkg.dev/<project>/maspassword/maspassword:<tag>
 substitutions:
   _IMAGE: europe-southwest1-docker.pkg.dev/mm-test-pmoncada/maspassword/maspassword:latest
+  _VERSION: dev
 steps:
   - name: gcr.io/cloud-builders/docker
     env: ['DOCKER_BUILDKIT=1']
-    args: ['build', '-t', '${_IMAGE}', '.']
+    args: ['build', '--build-arg', 'VERSION=${_VERSION}', '-t', '${_IMAGE}', '.']
 images:
   - '${_IMAGE}'

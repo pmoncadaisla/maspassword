@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -13,6 +14,13 @@ import (
 
 var ErrVaultNotFound = errors.New("vault not found")
 
+// VaultTeamShare is a vault→team share record enriched with the team name.
+type VaultTeamShare struct {
+	TeamID   uuid.UUID `db:"team_id"`
+	TeamName string    `db:"team_name"`
+	SharedAt time.Time `db:"shared_at"`
+}
+
 type VaultRepository interface {
 	Create(ctx context.Context, vault *models.Vault) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Vault, error)
@@ -20,6 +28,9 @@ type VaultRepository interface {
 	ListAccessible(ctx context.Context, userID uuid.UUID) ([]models.Vault, error)
 	ListByTeam(ctx context.Context, teamID uuid.UUID) ([]models.Vault, error)
 	SetTeam(ctx context.Context, vaultID uuid.UUID, teamID *uuid.UUID) error
+	// AddTeamShare records that a vault is shared with a team (idempotent).
+	AddTeamShare(ctx context.Context, vaultID, teamID uuid.UUID) error
+	ListTeamShares(ctx context.Context, vaultID uuid.UUID) ([]VaultTeamShare, error)
 }
 
 type vaultRepo struct {
@@ -91,4 +102,26 @@ func (r *vaultRepo) SetTeam(ctx context.Context, vaultID uuid.UUID, teamID *uuid
 		return fmt.Errorf("setting vault team: %w", err)
 	}
 	return nil
+}
+
+func (r *vaultRepo) AddTeamShare(ctx context.Context, vaultID, teamID uuid.UUID) error {
+	query := `INSERT INTO vault_teams (vault_id, team_id) VALUES ($1, $2)
+	           ON CONFLICT (vault_id, team_id) DO NOTHING`
+	if _, err := r.db.ExecContext(ctx, query, vaultID, teamID); err != nil {
+		return fmt.Errorf("recording vault team share: %w", err)
+	}
+	return nil
+}
+
+func (r *vaultRepo) ListTeamShares(ctx context.Context, vaultID uuid.UUID) ([]VaultTeamShare, error) {
+	var shares []VaultTeamShare
+	query := `SELECT vt.team_id, t.name AS team_name, vt.shared_at
+	          FROM vault_teams vt
+	          JOIN teams t ON t.id = vt.team_id
+	          WHERE vt.vault_id = $1
+	          ORDER BY vt.shared_at ASC`
+	if err := r.db.SelectContext(ctx, &shares, query, vaultID); err != nil {
+		return nil, fmt.Errorf("listing vault team shares: %w", err)
+	}
+	return shares, nil
 }

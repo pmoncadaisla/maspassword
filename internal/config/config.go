@@ -6,14 +6,19 @@ import (
 )
 
 type Config struct {
-	DatabaseURL    string
-	JWTSecret      string
-	ServerPort     string
-	CORSOrigins    string
-	SRPBits        int
-	IAPEnabled     bool
-	IAPAudience    string
+	DatabaseURL     string
+	JWTSecret       string
+	ServerPort      string
+	CORSOrigins     string
+	SRPBits         int
+	IAPEnabled      bool
+	IAPAudience     string
 	IAPPublicKeyURL string
+	MailgunAPIKey   string
+	MailgunDomain   string
+	MailgunFrom     string
+	MailgunEU       bool
+	AppBaseURL      string
 }
 
 func Load() *Config {
@@ -39,6 +44,12 @@ func Load() *Config {
 		iapPublicKeyURL = "https://www.gstatic.com/iap/verify/public_key-jwk"
 	}
 
+	mailgunDomain := os.Getenv("MAILGUN_DOMAIN")
+	mailgunFrom := os.Getenv("MAILGUN_FROM")
+	if mailgunFrom == "" && mailgunDomain != "" {
+		mailgunFrom = "MasPassword <noreply@" + mailgunDomain + ">"
+	}
+
 	return &Config{
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		JWTSecret:       os.Getenv("JWT_SECRET"),
@@ -48,5 +59,10 @@ func Load() *Config {
 		IAPEnabled:      iapEnabled,
 		IAPAudience:     os.Getenv("IAP_AUDIENCE"),
 		IAPPublicKeyURL: iapPublicKeyURL,
+		MailgunAPIKey:   os.Getenv("MAILGUN_API_KEY"),
+		MailgunDomain:   mailgunDomain,
+		MailgunFrom:     mailgunFrom,
+		MailgunEU:       os.Getenv("MAILGUN_EU") == "true",
+		AppBaseURL:      os.Getenv("APP_BASE_URL"),
 	}
 }

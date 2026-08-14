@@ -36,6 +36,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	}
 
 	// Clean tables for test isolation
+	db.MustExec("DELETE FROM share_links")
+	db.MustExec("DELETE FROM vault_teams")
 	db.MustExec("DELETE FROM vault_keys")
 	db.MustExec("DELETE FROM items")
 	db.MustExec("DELETE FROM vaults")
@@ -56,23 +58,28 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	itemRepo := repository.NewItemRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	vaultKeyRepo := repository.NewVaultKeyRepository(db)
+	shareLinkRepo := repository.NewShareLinkRepository(db)
 
 	authService := service.NewAuthService(userRepo, srpEnv, srpStore, jwtSecret)
 	vaultService := service.NewVaultService(vaultRepo, vaultKeyRepo, teamRepo)
 	itemService := service.NewItemService(itemRepo, vaultRepo, vaultKeyRepo)
-	teamService := service.NewTeamService(teamRepo, userRepo)
+	teamService := service.NewTeamService(teamRepo, userRepo, nil)
+	shareLinkService := service.NewShareLinkService(shareLinkRepo, vaultRepo, itemRepo, teamRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	vaultHandler := handler.NewVaultHandler(vaultService)
 	itemHandler := handler.NewItemHandler(itemService)
 	teamHandler := handler.NewTeamHandler(teamService)
 	userHandler := handler.NewUserHandler(userRepo)
+	shareLinkHandler := handler.NewShareLinkHandler(shareLinkService)
 
-	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, jwtSecret, "*", false, nil, userRepo)
+	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, jwtSecret, "*", false, nil, userRepo, "test")
 	ts := httptest.NewServer(r)
 
 	cleanup := func() {
 		ts.Close()
+		db.MustExec("DELETE FROM share_links")
+		db.MustExec("DELETE FROM vault_teams")
 		db.MustExec("DELETE FROM vault_keys")
 		db.MustExec("DELETE FROM items")
 		db.MustExec("DELETE FROM vaults")

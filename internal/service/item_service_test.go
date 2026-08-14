@@ -9,6 +9,7 @@ import (
 
 	"github.com/masorange/maspassword/internal/models"
 	"github.com/masorange/maspassword/internal/repository"
+	"github.com/masorange/maspassword/pkg/dto"
 )
 
 // --- In-memory fakes (hermetic, no DB) satisfying the repository interfaces ---
@@ -44,11 +45,11 @@ func (f *fakeItemRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Item, e
 	return &cp, nil
 }
 
-func (f *fakeItemRepo) ListByVault(_ context.Context, vaultID uuid.UUID) ([]models.Item, error) {
-	var out []models.Item
+func (f *fakeItemRepo) ListByVault(_ context.Context, vaultID uuid.UUID) ([]repository.ItemWithAuthor, error) {
+	var out []repository.ItemWithAuthor
 	for _, it := range f.items {
 		if it.VaultID == vaultID {
-			out = append(out, *it)
+			out = append(out, repository.ItemWithAuthor{Item: *it})
 		}
 	}
 	return out, nil
@@ -63,13 +64,16 @@ func (f *fakeItemRepo) Update(_ context.Context, item *models.Item) error {
 		return repository.ErrVersionConflict
 	}
 	// Snapshot the prior ciphertext into history before overwriting (ZK-safe).
+	// changed_by records who authored the archived version (old updated_by).
 	f.history[item.ID] = append([]models.ItemHistory{{
 		ID:            uuid.New(),
 		ItemID:        item.ID,
 		DataEncrypted: existing.DataEncrypted,
 		Version:       existing.Version,
+		ChangedBy:     existing.UpdatedBy,
 	}}, f.history[item.ID]...)
 	existing.DataEncrypted = item.DataEncrypted
+	existing.UpdatedBy = item.UpdatedBy
 	existing.Version++
 	item.Version = existing.Version
 	return nil
@@ -83,16 +87,24 @@ func (f *fakeItemRepo) Delete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (f *fakeItemRepo) ListHistory(_ context.Context, itemID uuid.UUID) ([]models.ItemHistory, error) {
-	return f.history[itemID], nil
+func (f *fakeItemRepo) ListHistory(_ context.Context, itemID uuid.UUID) ([]repository.ItemHistoryWithAuthor, error) {
+	var out []repository.ItemHistoryWithAuthor
+	for _, h := range f.history[itemID] {
+		out = append(out, repository.ItemHistoryWithAuthor{ItemHistory: h})
+	}
+	return out, nil
 }
 
 type fakeVaultRepo struct {
-	vaults map[uuid.UUID]*models.Vault
+	vaults     map[uuid.UUID]*models.Vault
+	teamShares map[uuid.UUID][]repository.VaultTeamShare
 }
 
 func newFakeVaultRepo() *fakeVaultRepo {
-	return &fakeVaultRepo{vaults: make(map[uuid.UUID]*models.Vault)}
+	return &fakeVaultRepo{
+		vaults:     make(map[uuid.UUID]*models.Vault),
+		teamShares: make(map[uuid.UUID][]repository.VaultTeamShare),
+	}
 }
 
 func (f *fakeVaultRepo) Create(_ context.Context, vault *models.Vault) error {
@@ -124,6 +136,18 @@ func (f *fakeVaultRepo) ListByTeam(context.Context, uuid.UUID) ([]models.Vault, 
 }
 func (f *fakeVaultRepo) SetTeam(context.Context, uuid.UUID, *uuid.UUID) error {
 	return nil
+}
+func (f *fakeVaultRepo) AddTeamShare(_ context.Context, vaultID, teamID uuid.UUID) error {
+	for _, sh := range f.teamShares[vaultID] {
+		if sh.TeamID == teamID {
+			return nil // idempotent
+		}
+	}
+	f.teamShares[vaultID] = append(f.teamShares[vaultID], repository.VaultTeamShare{TeamID: teamID})
+	return nil
+}
+func (f *fakeVaultRepo) ListTeamShares(_ context.Context, vaultID uuid.UUID) ([]repository.VaultTeamShare, error) {
+	return f.teamShares[vaultID], nil
 }
 
 type fakeVaultKeyRepo struct {
@@ -270,5 +294,54 @@ func TestItemService_ListHistory_ItemInDifferentVault(t *testing.T) {
 	_, err := svc.ListHistory(context.Background(), owner, vaultID, itemID)
 	if !errors.Is(err, repository.ErrItemNotFound) {
 		t.Fatalf("expected ErrItemNotFound, got %v", err)
+	}
+}
+
+func TestItemService_Create_SetsUpdatedBy(t *testing.T) {
+	svc, itemRepo, _, _, owner, vaultID, _ := newItemServiceFixture(t)
+
+	item, err := svc.Create(context.Background(), owner, vaultID, dto.CreateItemRequest{DataEncrypted: "new-cipher"})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if item.UpdatedBy == nil || *item.UpdatedBy != owner {
+		t.Fatalf("expected updated_by=%s, got %v", owner, item.UpdatedBy)
+	}
+	stored := itemRepo.items[item.ID]
+	if stored.UpdatedBy == nil || *stored.UpdatedBy != owner {
+		t.Fatal("stored item must record the creating user in updated_by")
+	}
+}
+
+func TestItemService_Update_RecordsAuditTrail(t *testing.T) {
+	svc, itemRepo, _, vaultKeyRepo, owner, vaultID, itemID := newItemServiceFixture(t)
+	// The current version was authored by the owner.
+	authorA := owner
+	itemRepo.items[itemID].UpdatedBy = &authorA
+
+	// A shared member (userB) performs the update.
+	userB := uuid.New()
+	vaultKeyRepo.keys[vkKey(vaultID, userB)] = &models.VaultKey{VaultID: vaultID, UserID: userB}
+
+	item, err := svc.Update(context.Background(), userB, vaultID, itemID, dto.UpdateItemRequest{
+		DataEncrypted: "cipher-v2", Version: 1,
+	})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if item.UpdatedBy == nil || *item.UpdatedBy != userB {
+		t.Fatalf("expected updated_by=%s after update, got %v", userB, item.UpdatedBy)
+	}
+
+	history, err := svc.ListHistory(context.Background(), owner, vaultID, itemID)
+	if err != nil {
+		t.Fatalf("listing history: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(history))
+	}
+	// The archived version was authored by authorA, so changed_by must be authorA.
+	if history[0].ChangedBy == nil || *history[0].ChangedBy != authorA {
+		t.Fatalf("expected changed_by=%s in archived version, got %v", authorA, history[0].ChangedBy)
 	}
 }

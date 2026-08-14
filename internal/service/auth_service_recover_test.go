@@ -40,7 +40,8 @@ func (s *stubUserRepo) UpdateFullCredentials(_ context.Context, id uuid.UUID, _,
 	s.updateFullCalledFor = &id
 	return nil
 }
-func (s *stubUserRepo) GetPublicKey(context.Context, uuid.UUID) (string, error) { return "", nil }
+func (s *stubUserRepo) UpdateDisplayName(context.Context, uuid.UUID, string) error { return nil }
+func (s *stubUserRepo) GetPublicKey(context.Context, uuid.UUID) (string, error)    { return "", nil }
 func (s *stubUserRepo) GetPublicKeysByIDs(context.Context, []uuid.UUID) (map[uuid.UUID]string, error) {
 	return nil, nil
 }

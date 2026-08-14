@@ -15,10 +15,10 @@ var ErrNotVaultOwner = errors.New("not the owner of this vault")
 
 type ItemService interface {
 	Create(ctx context.Context, userID, vaultID uuid.UUID, req dto.CreateItemRequest) (*models.Item, error)
-	ListByVault(ctx context.Context, userID, vaultID uuid.UUID) ([]models.Item, error)
+	ListByVault(ctx context.Context, userID, vaultID uuid.UUID) ([]repository.ItemWithAuthor, error)
 	Update(ctx context.Context, userID, vaultID, itemID uuid.UUID, req dto.UpdateItemRequest) (*models.Item, error)
 	Delete(ctx context.Context, userID, vaultID, itemID uuid.UUID) error
-	ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]models.ItemHistory, error)
+	ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]repository.ItemHistoryWithAuthor, error)
 }
 
 type itemService struct {
@@ -57,6 +57,7 @@ func (s *itemService) Create(ctx context.Context, userID, vaultID uuid.UUID, req
 	item := &models.Item{
 		VaultID:       vaultID,
 		DataEncrypted: req.DataEncrypted,
+		UpdatedBy:     &userID,
 	}
 	if err := s.itemRepo.Create(ctx, item); err != nil {
 		return nil, fmt.Errorf("creating item: %w", err)
@@ -64,7 +65,7 @@ func (s *itemService) Create(ctx context.Context, userID, vaultID uuid.UUID, req
 	return item, nil
 }
 
-func (s *itemService) ListByVault(ctx context.Context, userID, vaultID uuid.UUID) ([]models.Item, error) {
+func (s *itemService) ListByVault(ctx context.Context, userID, vaultID uuid.UUID) ([]repository.ItemWithAuthor, error) {
 	if err := s.verifyAccess(ctx, userID, vaultID); err != nil {
 		return nil, err
 	}
@@ -91,6 +92,7 @@ func (s *itemService) Update(ctx context.Context, userID, vaultID, itemID uuid.U
 
 	item.DataEncrypted = req.DataEncrypted
 	item.Version = req.Version
+	item.UpdatedBy = &userID
 
 	if err := s.itemRepo.Update(ctx, item); err != nil {
 		return nil, err
@@ -114,7 +116,7 @@ func (s *itemService) Delete(ctx context.Context, userID, vaultID, itemID uuid.U
 	return s.itemRepo.Delete(ctx, itemID)
 }
 
-func (s *itemService) ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]models.ItemHistory, error) {
+func (s *itemService) ListHistory(ctx context.Context, userID, vaultID, itemID uuid.UUID) ([]repository.ItemHistoryWithAuthor, error) {
 	if err := s.verifyAccess(ctx, userID, vaultID); err != nil {
 		return nil, err
 	}

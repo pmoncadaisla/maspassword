@@ -23,6 +23,7 @@ type UserRepository interface {
 	UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error
 	UpdateRecoveryKey(ctx context.Context, userID uuid.UUID, recoveryEncryptedPrivateKey string) error
 	UpdateFullCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier, encryptedPrivateKey, recoveryEncryptedPrivateKey string) error
+	UpdateDisplayName(ctx context.Context, userID uuid.UUID, displayName string) error
 	GetPublicKey(ctx context.Context, userID uuid.UUID) (string, error)
 	GetPublicKeysByIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]string, error)
 }
@@ -179,6 +180,19 @@ func (r *userRepo) UpdateFullCredentials(ctx context.Context, userID uuid.UUID, 
 	result, err := r.db.ExecContext(ctx, query, srpSalt, srpVerifier, encryptedPrivateKey, recoveryEncryptedPrivateKey, userID)
 	if err != nil {
 		return fmt.Errorf("updating full credentials: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepo) UpdateDisplayName(ctx context.Context, userID uuid.UUID, displayName string) error {
+	query := `UPDATE users SET display_name = $1, updated_at = now() WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, displayName, userID)
+	if err != nil {
+		return fmt.Errorf("updating display name: %w", err)
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {

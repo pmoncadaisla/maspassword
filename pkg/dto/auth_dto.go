@@ -39,6 +39,7 @@ type LoginStep2Response struct {
 type SessionInfoResponse struct {
 	UserID              string `json:"user_id"`
 	Email               string `json:"email"`
+	DisplayName         string `json:"display_name"`
 	AuthMethod          string `json:"auth_method"`
 	EncryptionSetup     bool   `json:"encryption_setup"`
 	EncryptedPrivateKey string `json:"encrypted_private_key,omitempty"`

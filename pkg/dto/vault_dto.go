@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 type CreateVaultRequest struct {
 	NameEncrypted string `json:"name_encrypted" binding:"required"`
 }
@@ -20,4 +22,11 @@ type ShareVaultRequest struct {
 
 type VaultKeyResponse struct {
 	EncryptedVaultKey string `json:"encrypted_vault_key"`
+}
+
+// VaultShareInfo describes a team a vault is shared with.
+type VaultShareInfo struct {
+	TeamID   string    `json:"team_id"`
+	TeamName string    `json:"team_name"`
+	SharedAt time.Time `json:"shared_at"`
 }

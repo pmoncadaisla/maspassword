@@ -16,11 +16,13 @@ func Setup(
 	itemHandler *handler.ItemHandler,
 	teamHandler *handler.TeamHandler,
 	userHandler *handler.UserHandler,
+	shareLinkHandler *handler.ShareLinkHandler,
 	jwtSecret string,
 	corsOrigins string,
 	iapEnabled bool,
 	iapValidator *iap.Validator,
 	userRepo repository.UserRepository,
+	version string,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -35,11 +37,15 @@ func Setup(
 		auth.POST("/login/step1", authHandler.LoginStep1)
 		auth.POST("/login/step2", authHandler.LoginStep2)
 		auth.GET("/mode", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled})
+			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled, "version": version})
 		})
 		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
 		auth.POST("/recover/challenge", authHandler.RecoverChallenge)
 		auth.POST("/recover", authHandler.Recover)
+
+		// One-time share links (PUBLIC: recipients have no account).
+		auth.POST("/share-links/:id/redeem", shareLinkHandler.Redeem)
+		auth.GET("/share-links/:id/status", shareLinkHandler.Status)
 	}
 
 	// Choose auth middleware based on IAP config
@@ -63,6 +69,7 @@ func Setup(
 		api.POST("/vaults", vaultHandler.Create)
 		api.GET("/vaults/:id/key", vaultHandler.GetVaultKey)
 		api.POST("/vaults/:id/share", vaultHandler.ShareVault)
+		api.GET("/vaults/:id/shares", vaultHandler.ListShares)
 
 		// Items
 		api.GET("/vaults/:id/items", itemHandler.List)
@@ -70,6 +77,11 @@ func Setup(
 		api.PUT("/vaults/:id/items/:itemId", itemHandler.Update)
 		api.DELETE("/vaults/:id/items/:itemId", itemHandler.Delete)
 		api.GET("/vaults/:id/items/:itemId/history", itemHandler.History)
+
+		// Share links (management)
+		api.POST("/vaults/:id/items/:itemId/share-link", shareLinkHandler.Create)
+		api.GET("/vaults/:id/items/:itemId/share-links", shareLinkHandler.List)
+		api.DELETE("/share-links/:id", shareLinkHandler.Delete)
 
 		// Teams
 		api.POST("/teams", teamHandler.Create)
@@ -86,6 +98,7 @@ func Setup(
 		// Users
 		api.POST("/users/keys", userHandler.UploadKeys)
 		api.GET("/users/:userId/public-key", userHandler.GetPublicKey)
+		api.PUT("/users/me", userHandler.UpdateMe)
 	}
 
 	// Static files (PWA frontend)
@@ -100,6 +113,11 @@ func Setup(
 	r.StaticFile("/strength.js", "web/strength.js")
 	r.StaticFile("/breach.js", "web/breach.js")
 	r.StaticFile("/import.js", "web/import.js")
+	r.StaticFile("/i18n.js", "web/i18n.js")
+	r.StaticFile("/icons.js", "web/icons.js")
+	r.StaticFile("/attachments.js", "web/attachments.js")
+	r.StaticFile("/sharelink.js", "web/sharelink.js")
+	r.StaticFile("/duplicates.js", "web/duplicates.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
 	r.Static("/icons", "web/icons")
@@ -110,12 +128,15 @@ func Setup(
 	})
 
 	// Set correct MIME types
+	jsPaths := map[string]bool{
+		"/sw.js": true, "/app.js": true, "/crypto.js": true, "/srp.js": true,
+		"/blake2b.js": true, "/generator.js": true, "/strength.js": true,
+		"/breach.js": true, "/import.js": true, "/i18n.js": true,
+		"/icons.js": true, "/attachments.js": true, "/sharelink.js": true,
+		"/duplicates.js": true,
+	}
 	r.Use(func(c *gin.Context) {
-		if c.Request.URL.Path == "/sw.js" || c.Request.URL.Path == "/app.js" ||
-			c.Request.URL.Path == "/crypto.js" || c.Request.URL.Path == "/srp.js" ||
-			c.Request.URL.Path == "/blake2b.js" || c.Request.URL.Path == "/generator.js" ||
-			c.Request.URL.Path == "/strength.js" || c.Request.URL.Path == "/breach.js" ||
-			c.Request.URL.Path == "/import.js" {
+		if jsPaths[c.Request.URL.Path] {
 			c.Header("Content-Type", "application/javascript")
 		}
 		if c.Request.URL.Path == "/manifest.json" {

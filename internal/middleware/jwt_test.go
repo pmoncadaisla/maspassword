@@ -167,6 +167,16 @@ func (m *mockUserRepo) UpdateFullCredentials(_ context.Context, _ uuid.UUID, _, 
 	return nil
 }
 
+func (m *mockUserRepo) UpdateDisplayName(_ context.Context, id uuid.UUID, name string) error {
+	for _, u := range m.users {
+		if u.ID == id {
+			u.DisplayName = name
+			return nil
+		}
+	}
+	return repository.ErrUserNotFound
+}
+
 func (m *mockUserRepo) GetPublicKey(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil
 }
@@ -298,6 +308,68 @@ func TestDualAuth_BearerFallback(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestDualAuth_IAPSetsDisplayName(t *testing.T) {
+	key, kid := makeIAPTestKey(t)
+	srv := serveTestJWKS(t, key, kid)
+
+	audience := "/projects/123/apps/test"
+	validator := iap.NewValidator(audience, srv.URL)
+	repo := newMockUserRepo()
+
+	r := gin.New()
+	r.Use(DualAuth("jwt-secret", validator, repo))
+	r.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	do := func(token string) int {
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set("X-Goog-IAP-JWT-Assertion", token)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// 1) No "name" claim → derived from the email local part.
+	tok := makeIAPToken(t, key, kid, audience, "pablo.moncada@example.com", "sub1", time.Now().Add(time.Hour))
+	if code := do(tok); code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
+	}
+	if u := repo.users["pablo.moncada@example.com"]; u == nil || u.DisplayName != "Pablo Moncada" {
+		t.Fatalf("expected derived display name 'Pablo Moncada', got %+v", u)
+	}
+
+	// 2) "name" claim present → used verbatim.
+	claims := jwt.MapClaims{
+		"iss":   "https://cloud.google.com/iap",
+		"aud":   audience,
+		"email": "ana@example.com",
+		"sub":   "sub2",
+		"name":  "Ana García",
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(time.Hour).Unix(),
+	}
+	named := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	named.Header["kid"] = kid
+	signed, err := named.SignedString(key)
+	if err != nil {
+		t.Fatalf("signing token: %v", err)
+	}
+	if code := do(signed); code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
+	}
+	if u := repo.users["ana@example.com"]; u == nil || u.DisplayName != "Ana García" {
+		t.Fatalf("expected display name from claim, got %+v", u)
+	}
+
+	// 3) An existing display name is never overwritten.
+	repo.users["ana@example.com"].DisplayName = "Custom Name"
+	if code := do(signed); code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
+	}
+	if got := repo.users["ana@example.com"].DisplayName; got != "Custom Name" {
+		t.Fatalf("display name must not be overwritten, got %q", got)
 	}
 }
 

@@ -13,15 +13,19 @@ import (
 	"github.com/masorange/maspassword/internal/database"
 	"github.com/masorange/maspassword/internal/handler"
 	"github.com/masorange/maspassword/internal/iap"
+	"github.com/masorange/maspassword/internal/mailer"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/router"
 	"github.com/masorange/maspassword/internal/service"
 	"github.com/masorange/maspassword/internal/srp"
 )
 
+// version is stamped at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	cfg := config.Load()
-	log.Printf("Starting server (port=%s, iap=%v)", cfg.ServerPort, cfg.IAPEnabled)
+	log.Printf("Starting server (version=%s, port=%s, iap=%v)", version, cfg.ServerPort, cfg.IAPEnabled)
 
 	// Database
 	log.Println("Connecting to database...")
@@ -53,18 +57,34 @@ func main() {
 		log.Printf("IAP authentication enabled (audience: %s)", cfg.IAPAudience)
 	}
 
+	// Mailer (disabled no-op when MAILGUN_API_KEY/MAILGUN_DOMAIN are unset)
+	mail := mailer.New(mailer.Config{
+		APIKey:     cfg.MailgunAPIKey,
+		Domain:     cfg.MailgunDomain,
+		From:       cfg.MailgunFrom,
+		EU:         cfg.MailgunEU,
+		AppBaseURL: cfg.AppBaseURL,
+	})
+	if mail.Enabled() {
+		log.Printf("Mailer enabled (domain: %s)", cfg.MailgunDomain)
+	} else {
+		log.Println("Mailer disabled (MAILGUN_API_KEY or MAILGUN_DOMAIN not set)")
+	}
+
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	vaultRepo := repository.NewVaultRepository(db)
 	itemRepo := repository.NewItemRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	vaultKeyRepo := repository.NewVaultKeyRepository(db)
+	shareLinkRepo := repository.NewShareLinkRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, srpEnv, srpStore, cfg.JWTSecret)
 	vaultService := service.NewVaultService(vaultRepo, vaultKeyRepo, teamRepo)
 	itemService := service.NewItemService(itemRepo, vaultRepo, vaultKeyRepo)
-	teamService := service.NewTeamService(teamRepo, userRepo)
+	teamService := service.NewTeamService(teamRepo, userRepo, mail)
+	shareLinkService := service.NewShareLinkService(shareLinkRepo, vaultRepo, itemRepo, teamRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -72,12 +92,14 @@ func main() {
 	itemHandler := handler.NewItemHandler(itemService)
 	teamHandler := handler.NewTeamHandler(teamService)
 	userHandler := handler.NewUserHandler(userRepo)
+	shareLinkHandler := handler.NewShareLinkHandler(shareLinkService)
 
 	// Router
 	r := router.Setup(
-		authHandler, vaultHandler, itemHandler, teamHandler, userHandler,
+		authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler,
 		cfg.JWTSecret, cfg.CORSOrigins,
 		cfg.IAPEnabled, iapValidator, userRepo,
+		version,
 	)
 
 	// Server with graceful shutdown

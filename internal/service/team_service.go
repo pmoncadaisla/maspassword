@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/masorange/maspassword/internal/mailer"
 	"github.com/masorange/maspassword/internal/models"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/pkg/dto"
@@ -30,12 +33,16 @@ type TeamService interface {
 type teamService struct {
 	teamRepo repository.TeamRepository
 	userRepo repository.UserRepository
+	mailer   *mailer.Mailer
 }
 
-func NewTeamService(teamRepo repository.TeamRepository, userRepo repository.UserRepository) TeamService {
+// NewTeamService builds the team service. The mailer may be nil or disabled;
+// notifications then become logging no-ops and never affect API calls.
+func NewTeamService(teamRepo repository.TeamRepository, userRepo repository.UserRepository, m *mailer.Mailer) TeamService {
 	return &teamService{
 		teamRepo: teamRepo,
 		userRepo: userRepo,
+		mailer:   m,
 	}
 }
 
@@ -95,6 +102,10 @@ func (s *teamService) AddMember(ctx context.Context, adminID, teamID uuid.UUID, 
 	if err := s.teamRepo.AddMember(ctx, member); err != nil {
 		return nil, err
 	}
+
+	// Notify by email in the background; never blocks or fails the API call.
+	s.notifyMemberAdded(teamID, adminID, user, member.Role)
+
 	return member, nil
 }
 
@@ -128,7 +139,15 @@ func (s *teamService) UpdateMemberRole(ctx context.Context, adminID, teamID, tar
 		return ErrCannotChangeOwnerRole
 	}
 
-	return s.teamRepo.UpdateMemberRole(ctx, teamID, targetUserID, req.Role)
+	if err := s.teamRepo.UpdateMemberRole(ctx, teamID, targetUserID, req.Role); err != nil {
+		return err
+	}
+
+	// Notify admins and the promoted user in the background.
+	if req.Role == "admin" {
+		s.notifyPromoted(teamID, adminID, targetUserID)
+	}
+	return nil
 }
 
 func (s *teamService) ListMembers(ctx context.Context, userID, teamID uuid.UUID) ([]repository.TeamMemberWithEmail, error) {
@@ -172,4 +191,106 @@ func (s *teamService) verifyAdmin(ctx context.Context, userID, teamID uuid.UUID)
 		return ErrNotTeamAdmin
 	}
 	return nil
+}
+
+// displayOrEmail falls back to the email when the display name is empty.
+func displayOrEmail(name, email string) string {
+	if name != "" {
+		return name
+	}
+	return email
+}
+
+// notifyMemberAdded emails the new member (invite) and every team admin
+// except the actor. Runs in a goroutine; errors are only logged.
+func (s *teamService) notifyMemberAdded(teamID, actorID uuid.UUID, member *models.User, role string) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic in member-added notification: %v", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		team, err := s.teamRepo.GetByID(ctx, teamID)
+		if err != nil {
+			log.Printf("notify member added: getting team: %v", err)
+			return
+		}
+		actor, err := s.userRepo.GetByID(ctx, actorID)
+		if err != nil {
+			log.Printf("notify member added: getting actor: %v", err)
+			return
+		}
+		actorName := displayOrEmail(actor.DisplayName, actor.Email)
+		memberName := displayOrEmail(member.DisplayName, member.Email)
+
+		if err := s.mailer.SendMemberInvited(ctx, member.Email, team.Name, actorName, role); err != nil {
+			log.Printf("sending invite email to %s: %v", member.Email, err)
+		}
+
+		admins, err := s.teamRepo.ListMembers(ctx, teamID)
+		if err != nil {
+			log.Printf("notify member added: listing members: %v", err)
+			return
+		}
+		for _, m := range admins {
+			if m.Role != "admin" || m.UserID == actorID {
+				continue
+			}
+			if err := s.mailer.SendAdminsMemberAdded(ctx, m.Email, team.Name, actorName, memberName, role); err != nil {
+				log.Printf("sending admin notification to %s: %v", m.Email, err)
+			}
+		}
+	}()
+}
+
+// notifyPromoted emails every team admin and the promoted user after a
+// promotion to admin. Runs in a goroutine; errors are only logged.
+func (s *teamService) notifyPromoted(teamID, actorID, promotedID uuid.UUID) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic in promotion notification: %v", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		team, err := s.teamRepo.GetByID(ctx, teamID)
+		if err != nil {
+			log.Printf("notify promoted: getting team: %v", err)
+			return
+		}
+		actor, err := s.userRepo.GetByID(ctx, actorID)
+		if err != nil {
+			log.Printf("notify promoted: getting actor: %v", err)
+			return
+		}
+		promoted, err := s.userRepo.GetByID(ctx, promotedID)
+		if err != nil {
+			log.Printf("notify promoted: getting promoted user: %v", err)
+			return
+		}
+		actorName := displayOrEmail(actor.DisplayName, actor.Email)
+		promotedName := displayOrEmail(promoted.DisplayName, promoted.Email)
+
+		members, err := s.teamRepo.ListMembers(ctx, teamID)
+		if err != nil {
+			log.Printf("notify promoted: listing members: %v", err)
+			return
+		}
+		recipients := map[string]struct{}{promoted.Email: {}}
+		for _, m := range members {
+			if m.Role == "admin" {
+				recipients[m.Email] = struct{}{}
+			}
+		}
+		for email := range recipients {
+			if err := s.mailer.SendAdminsPromoted(ctx, email, team.Name, actorName, promotedName); err != nil {
+				log.Printf("sending promotion notification to %s: %v", email, err)
+			}
+		}
+	}()
 }

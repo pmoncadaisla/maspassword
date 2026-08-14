@@ -1,0 +1,2 @@
+ALTER TABLE items DROP COLUMN IF EXISTS updated_by;
+ALTER TABLE item_history DROP COLUMN IF EXISTS changed_by;

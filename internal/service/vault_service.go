@@ -21,6 +21,7 @@ type VaultService interface {
 	GetVaultKey(ctx context.Context, userID, vaultID uuid.UUID) (*dto.VaultKeyResponse, error)
 	ShareVault(ctx context.Context, userID, vaultID uuid.UUID, req dto.ShareVaultRequest) error
 	ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error)
+	ListShares(ctx context.Context, userID, vaultID uuid.UUID) ([]dto.VaultShareInfo, error)
 }
 
 type vaultService struct {
@@ -77,6 +78,11 @@ func (s *vaultService) CreateTeamVault(ctx context.Context, ownerID, teamID uuid
 	}
 	if err := s.vaultRepo.Create(ctx, vault); err != nil {
 		return nil, fmt.Errorf("creating team vault: %w", err)
+	}
+
+	// Record the vault↔team share for the owning team (idempotent).
+	if err := s.vaultRepo.AddTeamShare(ctx, vault.ID, teamID); err != nil {
+		return nil, fmt.Errorf("recording team share: %w", err)
 	}
 
 	// Create vault keys for each member
@@ -136,7 +142,41 @@ func (s *vaultService) ShareVault(ctx context.Context, userID, vaultID uuid.UUID
 			return fmt.Errorf("creating vault key: %w", err)
 		}
 	}
+
+	// For team vaults, record the vault↔team share (idempotent).
+	if vault.TeamID != nil {
+		if err := s.vaultRepo.AddTeamShare(ctx, vaultID, *vault.TeamID); err != nil {
+			return fmt.Errorf("recording team share: %w", err)
+		}
+	}
 	return nil
+}
+
+func (s *vaultService) ListShares(ctx context.Context, userID, vaultID uuid.UUID) ([]dto.VaultShareInfo, error) {
+	// Same access check as listing items: owner or holder of a vault key.
+	vault, err := s.vaultRepo.GetByID(ctx, vaultID)
+	if err != nil {
+		return nil, err
+	}
+	if vault.OwnerID != userID {
+		if _, err := s.vaultKeyRepo.GetByVaultAndUser(ctx, vaultID, userID); err != nil {
+			return nil, ErrNoVaultAccess
+		}
+	}
+
+	shares, err := s.vaultRepo.ListTeamShares(ctx, vaultID)
+	if err != nil {
+		return nil, fmt.Errorf("listing vault shares: %w", err)
+	}
+	result := make([]dto.VaultShareInfo, 0, len(shares))
+	for _, sh := range shares {
+		result = append(result, dto.VaultShareInfo{
+			TeamID:   sh.TeamID.String(),
+			TeamName: sh.TeamName,
+			SharedAt: sh.SharedAt,
+		})
+	}
+	return result, nil
 }
 
 func (s *vaultService) ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error) {

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	gosrp "github.com/opencoff/go-srp"
 
 	"github.com/masorange/maspassword/internal/models"
+	"github.com/masorange/maspassword/internal/names"
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/srp"
 	"github.com/masorange/maspassword/pkg/dto"
@@ -222,9 +224,22 @@ func (s *authService) GetSessionInfo(ctx context.Context, userID uuid.UUID) (*dt
 		return nil, fmt.Errorf("generating token: %w", err)
 	}
 
+	// Backfill the display name from the email local part if still empty
+	// (IAP logins usually set it earlier from the JWT "name" claim).
+	displayName := user.DisplayName
+	if displayName == "" {
+		displayName = names.DeriveFromEmail(user.Email)
+		if displayName != "" {
+			if err := s.userRepo.UpdateDisplayName(ctx, userID, displayName); err != nil {
+				log.Printf("failed to backfill display name for %s: %v", user.Email, err)
+			}
+		}
+	}
+
 	resp := &dto.SessionInfoResponse{
 		UserID:          userID.String(),
 		Email:           user.Email,
+		DisplayName:     displayName,
 		AuthMethod:      "iap",
 		EncryptionSetup: user.EncryptedPrivateKey != nil && user.PublicKey != nil,
 		Token:           token,

@@ -18,6 +18,7 @@ var ErrAlreadyMember = errors.New("user is already a team member")
 type TeamMemberWithEmail struct {
 	models.TeamMember
 	Email        string `db:"email" json:"email"`
+	DisplayName  string `db:"display_name" json:"display_name"`
 	HasPublicKey bool   `db:"has_public_key" json:"has_public_key"`
 }
 
@@ -135,7 +136,7 @@ func (r *teamRepo) GetMember(ctx context.Context, teamID, userID uuid.UUID) (*mo
 
 func (r *teamRepo) ListMembers(ctx context.Context, teamID uuid.UUID) ([]TeamMemberWithEmail, error) {
 	var members []TeamMemberWithEmail
-	query := `SELECT tm.*, u.email, (u.public_key IS NOT NULL) as has_public_key FROM team_members tm
+	query := `SELECT tm.*, u.email, u.display_name, (u.public_key IS NOT NULL) as has_public_key FROM team_members tm
 	          JOIN users u ON u.id = tm.user_id
 	          WHERE tm.team_id = $1
 	          ORDER BY tm.joined_at ASC`

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/masorange/maspassword/internal/iap"
+	"github.com/masorange/maspassword/internal/names"
 	"github.com/masorange/maspassword/internal/repository"
 )
 
@@ -112,6 +114,20 @@ func DualAuth(jwtSecret string, iapValidator *iap.Validator, userRepo repository
 					"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to resolve user"},
 				})
 				return
+			}
+
+			// Backfill the display name once: prefer the IAP "name" claim,
+			// otherwise derive it from the email local part. Non-fatal.
+			if user.DisplayName == "" {
+				name := strings.TrimSpace(claims.Name)
+				if name == "" {
+					name = names.DeriveFromEmail(claims.Email)
+				}
+				if name != "" {
+					if err := userRepo.UpdateDisplayName(c.Request.Context(), user.ID, name); err != nil {
+						log.Printf("failed to set display name for %s: %v", claims.Email, err)
+					}
+				}
 			}
 
 			c.Set(UserIDKey, user.ID)

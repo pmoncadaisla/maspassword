@@ -2,11 +2,13 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/masorange/maspassword/internal/middleware"
 	"github.com/masorange/maspassword/internal/repository"
+	"github.com/masorange/maspassword/pkg/dto"
 )
 
 type UserHandler struct {
@@ -46,6 +48,29 @@ func (h *UserHandler) UploadKeys(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// UpdateMe handles PUT /api/users/me — lets a user override their display name.
+func (h *UserHandler) UpdateMe(c *gin.Context) {
+	var req dto.UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})
+		return
+	}
+
+	name := strings.TrimSpace(req.DisplayName)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": "display_name must not be blank"}})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	if err := h.userRepo.UpdateDisplayName(c.Request.Context(), userID, name); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to update display name"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.UpdateMeResponse{DisplayName: name})
 }
 
 func (h *UserHandler) GetPublicKey(c *gin.Context) {

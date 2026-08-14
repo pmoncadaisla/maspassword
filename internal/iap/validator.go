@@ -18,6 +18,8 @@ import (
 type Claims struct {
 	Subject string
 	Email   string
+	// Name is the optional "name" claim (human display name); may be empty.
+	Name string
 }
 
 // Validator validates Google IAP JWT tokens.
@@ -25,10 +27,10 @@ type Validator struct {
 	audience     string
 	publicKeyURL string
 
-	mu         sync.RWMutex
-	keys       map[string]*ecdsa.PublicKey
-	fetchedAt  time.Time
-	cacheTTL   time.Duration
+	mu        sync.RWMutex
+	keys      map[string]*ecdsa.PublicKey
+	fetchedAt time.Time
+	cacheTTL  time.Duration
 }
 
 // NewValidator creates a new IAP JWT validator.
@@ -81,6 +83,7 @@ func (v *Validator) Validate(tokenString string) (*Claims, error) {
 
 	sub, _ := claims["sub"].(string)
 	email, _ := claims["email"].(string)
+	name, _ := claims["name"].(string)
 	if sub == "" || email == "" {
 		return nil, fmt.Errorf("missing sub or email in IAP token")
 	}
@@ -88,6 +91,7 @@ func (v *Validator) Validate(tokenString string) (*Claims, error) {
 	return &Claims{
 		Subject: sub,
 		Email:   email,
+		Name:    name,
 	}, nil
 }
 
