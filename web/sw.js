@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-v8';
+const CACHE_NAME = 'vault-v9';
 const ASSETS = [
   '/',
   '/index.html',

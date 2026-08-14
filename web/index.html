@@ -19,6 +19,15 @@
           document.documentElement.setAttribute('data-theme', 'dark');
         }
       } catch (e) {}
+      // Skin (visual theme): user choice ('mp-skin') wins over the cached
+      // instance default ('mp-skin-default', refreshed from /auth/mode).
+      // Absent attribute = "light" (the built-in look).
+      try {
+        var s = localStorage.getItem('mp-skin') || localStorage.getItem('mp-skin-default');
+        if (s === 'orange') {
+          document.documentElement.setAttribute('data-skin', 'orange');
+        }
+      } catch (e) {}
     })();
   </script>
 </head>
@@ -216,9 +225,14 @@
       </div>
       <div class="sidebar-footer">
         <button class="sidebar-logout-btn" id="btn-theme">Modo oscuro</button>
+        <button class="sidebar-logout-btn" id="btn-global-settings" style="display:none;"><span data-icon="gear" data-icon-size="15"></span> <span data-i18n="settings.global">Ajustes globales</span></button>
         <button class="sidebar-logout-btn" id="btn-lock"><span data-icon="lock" data-icon-size="15"></span> <span data-i18n="sidebar.lockVault">Bloquear caja fuerte</span></button>
         <button class="sidebar-logout-btn" id="btn-logout" data-i18n="sidebar.logout">Cerrar sesión</button>
         <div class="sidebar-footer-meta">
+          <select id="skin-select" class="locale-select" data-i18n-title="settings.theme" title="Tema">
+            <option value="light">Light</option>
+            <option value="orange">Orange</option>
+          </select>
           <select id="locale-select" class="locale-select" data-i18n-title="settings.language" title="Idioma"></select>
           <span class="version-footer" id="app-version-sidebar"></span>
         </div>
@@ -661,6 +675,24 @@
     <div id="history-body" class="history-body"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="btn-close-history" data-i18n="actions.done">Hecho</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Global settings (admins only) -->
+<div class="modal-overlay" id="modal-global-settings">
+  <div class="modal">
+    <h3><span data-icon="gear" data-icon-size="17"></span> <span data-i18n="settings.global">Ajustes globales</span></h3>
+    <div class="form-group">
+      <label data-i18n="settings.defaultTheme">Tema por defecto</label>
+      <select id="global-default-theme" class="select">
+        <option value="light">Light</option>
+        <option value="orange">Orange</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-global-settings" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-global-settings" data-i18n="actions.save">Guardar</button>
     </div>
   </div>
 </div>

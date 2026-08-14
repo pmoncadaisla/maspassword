@@ -32,6 +32,9 @@ const es = {
   'version.running': 'Version {v}',
   'settings.title': 'Ajustes',
   'settings.language': 'Idioma',
+  'settings.theme': 'Tema',
+  'settings.global': 'Ajustes globales',
+  'settings.defaultTheme': 'Tema por defecto',
   'locale.es': 'Español',
   'locale.en': 'English',
   'locale.fr': 'Français',
@@ -296,6 +299,7 @@ const es = {
 
   // Toasts
   'toast.copied': 'Copiado',
+  'toast.saved': 'Guardado',
   'toast.copyFailed': 'Error al copiar',
   'toast.loggedIn': 'Sesión iniciada',
   'toast.loginFailed': 'Error al iniciar sesión: {error}',
@@ -340,6 +344,9 @@ const en = {
   'version.running': 'Version {v}',
   'settings.title': 'Settings',
   'settings.language': 'Language',
+  'settings.theme': 'Theme',
+  'settings.global': 'Global Settings',
+  'settings.defaultTheme': 'Default theme',
   'locale.es': 'Español',
   'locale.en': 'English',
   'locale.fr': 'Français',
@@ -604,6 +611,7 @@ const en = {
 
   // Toasts
   'toast.copied': 'Copied',
+  'toast.saved': 'Saved',
   'toast.copyFailed': 'Copy failed',
   'toast.loggedIn': 'Logged in',
   'toast.loginFailed': 'Login failed: {error}',
@@ -648,6 +656,9 @@ const fr = {
   'version.running': 'Version {v}',
   'settings.title': 'Paramètres',
   'settings.language': 'Langue',
+  'settings.theme': 'Thème',
+  'settings.global': 'Réglages globaux',
+  'settings.defaultTheme': 'Thème par défaut',
   'locale.es': 'Español',
   'locale.en': 'English',
   'locale.fr': 'Français',
@@ -912,6 +923,7 @@ const fr = {
 
   // Toasts
   'toast.copied': 'Copié',
+  'toast.saved': 'Enregistré',
   'toast.copyFailed': 'Échec de la copie',
   'toast.loggedIn': 'Connecté',
   'toast.loginFailed': 'Échec de la connexion : {error}',

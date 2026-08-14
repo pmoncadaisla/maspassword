@@ -2004,3 +2004,249 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: none; box
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ----------------------------------------------------------------------------
+   22. Orange skin — Orange Design System (Boosted) look
+   ----------------------------------------------------------------------------
+   Second SKIN dimension on <html>: [data-skin="orange"] (absent = Light).
+   Combines freely with the MODE dimension [data-theme="dark"].
+   Principles (ODS): black & white carry the UI, orange is used sparingly as
+   the accent; SQUARE design language (no rounded corners except semantic
+   circles: dots, spinner, TOTP ring); bold emphasis; hard 2px borders and
+   crisp focus outlines instead of soft glows.
+   Purely additive: only variable + component overrides, no base rule edits.
+   ---------------------------------------------------------------------------- */
+
+[data-skin="orange"] {
+  color-scheme: light;
+
+  /* Canvas & surfaces (ODS light: white canvas, functional greys) */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eeeeee;
+  --hover: #f6f6f6;
+
+  /* Hairlines */
+  --border: #dddddd;
+  --border-strong: #cccccc;
+
+  /* Ink (black carries the UI) */
+  --text: #000000;
+  --text2: #333333;
+  --text3: #595959;
+  --text4: #999999;
+
+  /* Accent — ODS accessible orange; accent-colored TEXT stays black (ODS) */
+  --accent: #f16e00;
+  --accent-hover: #d55e00;
+  --accent-ink: #000000;
+  --accent-tint: rgba(241, 110, 0, 0.10);
+  --accent-tint-strong: rgba(241, 110, 0, 0.20);
+  --on-accent: #000000;            /* black on orange: AA; never white on #f16e00 */
+  --ring: 0 0 0 2px #f16e00;       /* hard ring, no soft glow */
+
+  /* Functional (ODS light; info #4170d8 unused by this token system) */
+  --danger: #cd3c14;
+  --danger-ink: #cd3c14;
+  --danger-tint: rgba(205, 60, 20, 0.08);
+  --warn: #ffcc00;
+  --warn-ink: #7d5b00;             /* AA amber ink; #fc0 itself is never used as text on white */
+  --warn-tint: rgba(255, 204, 0, 0.16);
+  --ok: #228722;
+  --star: #f16e00;
+
+  /* Strength ramp mapped to danger / warning / neutral / success */
+  --s-vw: #cd3c14;
+  --s-w: #ffcc00;
+  --s-f: #999999;
+  --s-s: #228722;
+  --s-vs: #228722;
+
+  /* Overlays & toasts (ODS toast: black bg, white text) */
+  --overlay: rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 10px 32px -8px rgba(0, 0, 0, 0.16);
+  --toast-bg: #000000;
+  --toast-text: #ffffff;
+
+  /* SQUARE design language: kill every radius the system exposes */
+  --r-lg: 0;
+  --r-md: 0;
+  --r-sm: 0;
+  --r-xs: 0;
+
+  /* ODS type stack */
+  --font: 'Helvetica Neue', Helvetica, 'Noto Sans', Arial, sans-serif;
+
+  /* Consciously inherited from :root: --sidebar-w, --itemlist-w, --mono, --t-fast */
+}
+
+[data-skin="orange"][data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ODS dark: #141414 canvas, #333-based surfaces */
+  --bg: #141414;
+  --surface: #141414;
+  --surface-2: #333333;
+  --hover: #333333;
+
+  --border: #333333;
+  --border-strong: #666666;
+
+  --text: #ffffff;
+  --text2: #cccccc;
+  --text3: #999999;
+  --text4: #666666;
+
+  --accent: #ff7900;
+  --accent-hover: #f16e00;
+  --accent-ink: #ffffff;
+  --accent-tint: rgba(255, 121, 0, 0.14);
+  --accent-tint-strong: rgba(255, 121, 0, 0.26);
+  --on-accent: #000000;            /* black on orange in dark mode too */
+  --ring: 0 0 0 2px #ff7900;
+
+  /* Functional (ODS dark: #6c6 / #69f / #fc0 / #f66) */
+  --danger: #ff6666;
+  --danger-ink: #ff6666;
+  --danger-tint: rgba(255, 102, 102, 0.14);
+  --warn: #ffcc00;
+  --warn-ink: #ffcc00;
+  --warn-tint: rgba(255, 204, 0, 0.14);
+  --ok: #66cc66;
+  --star: #ff7900;
+
+  --s-vw: #ff6666;
+  --s-w: #ffcc00;
+  --s-f: #999999;
+  --s-s: #66cc66;
+  --s-vs: #66cc66;
+
+  --overlay: rgba(0, 0, 0, 0.7);
+  --shadow-modal: 0 24px 56px -12px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 12px 36px -8px rgba(0, 0, 0, 0.6);
+  --toast-bg: #333333;
+  --toast-text: #ffffff;
+
+  /* Radii and --font inherited from [data-skin="orange"] (same in both modes) */
+}
+
+/* --- Orange skin: square the hardcoded radii (pills, chips, bars, toast) --- */
+[data-skin="orange"]::-webkit-scrollbar-thumb,
+[data-skin="orange"] ::-webkit-scrollbar-thumb,
+[data-skin="orange"] .kbd-hint,
+[data-skin="orange"] .row-tag,
+[data-skin="orange"] .favicon-img,
+[data-skin="orange"] .strength-bar,
+[data-skin="orange"] .strength-fill,
+[data-skin="orange"] .btn-small,
+[data-skin="orange"] .btn-icon,
+[data-skin="orange"] .cmd-tag,
+[data-skin="orange"] .import-progress-bar-container,
+[data-skin="orange"] .import-progress-bar,
+[data-skin="orange"] .toast {
+  border-radius: 0;
+}
+/* Semantic circles KEPT round on purpose: .spinner, .item-card .totp-indicator,
+   and the SVG TOTP countdown ring. */
+
+/* --- Orange skin: focus — crisp orange outline, offset, no glow --- */
+[data-skin="orange"] :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* --- Orange skin: buttons (bold; primary orange/black, secondary inverts) --- */
+[data-skin="orange"] .btn { font-weight: 700; }
+
+[data-skin="orange"] .btn-secondary {
+  background: transparent;
+  border: 2px solid var(--text);
+  color: var(--text);
+  padding: 8px 15px; /* compensate 1px→2px border, keep height */
+}
+[data-skin="orange"] .btn-secondary:hover {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+[data-skin="orange"] .btn-small.btn-secondary { padding: 4px 9px; }
+
+[data-skin="orange"] .btn-danger {
+  background: #cd3c14;
+  border-color: #cd3c14;
+  color: #ffffff;
+}
+[data-skin="orange"] .btn-danger:hover {
+  background: #a8300f;
+  border-color: #a8300f;
+  color: #ffffff;
+}
+[data-skin="orange"][data-theme="dark"] .btn-danger {
+  background: #ff6666;
+  border-color: #ff6666;
+  color: #000000;
+}
+[data-skin="orange"][data-theme="dark"] .btn-danger:hover {
+  background: #ff8585;
+  border-color: #ff8585;
+  color: #000000;
+}
+
+/* --- Orange skin: inputs — hard 2px borders, black/white focus, no glow --- */
+[data-skin="orange"] input:where(:not([type="checkbox"]):not([type="radio"]):not([type="range"])),
+[data-skin="orange"] .select,
+[data-skin="orange"] .search-input {
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  border-radius: 0;
+  color: var(--text);
+}
+[data-skin="orange"] input:where(:not([type="checkbox"]):not([type="radio"]):not([type="range"])):focus,
+[data-skin="orange"] .select:focus,
+[data-skin="orange"] .search-input:focus {
+  border-color: var(--text);
+  box-shadow: none;
+  background: var(--surface);
+}
+/* Command palette input keeps its bottom-hairline-only look */
+[data-skin="orange"] .cmd-input,
+[data-skin="orange"] .cmd-input:focus {
+  border: none;
+  border-bottom: 2px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+/* --- Orange skin: sidebar/nav — active row: bold + 4px orange left border --- */
+[data-skin="orange"] .sidebar-item {
+  border-left: 4px solid transparent;
+  padding-left: 6px; /* compensate the indicator border */
+  border-radius: 0;
+}
+[data-skin="orange"] .sidebar-item.active {
+  background: var(--hover); /* #f6f6f6 light / #333 dark */
+  border-left-color: var(--accent);
+  color: var(--text);
+  font-weight: 700;
+}
+[data-skin="orange"] .sidebar-item.active .sidebar-item-icon { color: var(--text); }
+[data-skin="orange"] .nav-item.active { font-weight: 700; }
+
+/* --- Orange skin: links — underlined ink, orange on hover (ODS) --- */
+[data-skin="orange"] .link-btn,
+[data-skin="orange"] .field-value.link {
+  color: var(--text);
+  text-decoration: underline;
+}
+[data-skin="orange"] .link-btn:hover,
+[data-skin="orange"] .field-value.link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* --- Orange skin: dark-mode error toast — black text on light red (AA) --- */
+[data-skin="orange"][data-theme="dark"] .toast.error {
+  color: #000000;
+}

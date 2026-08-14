@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/handler"
 	"github.com/masorange/maspassword/internal/iap"
 	"github.com/masorange/maspassword/internal/middleware"
@@ -17,11 +18,13 @@ func Setup(
 	teamHandler *handler.TeamHandler,
 	userHandler *handler.UserHandler,
 	shareLinkHandler *handler.ShareLinkHandler,
+	settingsHandler *handler.SettingsHandler,
 	jwtSecret string,
 	corsOrigins string,
 	iapEnabled bool,
 	iapValidator *iap.Validator,
 	userRepo repository.UserRepository,
+	adminEmails config.AdminEmails,
 	version string,
 ) *gin.Engine {
 	r := gin.New()
@@ -37,7 +40,11 @@ func Setup(
 		auth.POST("/login/step1", authHandler.LoginStep1)
 		auth.POST("/login/step2", authHandler.LoginStep2)
 		auth.GET("/mode", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"iap_enabled": iapEnabled, "version": version})
+			c.JSON(http.StatusOK, gin.H{
+				"iap_enabled":   iapEnabled,
+				"version":       version,
+				"default_theme": settingsHandler.DefaultTheme(c.Request.Context()),
+			})
 		})
 		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
 		auth.POST("/recover/challenge", authHandler.RecoverChallenge)
@@ -99,6 +106,14 @@ func Setup(
 		api.POST("/users/keys", userHandler.UploadKeys)
 		api.GET("/users/:userId/public-key", userHandler.GetPublicKey)
 		api.PUT("/users/me", userHandler.UpdateMe)
+
+		// Admin-only global settings (auth middleware + admin email check)
+		admin := api.Group("/admin")
+		admin.Use(middleware.AdminOnly(userRepo, adminEmails))
+		{
+			admin.GET("/settings", settingsHandler.GetSettings)
+			admin.PUT("/settings", settingsHandler.UpdateSettings)
+		}
 	}
 
 	// Static files (PWA frontend)

@@ -78,6 +78,7 @@ func main() {
 	teamRepo := repository.NewTeamRepository(db)
 	vaultKeyRepo := repository.NewVaultKeyRepository(db)
 	shareLinkRepo := repository.NewShareLinkRepository(db)
+	settingsRepo := repository.NewSettingsRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, srpEnv, srpStore, cfg.JWTSecret)
@@ -88,17 +89,23 @@ func main() {
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
+	authHandler.SetAdminEmails(cfg.AdminEmails)
 	vaultHandler := handler.NewVaultHandler(vaultService)
 	itemHandler := handler.NewItemHandler(itemService)
 	teamHandler := handler.NewTeamHandler(teamService)
 	userHandler := handler.NewUserHandler(userRepo)
 	shareLinkHandler := handler.NewShareLinkHandler(shareLinkService)
+	settingsHandler := handler.NewSettingsHandler(settingsRepo)
+
+	if len(cfg.AdminEmails) > 0 {
+		log.Printf("Admin panel enabled for %d email(s)", len(cfg.AdminEmails))
+	}
 
 	// Router
 	r := router.Setup(
-		authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler,
+		authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler,
 		cfg.JWTSecret, cfg.CORSOrigins,
-		cfg.IAPEnabled, iapValidator, userRepo,
+		cfg.IAPEnabled, iapValidator, userRepo, cfg.AdminEmails,
 		version,
 	)
 

@@ -45,6 +45,7 @@ type SessionInfoResponse struct {
 	EncryptedPrivateKey string `json:"encrypted_private_key,omitempty"`
 	SRPSalt             string `json:"srp_salt,omitempty"`
 	Token               string `json:"token"`
+	IsAdmin             bool   `json:"is_admin"`
 }
 
 type SetupEncryptionRequest struct {

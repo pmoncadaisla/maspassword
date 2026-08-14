@@ -91,6 +91,7 @@ function showScreenNoHash(id) {
 function showMainApp() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('main-app').style.display = 'grid';
+  refreshAdminUI(); // fire-and-forget: toggles the admin-only sidebar button
 }
 
 // --- Routing ---
@@ -544,8 +545,7 @@ function applyTheme(theme) {
   if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   else document.documentElement.removeAttribute('data-theme');
   try { localStorage.setItem('mp-theme', theme); } catch {}
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0e14' : '#fafbfc');
+  updateMetaThemeColor();
   const btn = document.getElementById('btn-theme');
   if (btn) btn.innerHTML = theme === 'dark'
     ? `${icon('sun', { size: 15 })} <span>${esc(t('sidebar.lightMode'))}</span>`
@@ -553,6 +553,107 @@ function applyTheme(theme) {
 }
 function toggleTheme() {
   applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+}
+
+// --- Skin (user-selectable visual theme) ---
+// Two independent dimensions on <html>: data-skin ("orange" or absent = Light)
+// and data-theme (dark mode). The Orange skin implements the Orange Design
+// System and supports both modes.
+// Resolution order: localStorage 'mp-skin' (user choice) → 'mp-skin-default'
+// (instance default, cached from every /auth/mode fetch) → 'light'.
+const SKINS = ['light', 'orange'];
+
+function currentSkin() {
+  return document.documentElement.getAttribute('data-skin') === 'orange' ? 'orange' : 'light';
+}
+
+// The PWA chrome color follows both the active skin and the dark mode.
+function updateMetaThemeColor() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const dark = currentTheme() === 'dark';
+  meta.setAttribute('content', currentSkin() === 'orange'
+    ? (dark ? '#141414' : '#ffffff')
+    : (dark ? '#0b0e14' : '#fafbfc'));
+}
+
+// Applies a skin WITHOUT persisting it (used for the instance default so the
+// user's lack-of-choice keeps following the admin-configured default).
+function setSkinAttr(skin) {
+  if (skin === 'orange') document.documentElement.setAttribute('data-skin', 'orange');
+  else document.documentElement.removeAttribute('data-skin');
+  updateMetaThemeColor();
+  const sel = document.getElementById('skin-select');
+  if (sel) sel.value = currentSkin();
+}
+
+// Applies AND persists the user's own skin choice.
+function applySkin(skin) {
+  if (!SKINS.includes(skin)) skin = 'light';
+  setSkinAttr(skin);
+  try { localStorage.setItem('mp-skin', skin); } catch {}
+}
+
+// Caches the instance-wide default theme (from /auth/mode or an admin save)
+// and applies it when the user has not made an explicit choice.
+function rememberDefaultSkin(value) {
+  const dt = value === 'orange' ? 'orange' : 'light';
+  try {
+    localStorage.setItem('mp-skin-default', dt);
+    if (!localStorage.getItem('mp-skin')) setSkinAttr(dt);
+  } catch {}
+}
+
+// --- Global settings (admin-only panel) ---
+let adminUIToken = null; // token the admin-button visibility was resolved for
+
+// Shows the "Global Settings" sidebar button only when the session is an
+// admin (ADMIN_EMAILS server-side). Resolved once per token.
+async function refreshAdminUI() {
+  const btn = document.getElementById('btn-global-settings');
+  if (!btn) return;
+  if (!token) { btn.style.display = 'none'; adminUIToken = null; return; }
+  if (adminUIToken === token) return;
+  adminUIToken = token;
+  let isAdmin = false;
+  try {
+    if (iapSession) {
+      isAdmin = iapSession.is_admin === true;
+    } else {
+      const s = await api('GET', '/api/auth/session');
+      isAdmin = s?.is_admin === true;
+    }
+  } catch {}
+  btn.style.display = isAdmin ? '' : 'none';
+}
+
+async function openGlobalSettings() {
+  const sel = document.getElementById('global-default-theme');
+  // Prefill from the cached default, then refresh from the server.
+  sel.value = localStorage.getItem('mp-skin-default') === 'orange' ? 'orange' : 'light';
+  openModal('modal-global-settings');
+  try {
+    const s = await api('GET', '/api/admin/settings');
+    sel.value = s?.default_theme === 'orange' ? 'orange' : 'light';
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function saveGlobalSettings() {
+  const sel = document.getElementById('global-default-theme');
+  const btn = document.getElementById('btn-save-global-settings');
+  btn.disabled = true;
+  try {
+    const saved = await api('PUT', '/api/admin/settings', { default_theme: sel.value });
+    rememberDefaultSkin(saved?.default_theme);
+    toast(t('toast.saved'));
+    closeModal('modal-global-settings');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // --- Password generator popover ---
@@ -660,6 +761,7 @@ async function detectAuthMode() {
     const data = await res.json();
     appVersion = data.version || '';
     renderVersion();
+    rememberDefaultSkin(data.default_theme);
     return data.iap_enabled === true;
   } catch {
     return false;
@@ -2479,6 +2581,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLocale(localeSel.value);
     location.reload();
   });
+
+  // Skin selector (Light / Orange) in the sidebar footer — applies instantly.
+  const skinSel = document.getElementById('skin-select');
+  if (skinSel) {
+    skinSel.value = currentSkin();
+    skinSel.addEventListener('change', () => applySkin(skinSel.value));
+  }
+
+  // Global settings (admin-only; the button is unhidden by refreshAdminUI)
+  document.getElementById('btn-global-settings').addEventListener('click', openGlobalSettings);
+  document.getElementById('btn-save-global-settings').addEventListener('click', saveGlobalSettings);
+  document.getElementById('btn-cancel-global-settings').addEventListener('click', () => closeModal('modal-global-settings'));
 
   renderVersion();
   // Sync the theme button label (translated) with the already-applied theme.

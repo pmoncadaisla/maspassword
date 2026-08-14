@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/middleware"
 	"github.com/masorange/maspassword/internal/service"
 	"github.com/masorange/maspassword/pkg/dto"
@@ -12,10 +13,16 @@ import (
 
 type AuthHandler struct {
 	authService service.AuthService
+	adminEmails config.AdminEmails // zero value: nobody is admin
 }
 
 func NewAuthHandler(authService service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
+}
+
+// SetAdminEmails configures the admin set used to flag sessions with is_admin.
+func (h *AuthHandler) SetAdminEmails(adminEmails config.AdminEmails) {
+	h.adminEmails = adminEmails
 }
 
 func (h *AuthHandler) Signup(c *gin.Context) {
@@ -78,6 +85,7 @@ func (h *AuthHandler) GetSession(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "internal error"}})
 		return
 	}
+	resp.IsAdmin = h.adminEmails.Contains(resp.Email)
 
 	c.JSON(http.StatusOK, resp)
 }

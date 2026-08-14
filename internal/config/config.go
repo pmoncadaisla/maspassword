@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -19,6 +20,34 @@ type Config struct {
 	MailgunFrom     string
 	MailgunEU       bool
 	AppBaseURL      string
+	AdminEmails     AdminEmails
+}
+
+// AdminEmails is a case-insensitive set of administrator email addresses.
+// The zero value (nil) means "no admins".
+type AdminEmails map[string]struct{}
+
+// ParseAdminEmails builds an AdminEmails set from a comma-separated list.
+// Entries are trimmed and lowercased; empty entries are ignored.
+// An empty input yields an empty set (no admins).
+func ParseAdminEmails(s string) AdminEmails {
+	set := AdminEmails{}
+	for _, part := range strings.Split(s, ",") {
+		email := strings.ToLower(strings.TrimSpace(part))
+		if email != "" {
+			set[email] = struct{}{}
+		}
+	}
+	return set
+}
+
+// Contains reports whether email belongs to the admin set (case-insensitive).
+func (a AdminEmails) Contains(email string) bool {
+	if len(a) == 0 {
+		return false
+	}
+	_, ok := a[strings.ToLower(strings.TrimSpace(email))]
+	return ok
 }
 
 func Load() *Config {
@@ -64,5 +93,6 @@ func Load() *Config {
 		MailgunFrom:     mailgunFrom,
 		MailgunEU:       os.Getenv("MAILGUN_EU") == "true",
 		AppBaseURL:      os.Getenv("APP_BASE_URL"),
+		AdminEmails:     ParseAdminEmails(os.Getenv("ADMIN_EMAILS")),
 	}
 }
