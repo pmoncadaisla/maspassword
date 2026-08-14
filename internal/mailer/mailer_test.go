@@ -13,7 +13,7 @@ func TestDisabledMailerIsNoOp(t *testing.T) {
 	if m.Enabled() {
 		t.Fatal("mailer without credentials must be disabled")
 	}
-	if err := m.Send(context.Background(), "a@b.c", "subject", "<p>hi</p>"); err != nil {
+	if err := m.Send(context.Background(), "a@b.c", "subject", "<p>hi</p>", "hi"); err != nil {
 		t.Fatalf("disabled Send must be a no-op, got %v", err)
 	}
 
@@ -28,7 +28,7 @@ func TestDisabledMailerIsNoOp(t *testing.T) {
 	if nilMailer.Enabled() {
 		t.Fatal("nil mailer must report disabled")
 	}
-	if err := nilMailer.Send(context.Background(), "a@b.c", "s", "h"); err != nil {
+	if err := nilMailer.Send(context.Background(), "a@b.c", "s", "h", "t"); err != nil {
 		t.Fatalf("nil mailer Send must be a no-op, got %v", err)
 	}
 	if err := nilMailer.SendMemberInvited(context.Background(), "a@b.c", "Equipo", "Ana", "member"); err != nil {
@@ -37,7 +37,7 @@ func TestDisabledMailerIsNoOp(t *testing.T) {
 }
 
 func TestRenderInviteMember(t *testing.T) {
-	subject, html, err := RenderInviteMember("Equipo Seguridad", "Ana García", "member", "https://mp.example.com")
+	subject, html, text, err := RenderInviteMember("Equipo Seguridad", "Ana García", "member", "https://mp.example.com")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -49,20 +49,31 @@ func TestRenderInviteMember(t *testing.T) {
 			t.Errorf("html missing %q", want)
 		}
 	}
+	for _, want := range []string{"Ana García", "Equipo Seguridad", "member", "https://mp.example.com", "mensaje autom"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text missing %q", want)
+		}
+	}
+	if strings.Contains(text, "<") {
+		t.Errorf("text part must not contain markup: %q", text)
+	}
 }
 
 func TestRenderInviteMemberWithoutBaseURLHasNoButton(t *testing.T) {
-	_, html, err := RenderInviteMember("Equipo", "Ana", "member", "")
+	_, html, text, err := RenderInviteMember("Equipo", "Ana", "member", "")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
 	if strings.Contains(html, "Abrir MasPassword") {
 		t.Error("button must be omitted when base URL is empty")
 	}
+	if strings.Contains(text, "Abrir MasPassword") {
+		t.Error("text link must be omitted when base URL is empty")
+	}
 }
 
 func TestRenderInviteAdmins(t *testing.T) {
-	subject, html, err := RenderInviteAdmins("Equipo X", "Ana", "Pablo Moncada", "member")
+	subject, html, text, err := RenderInviteAdmins("Equipo X", "Ana", "Pablo Moncada", "member")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -73,11 +84,14 @@ func TestRenderInviteAdmins(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("html missing %q", want)
 		}
+		if !strings.Contains(text, want) {
+			t.Errorf("text missing %q", want)
+		}
 	}
 }
 
 func TestRenderPromoteAdmins(t *testing.T) {
-	subject, html, err := RenderPromoteAdmins("Equipo X", "Ana", "Pablo")
+	subject, html, text, err := RenderPromoteAdmins("Equipo X", "Ana", "Pablo")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -88,11 +102,14 @@ func TestRenderPromoteAdmins(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("html missing %q", want)
 		}
+		if !strings.Contains(text, want) {
+			t.Errorf("text missing %q", want)
+		}
 	}
 }
 
 func TestTemplatesEscapeHTML(t *testing.T) {
-	_, html, err := RenderInviteMember(`<script>alert(1)</script>`, "Ana", "member", "")
+	_, html, _, err := RenderInviteMember(`<script>alert(1)</script>`, "Ana", "member", "")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -118,6 +135,7 @@ func TestSendPostsMailgunForm(t *testing.T) {
 			"to":      r.PostFormValue("to"),
 			"subject": r.PostFormValue("subject"),
 			"html":    r.PostFormValue("html"),
+			"text":    r.PostFormValue("text"),
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -129,7 +147,7 @@ func TestSendPostsMailgunForm(t *testing.T) {
 	if !m.Enabled() {
 		t.Fatal("mailer with key+domain must be enabled")
 	}
-	if err := m.Send(context.Background(), "dest@example.com", "Hola", "<p>Hola</p>"); err != nil {
+	if err := m.Send(context.Background(), "dest@example.com", "Hola", "<p>Hola</p>", "Hola"); err != nil {
 		t.Fatalf("send failed: %v", err)
 	}
 
@@ -144,6 +162,7 @@ func TestSendPostsMailgunForm(t *testing.T) {
 		"to":      "dest@example.com",
 		"subject": "Hola",
 		"html":    "<p>Hola</p>",
+		"text":    "Hola",
 	}
 	for k, v := range want {
 		if gotForm[k] != v {
@@ -161,7 +180,7 @@ func TestSendReturnsErrorOnAPIFailure(t *testing.T) {
 	m := New(Config{APIKey: "bad", Domain: "mg.example.com"})
 	m.apiBase = srv.URL
 
-	if err := m.Send(context.Background(), "dest@example.com", "Hola", "<p>Hola</p>"); err == nil {
+	if err := m.Send(context.Background(), "dest@example.com", "Hola", "<p>Hola</p>", "Hola"); err == nil {
 		t.Fatal("expected error on non-2xx response")
 	}
 }

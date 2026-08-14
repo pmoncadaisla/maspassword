@@ -1,0 +1,11 @@
+# Limits the Cloud Build upload to what the Docker image needs (Go sources
+# and web/). gcloud only honors this file plus the ROOT .gitignore — nested
+# .gitignore files (e.g. desktop/src-tauri/target, >3 GB) are NOT applied.
+#!include:.gitignore
+.git/
+.claude/
+android/
+ios/
+desktop/
+docs/
+extension/

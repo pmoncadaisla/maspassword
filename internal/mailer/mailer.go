@@ -58,9 +58,11 @@ func (m *Mailer) Enabled() bool {
 	return m != nil && m.apiKey != "" && m.domain != ""
 }
 
-// Send delivers a single HTML email to one recipient through Mailgun.
-// When the mailer is disabled it logs and returns nil.
-func (m *Mailer) Send(ctx context.Context, to, subject, html string) error {
+// Send delivers a single email to one recipient through Mailgun. A non-empty
+// text becomes the plain-text alternative of the HTML part (multipart emails
+// score better with spam filters). When the mailer is disabled it logs and
+// returns nil.
+func (m *Mailer) Send(ctx context.Context, to, subject, html, text string) error {
 	if !m.Enabled() {
 		log.Printf("mailer disabled, skipping email: %s", subject)
 		return nil
@@ -71,6 +73,9 @@ func (m *Mailer) Send(ctx context.Context, to, subject, html string) error {
 	form.Set("to", to)
 	form.Set("subject", subject)
 	form.Set("html", html)
+	if text != "" {
+		form.Set("text", text)
+	}
 
 	endpoint := fmt.Sprintf("%s/v3/%s/messages", m.apiBase, m.domain)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
@@ -99,27 +104,27 @@ func (m *Mailer) SendMemberInvited(ctx context.Context, to, team, actor, role st
 	if m != nil {
 		base = m.appBaseURL
 	}
-	subject, html, err := RenderInviteMember(team, actor, role, base)
+	subject, html, text, err := RenderInviteMember(team, actor, role, base)
 	if err != nil {
 		return err
 	}
-	return m.Send(ctx, to, subject, html)
+	return m.Send(ctx, to, subject, html, text)
 }
 
 // SendAdminsMemberAdded notifies a team admin that a member was added.
 func (m *Mailer) SendAdminsMemberAdded(ctx context.Context, to, team, actor, member, role string) error {
-	subject, html, err := RenderInviteAdmins(team, actor, member, role)
+	subject, html, text, err := RenderInviteAdmins(team, actor, member, role)
 	if err != nil {
 		return err
 	}
-	return m.Send(ctx, to, subject, html)
+	return m.Send(ctx, to, subject, html, text)
 }
 
 // SendAdminsPromoted notifies admins (and the promoted user) of a promotion.
 func (m *Mailer) SendAdminsPromoted(ctx context.Context, to, team, actor, member string) error {
-	subject, html, err := RenderPromoteAdmins(team, actor, member)
+	subject, html, text, err := RenderPromoteAdmins(team, actor, member)
 	if err != nil {
 		return err
 	}
-	return m.Send(ctx, to, subject, html)
+	return m.Send(ctx, to, subject, html, text)
 }

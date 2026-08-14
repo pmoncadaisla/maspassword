@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"strings"
 )
 
 // cardTmpl is the shared card layout: light background, white card with a
@@ -75,46 +76,68 @@ func renderCard(d cardData) (string, error) {
 	return buf.String(), nil
 }
 
+// renderTextCard builds the plain-text alternative of the card layout.
+// Sending multipart (html+text) instead of HTML-only lowers the spam score.
+func renderTextCard(body, buttonURL, buttonLabel string) string {
+	var b strings.Builder
+	b.WriteString("MasPassword\n\n")
+	b.WriteString(body)
+	if buttonURL != "" {
+		b.WriteString(fmt.Sprintf("\n%s: %s\n", buttonLabel, buttonURL))
+	}
+	b.WriteString("\n--\nEste es un mensaje automático de MasPassword. No respondas a este correo.\n")
+	return b.String()
+}
+
 // RenderInviteMember builds the email sent to a user added to a team.
 // baseURL, when non-empty, adds a button linking to the app.
-func RenderInviteMember(team, actor, role, baseURL string) (subject, html string, err error) {
+func RenderInviteMember(team, actor, role, baseURL string) (subject, html, text string, err error) {
 	subject = fmt.Sprintf("Te han añadido al equipo %s en MasPassword", team)
 	body, err := renderBody(inviteMemberBody, map[string]string{"Team": team, "Actor": actor, "Role": role})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	html, err = renderCard(cardData{Title: subject, Body: body, ButtonURL: baseURL, ButtonLabel: "Abrir MasPassword"})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return subject, html, nil
+	text = renderTextCard(fmt.Sprintf(
+		"Hola,\n\n%s te ha añadido al equipo %s en MasPassword con el rol de %s.\n\nYa puedes acceder a las contraseñas compartidas con el equipo.\n",
+		actor, team, role), baseURL, "Abrir MasPassword")
+	return subject, html, text, nil
 }
 
 // RenderInviteAdmins builds the email sent to team admins when a member is added.
-func RenderInviteAdmins(team, actor, member, role string) (subject, html string, err error) {
+func RenderInviteAdmins(team, actor, member, role string) (subject, html, text string, err error) {
 	subject = fmt.Sprintf("Nuevo miembro en el equipo %s", team)
 	body, err := renderBody(inviteAdminsBody, map[string]string{"Team": team, "Actor": actor, "Member": member, "Role": role})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	html, err = renderCard(cardData{Title: subject, Body: body})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return subject, html, nil
+	text = renderTextCard(fmt.Sprintf(
+		"Hola,\n\n%s ha añadido a %s al equipo %s con el rol de %s.\n\nRecibes este aviso por ser administrador del equipo.\n",
+		actor, member, team, role), "", "")
+	return subject, html, text, nil
 }
 
 // RenderPromoteAdmins builds the email sent to team admins and the promoted
 // user when a member is promoted to admin.
-func RenderPromoteAdmins(team, actor, member string) (subject, html string, err error) {
+func RenderPromoteAdmins(team, actor, member string) (subject, html, text string, err error) {
 	subject = fmt.Sprintf("%s ahora es administrador de %s", member, team)
 	body, err := renderBody(promoteAdminsBody, map[string]string{"Team": team, "Actor": actor, "Member": member})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	html, err = renderCard(cardData{Title: subject, Body: body})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return subject, html, nil
+	text = renderTextCard(fmt.Sprintf(
+		"Hola,\n\n%s ha sido ascendido a administrador del equipo %s por %s.\n",
+		member, team, actor), "", "")
+	return subject, html, text, nil
 }
