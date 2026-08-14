@@ -19,3 +19,5 @@ extension/node_modules/
 docs/
 .github/
 web/tests/
+android/
+ios/
