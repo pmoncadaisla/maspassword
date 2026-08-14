@@ -10,3 +10,4 @@
 import './generator.test.js';
 import './strength.test.js';
 import './breach.test.js';
+import './onboarding.test.js';

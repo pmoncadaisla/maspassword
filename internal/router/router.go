@@ -128,6 +128,7 @@ func Setup(
 	// Static files (PWA frontend)
 	r.StaticFile("/", "web/index.html")
 	r.StaticFile("/index.html", "web/index.html")
+	r.StaticFile("/landing", "web/landing.html")
 	r.StaticFile("/styles.css", "web/styles.css")
 	r.StaticFile("/app.js", "web/app.js")
 	r.StaticFile("/crypto.js", "web/crypto.js")
@@ -142,6 +143,7 @@ func Setup(
 	r.StaticFile("/attachments.js", "web/attachments.js")
 	r.StaticFile("/sharelink.js", "web/sharelink.js")
 	r.StaticFile("/duplicates.js", "web/duplicates.js")
+	r.StaticFile("/onboarding.js", "web/onboarding.js")
 	r.StaticFile("/qr.js", "web/qr.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
@@ -158,7 +160,7 @@ func Setup(
 		"/blake2b.js": true, "/generator.js": true, "/strength.js": true,
 		"/breach.js": true, "/import.js": true, "/i18n.js": true,
 		"/icons.js": true, "/attachments.js": true, "/sharelink.js": true,
-		"/duplicates.js": true, "/qr.js": true,
+		"/duplicates.js": true, "/onboarding.js": true, "/qr.js": true,
 	}
 	r.Use(func(c *gin.Context) {
 		if jsPaths[c.Request.URL.Path] {

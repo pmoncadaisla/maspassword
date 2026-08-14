@@ -16,6 +16,7 @@ const ASSETS = [
   '/attachments.js',
   '/sharelink.js',
   '/duplicates.js',
+  '/onboarding.js',
   '/qr.js',
   '/manifest.json',
 ];
