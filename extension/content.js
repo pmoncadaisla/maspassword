@@ -1,6 +1,7 @@
 // ============================================================
-// Vault Internal — Content Script
-// Detects login/signup forms, injects autofill UI
+// MasPassword — Content Script
+// Detects login/signup forms, injects autofill UI, captures
+// submitted credentials, and relays passkey (WebAuthn) requests.
 // ============================================================
 
 (() => {
@@ -13,7 +14,81 @@
   let saveBanner = null;
   let activeInput = null;
   let matchingItems = [];
-  let lastSubmittedCreds = null;
+  // Fallback for multi-step logins: by the time the password is submitted the
+  // username field is often gone from the DOM (email on step 1, password on
+  // step 2), so remember the last username-ish value the user typed.
+  let lastTypedUsername = '';
+
+  // --- i18n (content scripts don't load the web app's i18n module) ---
+  const STRINGS = {
+    es: {
+      'dd.locked': 'Abre MasPassword para iniciar sesión',
+      'dd.empty': 'No hay contraseñas guardadas para este sitio',
+      'dd.generate': 'Generar contraseña segura',
+      'dd.open': 'Abrir MasPassword',
+      'gen.filled': 'Contraseña generada',
+      'save.title.new': '¿Guardar contraseña en MasPassword?',
+      'save.title.update': '¿Actualizar contraseña en MasPassword?',
+      'save.body': '{user} en {site}',
+      'save.noUser': 'Sin usuario',
+      'save.save': 'Guardar',
+      'save.update': 'Actualizar',
+      'save.dismiss': 'Ahora no',
+      'save.saved': 'Contraseña guardada en MasPassword',
+      'save.updated': 'Contraseña actualizada',
+      'save.failed': 'No se pudo guardar: {err}',
+      'pk.shared': 'compartida', 'pk.createTitle': 'Crear un passkey',
+      'pk.createFor': 'Para {rp}', 'pk.saveTo': 'Guardar en',
+      'pk.cancel': 'Cancelar', 'pk.create': 'Crear',
+      'pk.useTitle': 'Usar un passkey', 'pk.useFor': 'Para {rp}',
+      'pk.lockedTitle': 'MasPassword está bloqueado',
+      'pk.lockedBody': 'Desbloquea la extensión para usar tus passkeys, o continúa con el navegador.',
+      'pk.useBrowser': 'Usar el navegador',
+    },
+    en: {
+      'dd.locked': 'Open MasPassword to log in',
+      'dd.empty': 'No saved passwords for this site',
+      'dd.generate': 'Generate a strong password',
+      'dd.open': 'Open MasPassword',
+      'gen.filled': 'Password generated',
+      'save.title.new': 'Save password to MasPassword?',
+      'save.title.update': 'Update password in MasPassword?',
+      'save.body': '{user} on {site}',
+      'save.noUser': 'No username',
+      'save.save': 'Save',
+      'save.update': 'Update',
+      'save.dismiss': 'Not now',
+      'save.saved': 'Password saved to MasPassword',
+      'save.updated': 'Password updated',
+      'save.failed': 'Could not save: {err}',
+      'pk.shared': 'shared', 'pk.createTitle': 'Create a passkey',
+      'pk.createFor': 'For {rp}', 'pk.saveTo': 'Save to',
+      'pk.cancel': 'Cancel', 'pk.create': 'Create',
+      'pk.useTitle': 'Use a passkey', 'pk.useFor': 'For {rp}',
+      'pk.lockedTitle': 'MasPassword is locked',
+      'pk.lockedBody': 'Unlock the extension to use your passkeys, or continue with the browser.',
+      'pk.useBrowser': 'Use the browser',
+    },
+  };
+  const LOCALE = (navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';
+  function t(key, vars) {
+    let s = (STRINGS[LOCALE] && STRINGS[LOCALE][key]) || STRINGS.en[key] || key;
+    if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
+    return s;
+  }
+
+  // Promise wrapper over sendMessage that never throws: the extension can be
+  // reloaded/updated under a live page, which invalidates this context.
+  function bg(msg) {
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage(msg, resp => {
+          void chrome.runtime.lastError;
+          resolve(resp);
+        });
+      } catch { resolve(undefined); }
+    });
+  }
 
   // --- Utility ---
   function isVisible(el) {
@@ -31,16 +106,6 @@
     const hints = ['user', 'email', 'login', 'account', 'name', 'identifier'];
     const attrs = [el.name, el.id, el.autocomplete, el.placeholder].join(' ').toLowerCase();
     return hints.some(h => attrs.includes(h)) || el.type === 'email';
-  }
-
-  function isNewPasswordField(el) {
-    if (el.type !== 'password') return false;
-    const ac = (el.autocomplete || '').toLowerCase();
-    if (ac === 'new-password') return true;
-    // Heuristic: if there are 2+ password fields in the same form, it's likely signup
-    const form = el.closest('form');
-    if (form && form.querySelectorAll('input[type="password"]').length >= 2) return true;
-    return false;
   }
 
   function findUsernameField(passwordField) {
@@ -94,22 +159,24 @@
   }
 
   async function fetchAndShowDropdown(passwordField) {
-    const resp = await chrome.runtime.sendMessage({ type: 'getMatchingItems', url: location.href });
+    const resp = await bg({ type: 'getMatchingItems', url: location.href });
     matchingItems = resp?.items || [];
-    const status = await chrome.runtime.sendMessage({ type: 'getStatus' });
+    const status = await bg({ type: 'getStatus' });
 
     removeDropdown();
     dropdown = document.createElement('div');
     dropdown.className = 'vi-dropdown';
 
-    if (!status.loggedIn) {
-      dropdown.innerHTML = `<div class="vi-dropdown-empty">Open the Vault Internal extension to log in</div>`;
-    } else if (matchingItems.length === 0) {
-      const isNew = isNewPasswordField(passwordField);
+    if (!status?.loggedIn) {
       dropdown.innerHTML = `
-        <div class="vi-dropdown-empty">No saved passwords for this site</div>
-        ${isNew ? '<button class="vi-dropdown-action" data-action="generate">Generate a strong password</button>' : ''}
-        <button class="vi-dropdown-action" data-action="open">Open Vault Internal</button>
+        <div class="vi-dropdown-empty">${esc(t('dd.locked'))}</div>
+        <button class="vi-dropdown-action" data-action="open">${esc(t('dd.open'))}</button>
+      `;
+    } else if (matchingItems.length === 0) {
+      dropdown.innerHTML = `
+        <div class="vi-dropdown-empty">${esc(t('dd.empty'))}</div>
+        <button class="vi-dropdown-action" data-action="generate">${esc(t('dd.generate'))}</button>
+        <button class="vi-dropdown-action" data-action="open">${esc(t('dd.open'))}</button>
       `;
     } else {
       const itemsHtml = matchingItems.map((item, i) => `
@@ -118,11 +185,10 @@
           <div class="vi-dropdown-item-user">${esc(item.data.username || '')}</div>
         </button>
       `).join('');
-      const isNew = isNewPasswordField(passwordField);
       dropdown.innerHTML = `
         ${itemsHtml}
         <div class="vi-dropdown-sep"></div>
-        ${isNew ? '<button class="vi-dropdown-action" data-action="generate">Generate a strong password</button>' : ''}
+        <button class="vi-dropdown-action" data-action="generate">${esc(t('dd.generate'))}</button>
       `;
     }
 
@@ -147,7 +213,7 @@
       if (actionBtn) {
         const action = actionBtn.dataset.action;
         if (action === 'generate') generateAndFill(passwordField);
-        if (action === 'open') chrome.runtime.sendMessage({ type: 'openPopup' });
+        if (action === 'open') bg({ type: 'openPopup' });
         removeDropdown();
       }
     });
@@ -186,84 +252,137 @@
 
   // --- Generate password ---
   async function generateAndFill(passwordField) {
-    const resp = await chrome.runtime.sendMessage({ type: 'generatePassword' });
-    if (resp?.password) {
-      setInputValue(passwordField, resp.password);
-      // If there's a confirm password field, fill that too
-      const form = passwordField.closest('form');
-      if (form) {
-        const pwFields = form.querySelectorAll('input[type="password"]');
-        pwFields.forEach(f => {
-          if (f !== passwordField) setInputValue(f, resp.password);
-        });
-      }
-      showSaveBannerForGenerated(resp.password, passwordField);
-    }
-  }
-
-  function showSaveBannerForGenerated(password, passwordField) {
-    const usernameField = findUsernameField(passwordField);
-    // Wait a bit for user to fill in username, then offer to save
-    const checkAndSave = () => {
-      const username = usernameField?.value || '';
-      if (username) {
-        showSaveBanner(username, password);
-      }
-    };
-    // Listen for form submit
+    const resp = await bg({ type: 'generatePassword' });
+    if (!resp?.password) return;
+    setInputValue(passwordField, resp.password);
+    // If there's a confirm password field, fill that too
     const form = passwordField.closest('form');
     if (form) {
-      form.addEventListener('submit', () => {
-        setTimeout(checkAndSave, 100);
-      }, { once: true });
+      form.querySelectorAll('input[type="password"]').forEach(f => {
+        if (f !== passwordField) setInputValue(f, resp.password);
+      });
     }
+    // Stage right away so the generated secret survives even if we never see
+    // a recognizable submit; submit-time capture re-stages with fresh values,
+    // so an edited or regenerated password is never saved stale (that was the
+    // old bug: the banner closed over the value at generation time).
+    const userField = findUsernameField(passwordField);
+    stageCredentials((userField && userField.value) || lastTypedUsername, resp.password);
+    showToast(t('gen.filled'));
   }
 
-  // --- Detect form submissions ---
-  function watchFormSubmissions() {
-    document.addEventListener('submit', async e => {
-      const form = e.target;
-      const pwField = form.querySelector('input[type="password"]');
-      if (!pwField || !pwField.value) return;
+  // --- Credential capture -> pending save ---
+  // Submitted credentials are staged in the BACKGROUND immediately (per tab,
+  // short TTL). The offer-to-save banner appears once the page has settled:
+  // either here after a short delay (SPA, no navigation), or from the content
+  // script of the NEXT document — classic logins navigate away, which is
+  // exactly where the old setTimeout-in-this-page approach lost them.
 
-      const usernameField = findUsernameField(pwField);
-      const username = usernameField?.value || '';
-      const password = pwField.value;
+  function stageCredentials(username, password) {
+    if (!password) return;
+    bg({
+      type: 'stagePendingSave',
+      username: username || '',
+      password,
+      url: location.href,
+      site: extractSiteName(),
+    });
+  }
 
-      if (!username && !password) return;
+  // The password that was submitted: prefer autocomplete="new-password"
+  // fields (signup / change-password forms — grabbing the first field picks
+  // the *current* password on change forms), else the last filled one.
+  function bestPasswordField(scope) {
+    let fields = [...scope.querySelectorAll('input[type="password"]')].filter(f => f.value);
+    if (!fields.length) return null;
+    // Prefer visible fields (hidden ones are usually honeypots), but don't
+    // require it — some pages hide the form the instant it is submitted.
+    const visible = fields.filter(isVisible);
+    if (visible.length) fields = visible;
+    const news = fields.filter(f => (f.autocomplete || '').toLowerCase().includes('new-password'));
+    const pool = news.length ? news : fields;
+    return pool[pool.length - 1];
+  }
 
-      // Check if this credential is already saved
-      const resp = await chrome.runtime.sendMessage({ type: 'getMatchingItems', url: location.href });
-      const existing = (resp?.items || []).find(i =>
-        i.data.username === username && i.data.password === password
-      );
+  function captureAndStage(scope) {
+    const pwField = bestPasswordField(scope || document) || bestPasswordField(document);
+    if (!pwField) return;
+    const userField = findUsernameField(pwField);
+    const username = (userField && userField.value) || lastTypedUsername || '';
+    stageCredentials(username, pwField.value);
+  }
 
-      if (!existing) {
-        lastSubmittedCreds = { username, password, url: location.href };
-        // Delay to let the page navigate
-        setTimeout(() => showSaveBanner(username, password), 1500);
+  let bannerTimer = null;
+  function scheduleSameDocumentBanner() {
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(offerPendingSave, 1400);
+  }
+
+  async function offerPendingSave() {
+    if (saveBanner) return;
+    const resp = await bg({ type: 'checkPendingSave' });
+    if (resp?.pending) showSaveBanner(resp.pending);
+  }
+
+  function looksLikeSubmit(btn, form) {
+    const type = (btn.type || '').toLowerCase();
+    if (type === 'submit') return true;
+    // <button> inside a form defaults to type=submit
+    if (btn.tagName === 'BUTTON' && form && type !== 'button' && type !== 'reset') return true;
+    return /\b(log ?in|sign ?in|sign ?up|submit|continue|next|entrar|iniciar|acceder|registr|continuar|siguiente|enviar|guardar)\b/i
+      .test(btn.textContent || btn.value || '');
+  }
+
+  function watchCredentialCapture() {
+    document.addEventListener('input', e => {
+      const el = e.target;
+      if (el?.tagName === 'INPUT' && el.value && isUsernameField(el)) lastTypedUsername = el.value;
+    }, true);
+
+    document.addEventListener('submit', e => {
+      if (e.target instanceof HTMLFormElement) {
+        captureAndStage(e.target);
+        scheduleSameDocumentBanner();
       }
     }, true);
 
-    // Also watch for XHR/fetch login (SPA apps that don't use form submit)
-    const origSubmit = HTMLFormElement.prototype.submit;
-    HTMLFormElement.prototype.submit = function() {
-      const pwField = this.querySelector('input[type="password"]');
-      if (pwField?.value) {
-        const usernameField = findUsernameField(pwField);
-        lastSubmittedCreds = {
-          username: usernameField?.value || '',
-          password: pwField.value,
-          url: location.href,
-        };
+    document.addEventListener('keydown', e => {
+      const el = e.target;
+      if (e.key === 'Enter' && el?.tagName === 'INPUT' && el.type === 'password' && el.value) {
+        captureAndStage(el.closest('form') || document);
+        scheduleSameDocumentBanner();
       }
-      return origSubmit.apply(this, arguments);
-    };
+    }, true);
+
+    // SPAs that "submit" via a button click + fetch and never fire a submit
+    // event. (The old HTMLFormElement.prototype.submit override ran in the
+    // isolated world, so it never saw the page's own calls — dead code.)
+    document.addEventListener('click', e => {
+      const btn = e.target?.closest?.('button, input[type="submit"], [role="button"]');
+      if (!btn) return;
+      const form = btn.closest('form');
+      const scope = form || document;
+      if (!bestPasswordField(scope)) return;
+      captureAndStage(scope);
+      if (looksLikeSubmit(btn, form)) scheduleSameDocumentBanner();
+    }, true);
   }
 
   // --- Save banner ---
-  function showSaveBanner(username, password) {
+  async function showSaveBanner(pending) {
     removeSaveBanner();
+    const isUpdate = pending.kind === 'update';
+    let vaultSelect = '';
+    if (!isUpdate) {
+      const vaults = (await bg({ type: 'getVaults' }))?.vaults || [];
+      if (vaults.length > 1) {
+        vaultSelect = `<select class="vi-save-vault" id="vi-save-vault">` +
+          vaults.map(v => `<option value="${escAttr(v.id)}">${esc(v.name)}</option>`).join('') +
+          `</select>`;
+      }
+    }
+    const user = pending.username || t('save.noUser');
+    const site = (isUpdate && pending.title) || pending.site || '';
 
     saveBanner = document.createElement('div');
     saveBanner.className = 'vi-save-banner';
@@ -271,12 +390,13 @@
       <div class="vi-save-banner-content">
         <div class="vi-save-banner-icon">${ICON_SVG}</div>
         <div class="vi-save-banner-text">
-          <strong>Save to Vault Internal?</strong>
-          <span>${esc(username || 'No username')} on ${esc(extractSiteName())}</span>
+          <strong>${esc(isUpdate ? t('save.title.update') : t('save.title.new'))}</strong>
+          <span>${esc(t('save.body', { user, site }))}</span>
         </div>
+        ${vaultSelect}
         <div class="vi-save-banner-actions">
-          <button class="vi-save-btn vi-save-btn-primary" data-action="save">Save</button>
-          <button class="vi-save-btn vi-save-btn-dismiss" data-action="dismiss">Not now</button>
+          <button class="vi-save-btn vi-save-btn-primary" data-action="save">${esc(isUpdate ? t('save.update') : t('save.save'))}</button>
+          <button class="vi-save-btn vi-save-btn-dismiss" data-action="dismiss">${esc(t('save.dismiss'))}</button>
         </div>
       </div>
     `;
@@ -287,45 +407,23 @@
     saveBanner.addEventListener('click', async e => {
       const action = e.target.closest('[data-action]')?.dataset.action;
       if (action === 'save') {
-        await saveCredential(username, password);
+        const vaultId = saveBanner.querySelector('#vi-save-vault')?.value;
         removeSaveBanner();
-      }
-      if (action === 'dismiss') {
+        const res = await bg({ type: 'commitPendingSave', vaultId });
+        if (res?.ok) showToast(res.updated ? t('save.updated') : t('save.saved'));
+        else showToast(t('save.failed', { err: res?.error || '' }), true);
+      } else if (action === 'dismiss') {
         removeSaveBanner();
+        bg({ type: 'dismissPendingSave' });
       }
     });
 
-    // Auto-dismiss after 30s
+    // Auto-hide (visual only — the staged entry expires on its own TTL).
     setTimeout(removeSaveBanner, 30000);
   }
 
   function removeSaveBanner() {
     if (saveBanner) { saveBanner.remove(); saveBanner = null; }
-  }
-
-  async function saveCredential(username, password) {
-    const status = await chrome.runtime.sendMessage({ type: 'getStatus' });
-    if (!status.loggedIn) return;
-
-    const vaultsResp = await chrome.runtime.sendMessage({ type: 'getVaults' });
-    const vaults = vaultsResp?.vaults || [];
-    if (!vaults.length) return;
-
-    // Save to first vault (private vault)
-    const vault = vaults.find(v => !v.team_id) || vaults[0];
-    const title = extractSiteName();
-    const url = location.origin;
-
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'saveItem',
-        vaultId: vault.id,
-        data: { title, username, password, url, notes: '' },
-      });
-      showToast('Password saved to Vault Internal');
-    } catch (e) {
-      showToast('Failed to save: ' + e.message, true);
-    }
   }
 
   function extractSiteName() {
@@ -381,42 +479,6 @@
   // ============================================================
 
   const PK_NS = '__mpPk';
-
-  // Content scripts don't load the web app's i18n module, so keep a tiny
-  // local catalog for the passkey dialogs (es default, en fallback), in
-  // the same spirit as the existing hardcoded strings above.
-  const PK_STRINGS = {
-    es: {
-      'pk.shared': 'compartida', 'pk.createTitle': 'Crear un passkey',
-      'pk.createFor': 'Para {rp}', 'pk.saveTo': 'Guardar en',
-      'pk.cancel': 'Cancelar', 'pk.create': 'Crear',
-      'pk.useTitle': 'Usar un passkey', 'pk.useFor': 'Para {rp}',
-      'pk.lockedTitle': 'MasPassword está bloqueado',
-      'pk.lockedBody': 'Desbloquea la extensión para usar tus passkeys, o continúa con el navegador.',
-      'pk.useBrowser': 'Usar el navegador',
-    },
-    en: {
-      'pk.shared': 'shared', 'pk.createTitle': 'Create a passkey',
-      'pk.createFor': 'For {rp}', 'pk.saveTo': 'Save to',
-      'pk.cancel': 'Cancel', 'pk.create': 'Create',
-      'pk.useTitle': 'Use a passkey', 'pk.useFor': 'For {rp}',
-      'pk.lockedTitle': 'MasPassword is locked',
-      'pk.lockedBody': 'Unlock the extension to use your passkeys, or continue with the browser.',
-      'pk.useBrowser': 'Use the browser',
-    },
-  };
-  const PK_LOCALE = (navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';
-  function t(key, vars) {
-    let s = (PK_STRINGS[PK_LOCALE] && PK_STRINGS[PK_LOCALE][key]) || PK_STRINGS.en[key] || key;
-    if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
-    return s;
-  }
-
-  function bg(msg) {
-    return new Promise(resolve => {
-      chrome.runtime.sendMessage(msg, resolve);
-    });
-  }
 
   function respondToPage(id, result) {
     if (!id) return;
@@ -636,7 +698,9 @@
   // --- Init ---
   function init() {
     injectIcons();
-    watchFormSubmissions();
+    watchCredentialCapture();
+    // A login on the previous page may have staged credentials — offer now.
+    offerPendingSave();
 
     // Re-scan when DOM changes (SPA navigation, dynamic forms)
     const observer = new MutationObserver(() => {

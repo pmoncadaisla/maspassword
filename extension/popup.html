@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=360">
@@ -9,99 +9,117 @@
 
   <!-- Login screen -->
   <div id="screen-login" class="screen active">
-    <div class="popup-header">
-      <h1>Vault Internal</h1>
+    <div class="login-hero">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h1>MasPassword</h1>
+      <p class="login-sub" data-i18n="login.sub"></p>
     </div>
-    <div class="popup-body">
+    <div class="popup-body login-body">
       <div class="form-group">
-        <label>Server URL</label>
-        <input type="url" id="server-url" placeholder="https://your-server.com">
+        <label for="login-email" data-i18n="login.email"></label>
+        <input type="email" id="login-email" autocomplete="username" spellcheck="false">
       </div>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@example.com">
+        <label for="login-password" data-i18n="login.master"></label>
+        <input type="password" id="login-password">
       </div>
-      <div class="form-group">
-        <label>Master Password</label>
-        <input type="password" id="login-password" placeholder="Your master password">
-      </div>
-      <button class="btn btn-primary" id="btn-login">Log in</button>
+      <button class="btn btn-primary btn-block" id="btn-login" data-i18n="login.cta"></button>
       <div id="login-error" class="error-msg"></div>
+      <details class="server-details">
+        <summary data-i18n="login.server"></summary>
+        <input type="url" id="server-url" placeholder="https://…" spellcheck="false">
+        <p class="hint" data-i18n="login.serverHint"></p>
+      </details>
     </div>
   </div>
 
   <!-- Main screen (logged in) -->
   <div id="screen-main" class="screen">
-    <div class="popup-header">
-      <h1>Vault Internal</h1>
-      <button class="btn-icon" id="btn-logout" title="Lock">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clip-rule="evenodd"/></svg>
-      </button>
-    </div>
+    <header class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>MasPassword</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-icon" id="btn-refresh" data-i18n-title="main.refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-logout" data-i18n-title="main.lock">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </button>
+      </div>
+    </header>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search passwords...">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="search-input" data-i18n-ph="main.search" autocomplete="off" spellcheck="false">
     </div>
     <div class="popup-body" id="items-container">
       <div id="current-site-section"></div>
       <div id="all-items-section"></div>
       <div id="empty-state" class="empty-state">
-        <p>No matching passwords</p>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <p data-i18n="main.empty"></p>
       </div>
     </div>
-    <div class="popup-footer">
-      <button class="footer-btn" id="btn-generate">Generate password</button>
-      <button class="footer-btn" id="btn-refresh">Refresh</button>
-    </div>
+    <footer class="bottombar">
+      <button class="footer-btn" id="btn-generate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 3v2"/><path d="M12 19v2"/><path d="m5.6 5.6 1.5 1.5"/><path d="m16.9 16.9 1.5 1.5"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m5.6 18.4 1.5-1.5"/><path d="m16.9 7.1 1.5-1.5"/><circle cx="12" cy="12" r="3"/></svg>
+        <span data-i18n="main.generator"></span>
+      </button>
+      <span class="version" id="version"></span>
+    </footer>
   </div>
 
   <!-- Item detail screen (with TOTP) -->
   <div id="screen-detail" class="screen">
-    <div class="popup-header">
-      <button class="btn-icon" id="btn-detail-back" title="Back">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L9.06 10l3.71 3.71a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"/></svg>
+    <header class="topbar">
+      <button class="btn-icon" id="btn-detail-back" data-i18n-title="detail.back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <h1 id="detail-title">Item</h1>
-      <span style="width:24px"></span>
-    </div>
+      <h2 id="detail-title" class="topbar-title">Item</h2>
+      <span class="topbar-spacer"></span>
+    </header>
     <div class="popup-body" id="detail-body"></div>
-    <div class="popup-footer">
-      <button class="btn btn-primary" id="btn-detail-fill">Autofill</button>
-    </div>
+    <footer class="bottombar">
+      <button class="btn btn-primary btn-block" id="btn-detail-fill" data-i18n="detail.fill"></button>
+    </footer>
   </div>
 
   <!-- Password generator screen -->
   <div id="screen-generator" class="screen">
-    <div class="popup-header">
-      <button class="btn-icon" id="btn-gen-back" title="Back">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L9.06 10l3.71 3.71a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"/></svg>
+    <header class="topbar">
+      <button class="btn-icon" id="btn-gen-back" data-i18n-title="detail.back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <h1>Password generator</h1>
-      <span style="width:24px"></span>
-    </div>
+      <h2 class="topbar-title" data-i18n="gen.title"></h2>
+      <span class="topbar-spacer"></span>
+    </header>
     <div class="popup-body">
       <div class="gen-output-row">
         <div class="gen-password" id="gen-output"></div>
-        <button class="btn-icon" id="btn-gen-refresh" title="Regenerate">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h1.999a.75.75 0 000-1.5H3.482a.75.75 0 00-.75.75v4.316a.75.75 0 001.5 0v-1.5l.317.316a7 7 0 0011.712-3.138.75.75 0 00-1.449-.399zm1.23-3.723a.75.75 0 00.219-.53V2.855a.75.75 0 00-1.5 0v1.5l-.317-.316A7 7 0 003.633 7.481a.75.75 0 101.449.399 5.5 5.5 0 019.201-2.466l.312.311H12.6a.75.75 0 000 1.5h4.316a.75.75 0 00.53-.22z" clip-rule="evenodd"/></svg>
+        <button class="btn-icon" id="btn-gen-refresh" data-i18n-title="gen.regenerate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         </button>
       </div>
 
       <div class="gen-control">
-        <label>Length: <span id="gen-len-value">20</span></label>
+        <label><span data-i18n="gen.length"></span> <span class="gen-len-badge" id="gen-len-value">20</span></label>
         <input type="range" id="gen-length" min="8" max="40" value="20">
       </div>
 
       <div class="gen-toggles">
-        <label class="gen-toggle"><input type="checkbox" id="gen-upper" checked> Uppercase (A-Z)</label>
-        <label class="gen-toggle"><input type="checkbox" id="gen-lower" checked> Lowercase (a-z)</label>
-        <label class="gen-toggle"><input type="checkbox" id="gen-digits" checked> Digits (0-9)</label>
-        <label class="gen-toggle"><input type="checkbox" id="gen-symbols" checked> Symbols (!@#…)</label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-upper" checked> <span data-i18n="gen.upper"></span></label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-lower" checked> <span data-i18n="gen.lower"></span></label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-digits" checked> <span data-i18n="gen.digits"></span></label>
+        <label class="gen-toggle"><input type="checkbox" id="gen-symbols" checked> <span data-i18n="gen.symbols"></span></label>
       </div>
     </div>
-    <div class="popup-footer">
-      <button class="footer-btn" id="btn-gen-generate">Generate</button>
-      <button class="footer-btn" id="btn-gen-copy">Copy</button>
-    </div>
+    <footer class="bottombar bottombar-split">
+      <button class="btn btn-secondary" id="btn-gen-generate" data-i18n="gen.generate"></button>
+      <button class="btn btn-primary" id="btn-gen-copy" data-i18n="gen.copy"></button>
+    </footer>
   </div>
 
 <script type="module" src="popup.js"></script>

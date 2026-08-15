@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Vault Internal",
-  "version": "1.2.0",
-  "description": "Zero-knowledge password manager - autofill, passkeys, save, and generate passwords",
+  "name": "MasPassword",
+  "version": "1.3.0",
+  "description": "Gestor de contraseñas de conocimiento cero: autocompletado, passkeys, guardado y generador",
   "permissions": [
     "storage",
     "activeTab",

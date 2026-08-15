@@ -32,8 +32,8 @@
 }
 
 .vi-field-icon:hover {
-  color: #10a37f;
-  background: rgba(16, 163, 127, 0.08);
+  color: #0d9373;
+  background: rgba(13, 147, 115, 0.08);
 }
 
 /* Dropdown */
@@ -106,13 +106,13 @@
   text-align: left;
   font-family: inherit;
   font-size: 13px;
-  color: #10a37f;
+  color: #0d9373;
   font-weight: 500;
   transition: background 0.1s;
 }
 
 .vi-dropdown-action:hover {
-  background: rgba(16, 163, 127, 0.06);
+  background: rgba(13, 147, 115, 0.06);
 }
 
 /* Save banner */
@@ -144,7 +144,7 @@
 }
 
 .vi-save-banner-icon {
-  color: #10a37f;
+  color: #0d9373;
   flex-shrink: 0;
   display: flex;
 }
@@ -172,6 +172,20 @@
   flex-shrink: 0;
 }
 
+/* Vault picker inside the save banner (shown when the user has 2+ vaults) */
+.vi-save-vault {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 150px;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
 .vi-save-btn {
   padding: 6px 16px;
   border-radius: 6px;
@@ -184,12 +198,12 @@
 }
 
 .vi-save-btn-primary {
-  background: #10a37f;
+  background: #0d9373;
   color: white;
 }
 
 .vi-save-btn-primary:hover {
-  background: #0d8a6a;
+  background: #0b7f64;
 }
 
 .vi-save-btn-dismiss {
@@ -237,8 +251,8 @@
 @media (prefers-color-scheme: dark) {
   .vi-field-icon { color: #6b7280; }
   .vi-field-icon:hover {
-    color: #10a37f;
-    background: rgba(16, 163, 127, 0.15);
+    color: #0d9373;
+    background: rgba(13, 147, 115, 0.15);
   }
 
   .vi-dropdown {
@@ -251,7 +265,7 @@
   .vi-dropdown-item-user { color: #9ca3af; }
   .vi-dropdown-sep { background: #3a3b42; }
   .vi-dropdown-empty { color: #9ca3af; }
-  .vi-dropdown-action:hover { background: rgba(16, 163, 127, 0.14); }
+  .vi-dropdown-action:hover { background: rgba(13, 147, 115, 0.14); }
 
   .vi-save-banner-content {
     background: #26272c;
@@ -266,6 +280,19 @@
     color: #cbd5e1;
   }
   .vi-save-btn-dismiss:hover { background: #45464e; }
+
+  .vi-save-vault {
+    background: #1f2024;
+    border-color: #3a3b42;
+    color: #f3f4f6;
+  }
+
+  /* Brighter accent on dark surfaces (mirrors the web app's dark tokens) */
+  .vi-field-icon:hover,
+  .vi-dropdown-action,
+  .vi-save-banner-icon { color: #16b590; }
+  .vi-save-btn-primary { background: #16b590; color: #06251c; }
+  .vi-save-btn-primary:hover { background: #2ecfa9; }
 }
 
 /* ============================================================
@@ -299,7 +326,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #10a37f;
+  color: #0d9373;
   font-weight: 600;
   font-size: 13px;
   margin-bottom: 14px;
@@ -379,8 +406,8 @@
   font-family: inherit;
   transition: background 0.15s;
 }
-.vi-pk-btn-primary { background: #10a37f; color: #fff; }
-.vi-pk-btn-primary:hover { background: #0d8a6a; }
+.vi-pk-btn-primary { background: #0d9373; color: #fff; }
+.vi-pk-btn-primary:hover { background: #0b7f64; }
 .vi-pk-btn-ghost { background: #f3f4f6; color: #6b7280; }
 .vi-pk-btn-ghost:hover { background: #e5e7eb; }
 
@@ -402,7 +429,7 @@
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #10a37f;
+  color: #0d9373;
   border-bottom: 1px solid #f3f4f6;
 }
 
@@ -420,6 +447,9 @@
   .vi-pk-item-user { color: #9ca3af; }
   .vi-pk-btn-ghost { background: #3a3b42; color: #cbd5e1; }
   .vi-pk-btn-ghost:hover { background: #45464e; }
+  .vi-pk-brand, .vi-pk-dropdown-head { color: #16b590; }
+  .vi-pk-btn-primary { background: #16b590; color: #06251c; }
+  .vi-pk-btn-primary:hover { background: #2ecfa9; }
   .vi-pk-dropdown { background: #26272c; border-color: #3a3b42; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .vi-pk-dropdown-head { border-bottom-color: #313238; }
 }

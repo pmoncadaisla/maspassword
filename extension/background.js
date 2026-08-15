@@ -8,6 +8,7 @@
 // ============================================================
 
 import { domainsMatch } from './domain.js';
+import { generatePassword } from './generator.js';
 import {
   ALG_ES256, FLAG_UP, FLAG_UV, FLAG_BE, FLAG_BS, FLAG_AT,
   b64urlEncode, b64urlDecode, concatBytes, coseEc2Key, buildAuthData,
@@ -158,11 +159,6 @@ async function decryptData(key, encoded) {
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:c.slice(0,12)},key,c.slice(12));
   return new TextDecoder().decode(pt);
 }
-function generatePassword(length=20) {
-  const chars='abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
-  const a=new Uint8Array(length);crypto.getRandomValues(a);
-  return Array.from(a,b=>chars[b%chars.length]).join('');
-}
 async function exportKey(key) {
   const raw=await crypto.subtle.exportKey('raw',key);
   return btoa(String.fromCharCode(...new Uint8Array(raw)));
@@ -201,13 +197,18 @@ async function importRsaKey(jwkStr) {
 }
 
 // --- State ---
-let serverUrl = '';
+// Out of the box the extension talks to the corporate Cloud Run deployment;
+// the login screen still lets the user point it anywhere else.
+const DEFAULT_SERVER_URL = 'https://maspassword-113854647415.europe-southwest1.run.app';
+
+let serverUrl = DEFAULT_SERVER_URL;
 let token = null;
 let encKey = null;
 let privateKey = null; // RSA private key for shared vault decryption
 let vaultsCache = [];
 let vaultKeyCache = {}; // vaultId -> CryptoKey
 let allItemsCache = []; // [{vaultId, itemId, data: {title,username,password,url,...}}]
+let cachePrimed = false; // false after a service-worker restart, until refreshAllItems runs
 
 // --- Persistence (chrome.storage.session) ---
 async function saveSession() {
@@ -219,7 +220,7 @@ async function saveSession() {
 
 async function restoreSession() {
   const { serverUrl: url } = await chrome.storage.local.get('serverUrl');
-  if (url) serverUrl = url;
+  serverUrl = url || DEFAULT_SERVER_URL;
   const { token: t, encKeyB64, privateKeyJwk } = await chrome.storage.session.get(['token', 'encKeyB64', 'privateKeyJwk']);
   if (t) token = t;
   if (encKeyB64) encKey = await importKey(encKeyB64);
@@ -283,6 +284,7 @@ function logout() {
   vaultsCache = [];
   vaultKeyCache = {};
   allItemsCache = [];
+  cachePrimed = false;
   chrome.storage.session.clear();
 }
 
@@ -293,6 +295,7 @@ function isLoggedIn() {
 // --- Items cache ---
 async function refreshAllItems() {
   if (!isLoggedIn()) return;
+  cachePrimed = true;
   vaultsCache = (await api('GET', '/api/vaults')) || [];
   allItemsCache = [];
   for (const vault of vaultsCache) {
@@ -349,6 +352,141 @@ async function saveNewItem(vaultId, data) {
   return newItem;
 }
 
+// Change just the password of a cached item (used by the "update password?"
+// banner after the user submits new credentials for a site we already know).
+async function updateItemPassword(itemId, password) {
+  const item = allItemsCache.find(i => i.itemId === itemId);
+  if (!item) return { error: 'Item not found' };
+  const vault = vaultsCache.find(v => v.id === item.vaultId);
+  if (!vault) return { error: 'Vault not found' };
+  const key = await getVaultDecryptionKey(vault);
+  if (!key) return { error: 'Cannot decrypt vault key' };
+  const data = { ...item.data, password, pwChangedAt: Date.now() };
+  const updated = await api('PUT', `/api/vaults/${item.vaultId}/items/${itemId}`, {
+    data_encrypted: await encryptData(key, JSON.stringify(data)),
+    version: item.version,
+  });
+  item.data = data;
+  item.version = updated?.version ?? item.version + 1;
+  return { ok: true, updated: true };
+}
+
+// --- Pending save (credentials captured at submit time) ---
+// The content script stages what the user submitted; the banner that offers
+// to save is shown AFTER the page settles — usually in the next document,
+// because logins navigate. Staged entries live in chrome.storage.session
+// (memory-only, survives service-worker restarts) keyed by tab id, and the
+// password never travels back to any page: checkPendingSave returns display
+// metadata only, and the commit happens entirely in this worker.
+const PENDING_TTL_MS = 60000;
+
+async function getPendingSaves() {
+  const { pendingSaves } = await chrome.storage.session.get('pendingSaves');
+  return pendingSaves || {};
+}
+async function setPendingSaves(p) {
+  await chrome.storage.session.set({ pendingSaves: p });
+}
+
+async function stagePendingSave(msg, sender) {
+  const tabId = sender?.tab?.id;
+  if (tabId == null || !isLoggedIn()) return { ok: false };
+  const username = (msg.username || '').trim();
+  const password = msg.password || '';
+  if (!password) return { ok: false };
+  await ensureItemsCache();
+
+  const pending = await getPendingSaves();
+  const matches = matchItems(msg.url);
+  const exact = matches.find(i => (i.data.username || '') === username && i.data.password === password);
+  if (exact) {
+    // Already stored as-is — nothing to offer.
+    delete pending[tabId];
+    await setPendingSaves(pending);
+    return { ok: true, known: true };
+  }
+  const updatable = username
+    ? matches.find(i => (i.data.username || '') === username && i.data.password !== password)
+    : null;
+
+  pending[tabId] = {
+    username,
+    password,
+    url: msg.url || '',
+    site: msg.site || '',
+    at: Date.now(),
+    kind: updatable ? 'update' : 'new',
+    itemId: updatable?.itemId || null,
+    title: updatable?.data.title || '',
+  };
+  await setPendingSaves(pending);
+  return { ok: true };
+}
+
+async function checkPendingSave(sender) {
+  const tabId = sender?.tab?.id;
+  if (tabId == null) return {};
+  const pending = await getPendingSaves();
+  const p = pending[tabId];
+  if (!p) return {};
+  if (Date.now() - p.at > PENDING_TTL_MS || !isLoggedIn()) {
+    delete pending[tabId];
+    await setPendingSaves(pending);
+    return {};
+  }
+  // Only offer on pages of the same registrable domain: the banner lives in
+  // the page's DOM, so showing it after a cross-site redirect would leak the
+  // username to an unrelated site.
+  if (!domainsMatch(sender.url || '', p.url)) return {};
+  return { pending: { kind: p.kind, username: p.username, title: p.title, site: p.site } };
+}
+
+async function dismissPendingSave(sender) {
+  const tabId = sender?.tab?.id;
+  if (tabId == null) return { ok: true };
+  const pending = await getPendingSaves();
+  delete pending[tabId];
+  await setPendingSaves(pending);
+  return { ok: true };
+}
+
+async function commitPendingSave(msg, sender) {
+  const tabId = sender?.tab?.id;
+  const pending = await getPendingSaves();
+  const p = tabId != null ? pending[tabId] : null;
+  if (!p) return { error: 'Nothing to save' };
+  if (!isLoggedIn()) return { error: 'Not logged in' };
+  await ensureItemsCache();
+  delete pending[tabId];
+  await setPendingSaves(pending);
+
+  if (p.kind === 'update' && p.itemId) {
+    return updateItemPassword(p.itemId, p.password);
+  }
+  const vaultId = msg.vaultId || (vaultsCache.find(v => !v.team_id) || vaultsCache[0])?.id;
+  if (!vaultId) return { error: 'No vault available' };
+  let urlOrigin = p.url;
+  try { urlOrigin = new URL(p.url).origin; } catch {}
+  await saveNewItem(vaultId, {
+    type: 'login',
+    title: p.site || urlOrigin,
+    username: p.username,
+    password: p.password,
+    url: urlOrigin,
+    notes: '',
+    pwChangedAt: Date.now(),
+  });
+  return { ok: true, created: true };
+}
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const pending = await getPendingSaves();
+  if (pending[tabId]) {
+    delete pending[tabId];
+    await setPendingSaves(pending);
+  }
+});
+
 // --- Passkeys (WebAuthn provider) ---
 // The relay content script forwards intercepted navigator.credentials
 // calls here. The ORIGIN IS NEVER TAKEN FROM THE MESSAGE: it comes from
@@ -361,8 +499,27 @@ function senderOrigin(sender) {
   return raw;
 }
 
+// MV3 kills the service worker after ~30s idle; the session keys survive in
+// chrome.storage.session but the decrypted caches don't. Re-prime on demand
+// so the popup/dropdown never show an empty vault after a worker restart.
 async function ensureItemsCache() {
-  if (isLoggedIn() && allItemsCache.length === 0) await refreshAllItems();
+  if (isLoggedIn() && !cachePrimed) await refreshAllItems();
+}
+
+// Vault list with names decrypted for display. The raw cache only has
+// name_encrypted, which is useless to the popup/banner UIs.
+async function vaultsWithNames() {
+  await ensureItemsCache();
+  const out = [];
+  for (const v of vaultsCache) {
+    let name = 'Vault';
+    try {
+      const key = await getVaultDecryptionKey(v);
+      if (key) name = await decryptData(key, v.name_encrypted);
+    } catch {}
+    out.push({ id: v.id, name, team_id: v.team_id || null });
+  }
+  return out;
 }
 
 function passkeyItemsFor(rpId) {
@@ -537,23 +694,39 @@ async function handleMessage(msg, sender) {
       return { ok: true };
 
     case 'getMatchingItems':
+      await ensureItemsCache();
       return { items: matchItems(msg.url) };
 
     case 'getAllItems':
+      await ensureItemsCache();
       return { items: allItemsCache };
 
     case 'getVaults':
-      return { vaults: vaultsCache };
+      return { vaults: await vaultsWithNames() };
 
     case 'refreshItems':
       await refreshAllItems();
       return { ok: true, count: allItemsCache.length };
 
-    case 'saveItem':
-      return saveNewItem(msg.vaultId, msg.data);
+    case 'stagePendingSave':
+      return stagePendingSave(msg, sender);
+
+    case 'checkPendingSave':
+      return checkPendingSave(sender);
+
+    case 'commitPendingSave':
+      return commitPendingSave(msg, sender);
+
+    case 'dismissPendingSave':
+      return dismissPendingSave(sender);
 
     case 'generatePassword':
-      return { password: generatePassword(msg.length || 20) };
+      return { password: generatePassword({ length: msg.length || 20 }) };
+
+    case 'openPopup':
+      // Needs a user gesture and Chrome 127+; harmless no-op elsewhere.
+      try { await chrome.action.openPopup(); } catch {}
+      return { ok: true };
 
     case 'passkeyCandidates':
       return passkeyCandidates(msg, sender);
