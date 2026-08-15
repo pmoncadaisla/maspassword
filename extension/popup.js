@@ -182,6 +182,8 @@ function renderLoginOptions(mode) {
   const providers = mode?.providers || [];
   const passwordLogin = !mode || mode.passwordLogin !== false;
 
+  $('login-loading').style.display = 'none';
+
   const btns = $('sso-buttons');
   btns.innerHTML = '';
   providers.forEach(p => {

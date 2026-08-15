@@ -338,6 +338,19 @@ input::placeholder { color: var(--text4); }
   min-height: 15px;
 }
 
+/* Placeholder while the server's login options load (first open only) */
+.login-loading {
+  display: flex;
+  justify-content: center;
+  padding: 22px 0;
+}
+.login-loading .spinner {
+  width: 20px;
+  height: 20px;
+  border-color: var(--border-strong);
+  border-top-color: var(--accent);
+}
+
 /* SSO buttons + separator between SSO and the email form */
 #sso-buttons .btn-sso { margin-bottom: 8px; }
 #sso-buttons:empty { display: none; }

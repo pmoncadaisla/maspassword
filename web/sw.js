@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-v13';
+const CACHE_NAME = 'vault-v14';
 // '/app' is the app shell (also the manifest start_url). '/' (landing) and
 // '/index.html' (301 → /app) are intentionally NOT cached: redirects poison
 // the cache for navigations, and the landing should always come from the

@@ -28,6 +28,17 @@
           document.documentElement.setAttribute('data-skin', 'orange');
         }
       } catch (e) {}
+      // Login options (cached from /auth/mode): decide before first paint
+      // whether the email form exists, so the login screen never paints one
+      // option and then swaps to another. 'unknown' shows a spinner until
+      // the fresh /auth/mode answer lands (first visit only).
+      try {
+        var m = JSON.parse(localStorage.getItem('mp-auth-mode') || 'null');
+        document.documentElement.setAttribute('data-auth',
+          m ? (m.passwordLogin === false ? 'sso' : 'password') : 'unknown');
+      } catch (e) {
+        document.documentElement.setAttribute('data-auth', 'password');
+      }
     })();
   </script>
 </head>
@@ -40,6 +51,8 @@
       <div class="auth-mark" data-icon="vault" data-icon-size="26"></div>
       <h2 data-i18n="app.name">Vault Internal</h2>
       <p><span data-i18n="app.tagline">Gestor de contraseñas de conocimiento cero.</span><br><span data-i18n="app.zeroKnowledge">Tus contraseñas nunca salen de tu dispositivo sin cifrar.</span></p>
+      <!-- Placeholder while the login options are unknown (first visit) -->
+      <div id="auth-loading" class="auth-loading"><div class="spinner"></div></div>
       <!-- SSO: one button per provider (filled from /auth/mode sso_providers) -->
       <div id="sso-login" style="display:none">
         <div id="sso-buttons" class="sso-buttons"></div>

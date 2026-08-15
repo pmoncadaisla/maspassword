@@ -768,6 +768,11 @@ async function detectAuthMode() {
     renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false, data.password_login !== false);
     return data.iap_enabled === true;
   } catch {
+    // Server unreachable and nothing cached decided the login options yet:
+    // fall back to the email form rather than leaving the spinner forever.
+    if (document.documentElement.dataset.auth === 'unknown') {
+      renderSSOLogin([], true, true);
+    }
     return false;
   }
 }
@@ -806,6 +811,18 @@ function renderSSOLogin(providers, signupEnabled, passwordLogin) {
     const row = link && link.closest('p');
     if (row) row.style.display = 'none';
   }
+
+  // Resolve the pre-paint state (html[data-auth], set by the head script)
+  // and cache the answer so the next load paints the right option from the
+  // first frame — no form-to-SSO swap, no spinner.
+  document.documentElement.dataset.auth = passwordLogin ? 'password' : 'sso';
+  try {
+    localStorage.setItem('mp-auth-mode', JSON.stringify({
+      providers: providers.map(p => ({ id: p.id, name: p.name })),
+      signup: !!signupEnabled,
+      passwordLogin: !!passwordLogin,
+    }));
+  } catch {}
 }
 
 // Shared session bootstrap for IAP (ambient proxy headers) and SSO (Bearer
@@ -3218,6 +3235,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Routing: handle hash changes
   window.addEventListener('hashchange', () => handleRoute());
+
+  // Paint the cached login options right away (SSO buttons included) so
+  // returning users see the final login screen while /auth/mode is still in
+  // flight; the fresh answer re-renders idempotently and refreshes the cache.
+  try {
+    const cachedMode = JSON.parse(localStorage.getItem('mp-auth-mode') || 'null');
+    if (cachedMode) {
+      renderSSOLogin(cachedMode.providers || [], cachedMode.signup !== false, cachedMode.passwordLogin !== false);
+    }
+  } catch {}
 
   // Detect auth mode and initialize. Share links (#/share/...) bypass auth
   // entirely — the recipient may have no account. An SSO token from the
