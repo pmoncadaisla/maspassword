@@ -55,6 +55,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		nil,   // userRepo
 		nil,   // adminEmails
 		false, // signupEnabled (SSO-only deployment)
+		false, // passwordLoginEnabled (SSO-only deployment)
 		"test-version",
 	)
 }
@@ -111,6 +112,7 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 		IAPEnabled    bool                `json:"iap_enabled"`
 		SSOProviders  []oidc.ProviderInfo `json:"sso_providers"`
 		SignupEnabled bool                `json:"signup_enabled"`
+		PasswordLogin bool                `json:"password_login"`
 		Version       string              `json:"version"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &mode); err != nil {
@@ -121,6 +123,9 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 	}
 	if mode.SignupEnabled {
 		t.Error("signup_enabled should be false")
+	}
+	if mode.PasswordLogin {
+		t.Error("password_login should be false")
 	}
 	if mode.Version != "test-version" {
 		t.Errorf("version = %q", mode.Version)
@@ -145,5 +150,17 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 	r.ServeHTTP(wPost, req)
 	if wPost.Code != http.StatusForbidden || !strings.Contains(wPost.Body.String(), "signup disabled") {
 		t.Errorf("POST /auth/signup = %d (%s), want 403 signup disabled", wPost.Code, wPost.Body.String())
+	}
+
+	// Password login disabled → both SRP steps are closed, so nobody can
+	// probe SRP against arbitrary emails on an SSO-only deployment.
+	for _, path := range []string{"/auth/login/step1", "/auth/login/step2"} {
+		wPost = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(wPost, req)
+		if wPost.Code != http.StatusForbidden || !strings.Contains(wPost.Body.String(), "PASSWORD_LOGIN_DISABLED") {
+			t.Errorf("POST %s = %d (%s), want 403 PASSWORD_LOGIN_DISABLED", path, wPost.Code, wPost.Body.String())
+		}
 	}
 }

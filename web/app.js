@@ -765,7 +765,7 @@ async function detectAuthMode() {
     appVersion = data.version || '';
     renderVersion();
     rememberDefaultSkin(data.default_theme);
-    renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false);
+    renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false, data.password_login !== false);
     return data.iap_enabled === true;
   } catch {
     return false;
@@ -773,12 +773,13 @@ async function detectAuthMode() {
 }
 
 // Fills the login screen with one "Continue with {provider}" button per
-// configured SSO provider. SSO-first: when any provider exists, the SRP
-// email/password form is hidden entirely — users sign in with the provider
-// and are asked for the master password afterwards (unlock/setup screens).
-// The recovery link stays visible so an SSO user who forgot their master
-// password can still recover their data with the recovery key.
-function renderSSOLogin(providers, signupEnabled) {
+// configured SSO provider. The server's password_login flag decides whether
+// the SRP email/password form exists at all: on SSO-only deployments the
+// server also rejects /auth/login/*, so showing the form would only invite
+// login attempts against other people's emails. The recovery link stays
+// visible so an SSO user who forgot their master password can still recover
+// their data with the recovery key.
+function renderSSOLogin(providers, signupEnabled, passwordLogin) {
   const wrap = document.getElementById('sso-login');
   if (wrap && providers.length) {
     const btns = document.getElementById('sso-buttons');
@@ -794,12 +795,13 @@ function renderSSOLogin(providers, signupEnabled) {
       btns.appendChild(b);
     });
     wrap.style.display = '';
-    const srp = document.getElementById('srp-login');
-    if (srp) srp.style.display = 'none';
-    const sep = wrap.querySelector('.auth-separator');
-    if (sep) sep.style.display = 'none';
   }
-  if (!signupEnabled) {
+  const srp = document.getElementById('srp-login');
+  if (srp) srp.style.display = passwordLogin ? '' : 'none';
+  const sep = wrap && wrap.querySelector('.auth-separator');
+  if (sep) sep.style.display = (providers.length && passwordLogin) ? '' : 'none';
+  if (!signupEnabled || !passwordLogin) {
+    // Signup is SRP-based, so it goes away with password login too.
     const link = document.getElementById('btn-show-signup');
     const row = link && link.closest('p');
     if (row) row.style.display = 'none';

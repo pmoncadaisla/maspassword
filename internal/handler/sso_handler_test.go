@@ -493,3 +493,74 @@ func TestSSO_ProvidersEndpoint(t *testing.T) {
 		t.Errorf("unexpected providers: %+v", list)
 	}
 }
+
+// Extension flow: /start?ext_redirect=<chromiumapp.org URL> makes the
+// callback 302 the session token to the extension via the URL fragment.
+func TestSSO_ExtensionRedirect(t *testing.T) {
+	env := newSSOTestEnv(t, nil)
+	extURL := "https://" + strings.Repeat("a", 32) + ".chromiumapp.org/sso"
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/auth/sso/google/start?ext_redirect="+url.QueryEscape(extURL), nil)
+	w := httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusFound {
+		t.Fatalf("start with ext_redirect: expected 302, got %d (%s)", w.Code, w.Body.String())
+	}
+	loc, _ := url.Parse(w.Header().Get("Location"))
+	stateParam := loc.Query().Get("state")
+	state, err := oidc.ParseState([]byte(ssoTestSecret), stateParam)
+	if err != nil {
+		t.Fatalf("parsing state: %v", err)
+	}
+	if state.ExtRedirect != extURL {
+		t.Fatalf("state ext_redirect = %q, want %q", state.ExtRedirect, extURL)
+	}
+
+	env.setClaims(validClaims(state.Nonce))
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+		"/auth/sso/google/callback?code=code-1&state="+url.QueryEscape(stateParam), nil))
+	if w.Code != http.StatusFound {
+		t.Fatalf("callback with ext_redirect: expected 302, got %d (%s)", w.Code, w.Body.String())
+	}
+	target := w.Header().Get("Location")
+	if !strings.HasPrefix(target, extURL+"#sso=") {
+		t.Fatalf("callback Location = %q, want prefix %q", target, extURL+"#sso=")
+	}
+	sessionToken, _ := url.QueryUnescape(strings.TrimPrefix(target, extURL+"#sso="))
+	parsed, err := jwt.Parse(sessionToken, func(tk *jwt.Token) (any, error) {
+		if _, ok := tk.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(ssoTestSecret), nil
+	})
+	if err != nil || !parsed.Valid {
+		t.Fatalf("session token in fragment invalid: %v", err)
+	}
+	if cc := w.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("extension callback must not be cacheable, got %q", cc)
+	}
+}
+
+// Anything that is not a chromiumapp.org extension origin is rejected before
+// the flow even starts — no open redirect for session tokens.
+func TestSSO_ExtensionRedirectRejectsForeignURLs(t *testing.T) {
+	env := newSSOTestEnv(t, nil)
+	for _, bad := range []string{
+		"https://evil.example/steal",
+		"http://" + strings.Repeat("a", 32) + ".chromiumapp.org/sso", // http, not https
+		"https://" + strings.Repeat("a", 32) + ".chromiumapp.org.evil.example/",
+		"https://" + strings.Repeat("A", 32) + ".chromiumapp.org/",  // uppercase not in a-p
+		"https://" + strings.Repeat("a", 31) + ".chromiumapp.org/",  // wrong length
+		"https://" + strings.Repeat("a", 32) + ".chromiumapp.org/x?y=1", // query not allowed
+	} {
+		req := httptest.NewRequest(http.MethodGet,
+			"/auth/sso/google/start?ext_redirect="+url.QueryEscape(bad), nil)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("ext_redirect %q: expected 400, got %d", bad, w.Code)
+		}
+	}
+}

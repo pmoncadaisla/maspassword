@@ -221,10 +221,18 @@ async function saveSession() {
 async function restoreSession() {
   const { serverUrl: url } = await chrome.storage.local.get('serverUrl');
   serverUrl = url || DEFAULT_SERVER_URL;
-  const { token: t, encKeyB64, privateKeyJwk } = await chrome.storage.session.get(['token', 'encKeyB64', 'privateKeyJwk']);
+  const { token: t, encKeyB64, privateKeyJwk, pendingSSO: pSSO } =
+    await chrome.storage.session.get(['token', 'encKeyB64', 'privateKeyJwk', 'pendingSSO']);
   if (t) token = t;
   if (encKeyB64) encKey = await importKey(encKeyB64);
   if (privateKeyJwk) privateKey = await importRsaKey(privateKeyJwk);
+  if (!pendingSSO && pSSO) pendingSSO = pSSO;
+  // Keep the cached theme available for the popup's first paint even after
+  // a service-worker restart (fetchServerMode still refetches past its TTL).
+  if (!serverMode) {
+    const { serverModeCache } = await chrome.storage.local.get('serverModeCache');
+    if (serverModeCache?.url === serverUrl) serverMode = serverModeCache;
+  }
 }
 
 // --- Vault decryption key helper (handles both private and shared vaults) ---
@@ -256,6 +264,100 @@ async function api(method, path, body) {
   return data;
 }
 
+// --- Server mode (public /auth/mode: theme, SSO providers, login flags) ---
+let serverMode = null; // {url, theme, providers, passwordLogin, serverVersion, at}
+const MODE_TTL_MS = 300000;
+
+async function fetchServerMode(force = false) {
+  if (!force) {
+    if (serverMode && serverMode.url === serverUrl && Date.now() - serverMode.at < MODE_TTL_MS) {
+      return serverMode;
+    }
+    const { serverModeCache } = await chrome.storage.local.get('serverModeCache');
+    if (serverModeCache && serverModeCache.url === serverUrl && Date.now() - serverModeCache.at < MODE_TTL_MS) {
+      serverMode = serverModeCache;
+      return serverMode;
+    }
+  }
+  try {
+    const res = await fetch(serverUrl + '/auth/mode');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const m = await res.json();
+    serverMode = {
+      url: serverUrl,
+      theme: m.default_theme || '',
+      providers: m.sso_providers || [],
+      passwordLogin: m.password_login !== false,
+      serverVersion: m.version || '',
+      at: Date.now(),
+    };
+    await chrome.storage.local.set({ serverModeCache: serverMode });
+  } catch {
+    // Server unreachable: keep whatever we had (possibly null) so the popup
+    // can fall back to the email form.
+  }
+  return serverMode;
+}
+
+// --- SSO login (OIDC through the server, token via chromiumapp.org) ---
+// The server's /auth/sso/:provider/start accepts an ext_redirect pointing at
+// chrome.identity's dedicated redirect origin; the callback 302s there with
+// the session token in the URL fragment. The master password is still asked
+// afterwards (ssoUnlock) — it is the only thing that can decrypt the keys.
+let pendingSSO = null; // {token, email, encryptedPrivateKey}
+
+async function ssoStart(providerId) {
+  const redirectUri = chrome.identity.getRedirectURL('sso');
+  const startUrl = serverUrl + '/auth/sso/' + encodeURIComponent(providerId) +
+    '/start?ext_redirect=' + encodeURIComponent(redirectUri);
+  const finalUrl = await chrome.identity.launchWebAuthFlow({ url: startUrl, interactive: true });
+  const m = /#sso=([^&]+)/.exec(finalUrl || '');
+  if (!m) return { cancelled: true };
+  const ssoToken = decodeURIComponent(m[1]);
+
+  const res = await fetch(serverUrl + '/api/auth/session', {
+    headers: { Authorization: 'Bearer ' + ssoToken },
+  });
+  if (!res.ok) return { error: 'HTTP ' + res.status };
+  const session = await res.json();
+  if (!session.encryption_setup) {
+    // First login ever: the master password is created in the web app.
+    return { needsSetup: true, email: session.email };
+  }
+  pendingSSO = {
+    token: session.token || ssoToken,
+    email: session.email,
+    encryptedPrivateKey: session.encrypted_private_key,
+  };
+  await chrome.storage.session.set({ pendingSSO });
+  return { email: session.email };
+}
+
+async function ssoUnlock(password) {
+  if (!pendingSSO) {
+    const { pendingSSO: stored } = await chrome.storage.session.get('pendingSSO');
+    pendingSSO = stored || null;
+  }
+  if (!pendingSSO) return { error: 'No pending SSO session' };
+  const key = await deriveKey(password, pendingSSO.email);
+  let priv;
+  try {
+    // AES-GCM authentication fails on a wrong master password.
+    priv = await decryptPrivateKey(key, pendingSSO.encryptedPrivateKey);
+  } catch {
+    return { wrongPassword: true };
+  }
+  token = pendingSSO.token;
+  encKey = key;
+  privateKey = priv;
+  vaultKeyCache = {};
+  pendingSSO = null;
+  await chrome.storage.session.remove('pendingSSO');
+  await saveSession();
+  await refreshAllItems();
+  return { ok: true };
+}
+
 // --- Auth ---
 async function login(email, password) {
   const client = srpLogin(email, password);
@@ -285,6 +387,7 @@ function logout() {
   vaultKeyCache = {};
   allItemsCache = [];
   cachePrimed = false;
+  pendingSSO = null;
   chrome.storage.session.clear();
 }
 
@@ -686,12 +789,35 @@ async function handleMessage(msg, sender) {
       return { ok: true };
 
     case 'getStatus':
-      return { loggedIn: isLoggedIn(), serverUrl };
+      return {
+        loggedIn: isLoggedIn(),
+        serverUrl,
+        theme: serverMode?.theme || '',
+        // The popup usually closes when launchWebAuthFlow opens the IdP
+        // window; on reopen it jumps straight to the unlock screen.
+        pendingEmail: !isLoggedIn() && pendingSSO ? pendingSSO.email : null,
+      };
+
+    case 'getMode':
+      return { ...(await fetchServerMode(msg.force === true) || {}), serverUrl };
 
     case 'setServerUrl':
       serverUrl = msg.url.replace(/\/+$/, '');
+      serverMode = null;
       await chrome.storage.local.set({ serverUrl });
+      await chrome.storage.local.remove('serverModeCache');
       return { ok: true };
+
+    case 'ssoStart':
+      return ssoStart(msg.provider);
+
+    case 'ssoUnlock':
+      return ssoUnlock(msg.password);
+
+    case 'openWeb': {
+      await chrome.tabs.create({ url: serverUrl });
+      return { ok: true };
+    }
 
     case 'getMatchingItems':
       await ensureItemsCache();

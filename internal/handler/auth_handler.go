@@ -12,9 +12,10 @@ import (
 )
 
 type AuthHandler struct {
-	authService    service.AuthService
-	adminEmails    config.AdminEmails // zero value: nobody is admin
-	signupDisabled bool               // zero value: signup enabled
+	authService           service.AuthService
+	adminEmails           config.AdminEmails // zero value: nobody is admin
+	signupDisabled        bool               // zero value: signup enabled
+	passwordLoginDisabled bool               // zero value: SRP login enabled
 }
 
 func NewAuthHandler(authService service.AuthService) *AuthHandler {
@@ -31,6 +32,22 @@ func (h *AuthHandler) SetAdminEmails(adminEmails config.AdminEmails) {
 // through the identity provider.
 func (h *AuthHandler) SetSignupEnabled(enabled bool) {
 	h.signupDisabled = !enabled
+}
+
+// SetPasswordLoginEnabled toggles SRP email/master-password login
+// (PASSWORD_LOGIN env; default on). When disabled, both login steps return
+// 403 so nobody can probe SRP against other people's emails; clients read
+// the same flag from /auth/mode and hide the email form.
+func (h *AuthHandler) SetPasswordLoginEnabled(enabled bool) {
+	h.passwordLoginDisabled = !enabled
+}
+
+func (h *AuthHandler) rejectIfPasswordLoginDisabled(c *gin.Context) bool {
+	if !h.passwordLoginDisabled {
+		return false
+	}
+	c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "PASSWORD_LOGIN_DISABLED", "message": "password login is disabled; use SSO"}})
+	return true
 }
 
 func (h *AuthHandler) Signup(c *gin.Context) {
@@ -55,6 +72,9 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 }
 
 func (h *AuthHandler) LoginStep1(c *gin.Context) {
+	if h.rejectIfPasswordLoginDisabled(c) {
+		return
+	}
 	var req dto.LoginStep1Request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})
@@ -71,6 +91,9 @@ func (h *AuthHandler) LoginStep1(c *gin.Context) {
 }
 
 func (h *AuthHandler) LoginStep2(c *gin.Context) {
+	if h.rejectIfPasswordLoginDisabled(c) {
+		return
+	}
 	var req dto.LoginStep2Request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "VALIDATION_ERROR", "message": err.Error()}})

@@ -20,6 +20,14 @@ const STRINGS = {
     'login.errUrl': 'Introduce la URL del servidor',
     'login.errCreds': 'Introduce email y contraseña',
     'login.errLogin': 'No se pudo iniciar sesión',
+    'login.or': 'o',
+    'login.continueWith': 'Continuar con {name}',
+    'login.ssoFailed': 'No se pudo iniciar sesión con {name}',
+    'login.needsSetup': 'Tu cuenta aún no tiene contraseña maestra. Entra en la web para crearla y vuelve a intentarlo.',
+    'login.openWeb': 'Abrir MasPassword en la web',
+    'unlock.cta': 'Desbloquear',
+    'unlock.back': 'Usar otra cuenta',
+    'unlock.wrong': 'Contraseña maestra incorrecta',
     'main.search': 'Buscar contraseñas…',
     'main.thisSite': 'Este sitio',
     'main.all': 'Todas las contraseñas',
@@ -61,6 +69,14 @@ const STRINGS = {
     'login.errUrl': 'Enter the server URL',
     'login.errCreds': 'Enter email and password',
     'login.errLogin': 'Login failed',
+    'login.or': 'or',
+    'login.continueWith': 'Continue with {name}',
+    'login.ssoFailed': 'Could not sign in with {name}',
+    'login.needsSetup': 'Your account has no master password yet. Create it in the web app, then try again.',
+    'login.openWeb': 'Open MasPassword on the web',
+    'unlock.cta': 'Unlock',
+    'unlock.back': 'Use another account',
+    'unlock.wrong': 'Wrong master password',
     'main.search': 'Search passwords…',
     'main.thisSite': 'This site',
     'main.all': 'All passwords',
@@ -94,8 +110,10 @@ const STRINGS = {
   },
 };
 const LOCALE = (navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';
-function t(key) {
-  return (STRINGS[LOCALE] && STRINGS[LOCALE][key]) || STRINGS.es[key] || key;
+function t(key, vars) {
+  let s = (STRINGS[LOCALE] && STRINGS[LOCALE][key]) || STRINGS.es[key] || key;
+  if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
+  return s;
 }
 
 function applyI18n() {
@@ -126,16 +144,118 @@ async function init() {
   if (status?.serverUrl) {
     $('server-url').value = status.serverUrl;
   }
+  // Cached theme first — avoids a green→orange flash on first paint.
+  applySkin(status?.theme);
 
   if (status?.loggedIn) {
     showScreen('screen-main');
     $('search-input').focus();
     await loadItems();
+    refreshMode(); // keep the skin/mode cache warm for next time
+  } else if (status?.pendingEmail) {
+    // The Google window closed this popup mid-flow; resume at unlock.
+    $('unlock-email').textContent = status.pendingEmail;
+    showScreen('screen-unlock');
+    $('unlock-password').focus();
+    refreshMode();
   } else {
     showScreen('screen-login');
-    $('login-email').focus();
+    await refreshMode();
   }
 }
+
+// The server drives the login options and the look: /auth/mode says which
+// SSO providers exist, whether email/password login is allowed at all, and
+// the deployment's default theme (the popup mirrors the web app's skin).
+function applySkin(theme) {
+  document.documentElement.dataset.skin = theme === 'orange' ? 'orange' : '';
+}
+
+async function refreshMode(force = false) {
+  const mode = await chrome.runtime.sendMessage({ type: 'getMode', force });
+  applySkin(mode?.theme);
+  renderLoginOptions(mode);
+  return mode;
+}
+
+function renderLoginOptions(mode) {
+  const providers = mode?.providers || [];
+  const passwordLogin = !mode || mode.passwordLogin !== false;
+
+  const btns = $('sso-buttons');
+  btns.innerHTML = '';
+  providers.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn btn-primary btn-block btn-sso';
+    b.textContent = t('login.continueWith', { name: p.name });
+    b.addEventListener('click', () => ssoLogin(p));
+    btns.appendChild(b);
+  });
+
+  $('srp-form').style.display = passwordLogin ? '' : 'none';
+  $('login-sep').style.display = providers.length && passwordLogin ? '' : 'none';
+  if (passwordLogin && !providers.length) $('login-email').focus();
+}
+
+// --- SSO login (Google & friends) ---
+async function ssoLogin(provider) {
+  showError('');
+  $('setup-hint').style.display = 'none';
+  const res = await chrome.runtime.sendMessage({ type: 'ssoStart', provider: provider.id });
+  if (!res || res.cancelled) return;
+  if (res.error) return showError(t('login.ssoFailed', { name: provider.name }));
+  if (res.needsSetup) {
+    $('setup-hint').style.display = '';
+    return;
+  }
+  $('unlock-email').textContent = res.email;
+  $('unlock-error').textContent = '';
+  $('unlock-password').value = '';
+  showScreen('screen-unlock');
+  $('unlock-password').focus();
+}
+
+async function doUnlock() {
+  const pw = $('unlock-password').value;
+  if (!pw) return;
+  const btn = $('btn-unlock');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+  $('unlock-error').textContent = '';
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'ssoUnlock', password: pw });
+    if (res?.ok) {
+      $('unlock-password').value = '';
+      showScreen('screen-main');
+      $('search-input').focus();
+      await loadItems();
+    } else {
+      $('unlock-error').textContent = res?.wrongPassword ? t('unlock.wrong') : (res?.error || t('login.errLogin'));
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('unlock.cta');
+  }
+}
+
+$('btn-unlock').addEventListener('click', doUnlock);
+$('unlock-password').addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+$('btn-unlock-back').addEventListener('click', async () => {
+  // Drop the pending SSO session so a reopened popup starts at the login.
+  await chrome.runtime.sendMessage({ type: 'logout' });
+  showScreen('screen-login');
+  refreshMode();
+});
+$('btn-open-web').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openWeb' }));
+
+// Pointing the extension at another server refreshes its login options.
+$('server-url').addEventListener('change', async () => {
+  const url = $('server-url').value.trim();
+  if (!url) return;
+  await chrome.runtime.sendMessage({ type: 'setServerUrl', url });
+  await refreshMode(true);
+});
 
 // --- Login ---
 $('btn-login').addEventListener('click', doLogin);

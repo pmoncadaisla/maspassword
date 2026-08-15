@@ -22,6 +22,11 @@ type Config struct {
 	AppBaseURL      string
 	AdminEmails     AdminEmails
 	SignupEnabled   bool
+	// PasswordLoginEnabled gates SRP email/master-password login. SSO-only
+	// deployments set PASSWORD_LOGIN=false so /auth/login/* rejects attempts
+	// (stops credential probing against known emails) and clients hide the
+	// email form entirely.
+	PasswordLoginEnabled bool
 }
 
 // AdminEmails is a case-insensitive set of administrator email addresses.
@@ -96,5 +101,7 @@ func Load() *Config {
 		AppBaseURL:      os.Getenv("APP_BASE_URL"),
 		AdminEmails:     ParseAdminEmails(os.Getenv("ADMIN_EMAILS")),
 		SignupEnabled:   os.Getenv("SIGNUP_ENABLED") != "false",
+
+		PasswordLoginEnabled: os.Getenv("PASSWORD_LOGIN") != "false",
 	}
 }

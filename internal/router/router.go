@@ -29,6 +29,7 @@ func Setup(
 	userRepo repository.UserRepository,
 	adminEmails config.AdminEmails,
 	signupEnabled bool,
+	passwordLoginEnabled bool,
 	version string,
 ) *gin.Engine {
 	r := gin.New()
@@ -37,9 +38,10 @@ func Setup(
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS(corsOrigins))
 
-	// Keep the signup toggle and the /auth/mode advertisement in sync: the
-	// router is the single source of truth for signupEnabled.
+	// Keep the signup/password-login toggles and the /auth/mode advertisement
+	// in sync: the router is the single source of truth for both.
 	authHandler.SetSignupEnabled(signupEnabled)
+	authHandler.SetPasswordLoginEnabled(passwordLoginEnabled)
 
 	// Public routes (no JWT)
 	auth := r.Group("/auth")
@@ -52,6 +54,7 @@ func Setup(
 				"iap_enabled":    iapEnabled,
 				"sso_providers":  ssoHandler.ProviderList(),
 				"signup_enabled": signupEnabled,
+				"password_login": passwordLoginEnabled,
 				"version":        version,
 				"default_theme":  settingsHandler.DefaultTheme(c.Request.Context()),
 			})

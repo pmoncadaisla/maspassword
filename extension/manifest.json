@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "MasPassword",
-  "version": "1.3.0",
+  "version": "0.8.0",
   "description": "Gestor de contraseñas de conocimiento cero: autocompletado, passkeys, guardado y generador",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
     "<all_urls>"

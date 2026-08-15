@@ -25,7 +25,12 @@ type State struct {
 	Nonce        string `json:"nonce"`
 	CodeVerifier string `json:"code_verifier"`
 	RedirectURI  string `json:"redirect_uri"`
-	Use          string `json:"use"`
+	// ExtRedirect, when set, is where the callback sends the session token
+	// instead of the SPA handoff page: the browser extension's
+	// https://<id>.chromiumapp.org/ URL (validated by the SSO handler
+	// before signing). Empty for normal web logins.
+	ExtRedirect string `json:"ext_redirect,omitempty"`
+	Use         string `json:"use"`
 	jwt.RegisteredClaims
 }
 

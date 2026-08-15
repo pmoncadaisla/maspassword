@@ -90,6 +90,14 @@
     });
   }
 
+  // Server-driven skin: when the deployment's default theme is "orange",
+  // everything we inject picks up the ODS look (same as the web app).
+  let uiTheme = '';
+  function themed(el) {
+    if (uiTheme === 'orange') el.classList.add('vi-orange');
+    return el;
+  }
+
   // --- Utility ---
   function isVisible(el) {
     if (!el) return false;
@@ -134,6 +142,7 @@
       field.dataset.vaultIcon = 'true';
       const icon = document.createElement('button');
       icon.className = 'vi-field-icon';
+      themed(icon);
       icon.innerHTML = ICON_SVG;
       icon.tabIndex = -1;
       icon.addEventListener('mousedown', e => {
@@ -166,6 +175,7 @@
     removeDropdown();
     dropdown = document.createElement('div');
     dropdown.className = 'vi-dropdown';
+    themed(dropdown);
 
     if (!status?.loggedIn) {
       dropdown.innerHTML = `
@@ -386,6 +396,7 @@
 
     saveBanner = document.createElement('div');
     saveBanner.className = 'vi-save-banner';
+    themed(saveBanner);
     saveBanner.innerHTML = `
       <div class="vi-save-banner-content">
         <div class="vi-save-banner-icon">${ICON_SVG}</div>
@@ -440,6 +451,7 @@
   function showToast(msg, isError = false) {
     const toast = document.createElement('div');
     toast.className = 'vi-toast' + (isError ? ' vi-toast-error' : '');
+    themed(toast);
     toast.textContent = msg;
     document.body.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('vi-toast-show'));
@@ -592,6 +604,7 @@
     removePkOverlay();
     pkOverlay = document.createElement('div');
     pkOverlay.className = 'vi-pk-overlay';
+    themed(pkOverlay);
     pkOverlay.innerHTML = `<div class="vi-pk-card" role="dialog" aria-modal="true">
       <div class="vi-pk-brand">${ICON_SVG}<span>MasPassword</span></div>
       ${innerHtml}
@@ -667,6 +680,7 @@
     removePkDropdown();
     pkDropdown = document.createElement('div');
     pkDropdown.className = 'vi-pk-dropdown';
+    themed(pkDropdown);
     pkDropdown.innerHTML = `<div class="vi-pk-dropdown-head">${ICON_SVG}<span>${esc(t('pk.useTitle'))}</span></div>` +
       conditional.items.map(it => `
         <button class="vi-pk-item" data-id="${escAttr(it.itemId)}">
@@ -697,6 +711,9 @@
 
   // --- Init ---
   function init() {
+    // Resolve the deployment's theme once; anything injected afterwards is
+    // themed. (Injection happens on user interaction, well after this.)
+    bg({ type: 'getMode' }).then(mode => { uiTheme = mode?.theme || ''; });
     injectIcons();
     watchCredentialCapture();
     // A login on the previous page may have staged credentials — offer now.

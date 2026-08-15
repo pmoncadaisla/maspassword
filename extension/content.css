@@ -453,3 +453,47 @@
   .vi-pk-dropdown { background: #26272c; border-color: #3a3b42; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .vi-pk-dropdown-head { border-bottom-color: #313238; }
 }
+
+/* ============================================================
+   Orange (ODS) skin — added to injected roots as .vi-orange when
+   the server's default_theme is "orange". Mirrors the web app.
+   ============================================================ */
+.vi-orange,
+.vi-orange .vi-dropdown-item,
+.vi-orange .vi-dropdown-action,
+.vi-orange .vi-save-btn,
+.vi-orange .vi-save-vault,
+.vi-orange .vi-pk-card,
+.vi-orange .vi-pk-select,
+.vi-orange .vi-pk-list,
+.vi-orange .vi-pk-btn,
+.vi-orange .vi-pk-item {
+  border-radius: 0;
+}
+
+.vi-field-icon.vi-orange:hover {
+  color: #f16e00;
+  background: rgba(241, 110, 0, 0.10);
+}
+.vi-orange .vi-dropdown-action { color: #000; font-weight: 700; }
+.vi-orange .vi-dropdown-action:hover { background: rgba(241, 110, 0, 0.10); }
+.vi-orange .vi-save-banner-icon,
+.vi-orange .vi-pk-brand,
+.vi-orange .vi-pk-dropdown-head { color: #f16e00; }
+.vi-orange .vi-save-btn-primary,
+.vi-orange .vi-pk-btn-primary { background: #f16e00; color: #000; font-weight: 700; }
+.vi-orange .vi-save-btn-primary:hover,
+.vi-orange .vi-pk-btn-primary:hover { background: #d55e00; }
+
+@media (prefers-color-scheme: dark) {
+  .vi-field-icon.vi-orange:hover { color: #ff7900; background: rgba(255, 121, 0, 0.14); }
+  .vi-orange .vi-dropdown-action { color: #fff; }
+  .vi-orange .vi-dropdown-action:hover { background: rgba(255, 121, 0, 0.14); }
+  .vi-orange .vi-save-banner-icon,
+  .vi-orange .vi-pk-brand,
+  .vi-orange .vi-pk-dropdown-head { color: #ff7900; }
+  .vi-orange .vi-save-btn-primary,
+  .vi-orange .vi-pk-btn-primary { background: #ff7900; color: #000; }
+  .vi-orange .vi-save-btn-primary:hover,
+  .vi-orange .vi-pk-btn-primary:hover { background: #f16e00; }
+}

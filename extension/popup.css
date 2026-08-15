@@ -70,6 +70,76 @@
   }
 }
 
+/* Orange (ODS) skin — mirrors the web app's [data-skin="orange"] tokens.
+   Applied by popup.js when the server's default_theme is "orange". */
+[data-skin="orange"] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eeeeee;
+  --hover: #f6f6f6;
+
+  --border: #dddddd;
+  --border-strong: #cccccc;
+
+  --text: #000000;
+  --text2: #333333;
+  --text3: #595959;
+  --text4: #999999;
+
+  --accent: #f16e00;
+  --accent-hover: #d55e00;
+  --accent-ink: #000000;
+  --accent-tint: rgba(241, 110, 0, 0.10);
+  --accent-tint-strong: rgba(241, 110, 0, 0.20);
+  --on-accent: #000000;
+  --ring: 0 0 0 2px #f16e00;
+
+  --danger: #cd3c14;
+
+  /* SQUARE design language */
+  --r-md: 0;
+  --r-sm: 0;
+  --r-xs: 0;
+
+  --font: 'Helvetica Neue', Helvetica, 'Noto Sans', Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-skin="orange"] {
+    color-scheme: dark;
+
+    --bg: #141414;
+    --surface: #141414;
+    --surface-2: #333333;
+    --hover: #333333;
+
+    --border: #333333;
+    --border-strong: #666666;
+
+    --text: #ffffff;
+    --text2: #cccccc;
+    --text3: #999999;
+    --text4: #666666;
+
+    --accent: #ff7900;
+    --accent-hover: #f16e00;
+    --accent-ink: #ffffff;
+    --accent-tint: rgba(255, 121, 0, 0.14);
+    --accent-tint-strong: rgba(255, 121, 0, 0.26);
+    --on-accent: #000000;
+    --ring: 0 0 0 2px #ff7900;
+
+    --danger: #ff6666;
+  }
+}
+
+[data-skin="orange"] .btn,
+[data-skin="orange"] .brand-mark,
+[data-skin="orange"] input[type="range"]::-webkit-slider-thumb { border-radius: 0; }
+[data-skin="orange"] .btn-primary { font-weight: 700; }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
@@ -267,6 +337,43 @@ input::placeholder { color: var(--text4); }
   color: var(--danger);
   min-height: 15px;
 }
+
+/* SSO buttons + separator between SSO and the email form */
+#sso-buttons .btn-sso { margin-bottom: 8px; }
+#sso-buttons:empty { display: none; }
+
+.auth-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  color: var(--text4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.auth-sep::before, .auth-sep::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.btn-link {
+  display: block;
+  margin: 12px auto 0;
+  border: none;
+  background: none;
+  color: var(--text3);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-link:hover { color: var(--text); }
+
+#setup-hint { margin-top: 12px; }
+#setup-hint .hint { margin-bottom: 10px; font-size: 12px; }
 
 .server-details { margin-top: 14px; }
 .server-details summary {

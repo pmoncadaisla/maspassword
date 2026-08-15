@@ -122,6 +122,7 @@ func main() {
 		cfg.JWTSecret, cfg.CORSOrigins,
 		cfg.IAPEnabled, iapValidator, userRepo, cfg.AdminEmails,
 		cfg.SignupEnabled,
+		cfg.PasswordLoginEnabled,
 		version,
 	)
 

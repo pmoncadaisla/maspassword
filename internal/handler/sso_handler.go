@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,12 @@ import (
 	"github.com/masorange/maspassword/internal/repository"
 	"github.com/masorange/maspassword/internal/service"
 )
+
+// extRedirectPattern accepts only Chrome's dedicated extension-redirect
+// origin (chrome.identity.getRedirectURL): a 32-char a-p extension id under
+// chromiumapp.org, https only. Anything else is rejected so the SSO flow
+// can never be turned into an open redirect for the session token.
+var extRedirectPattern = regexp.MustCompile(`^https://[a-p]{32}\.chromiumapp\.org(/[A-Za-z0-9._~/-]*)?$`)
 
 // SSOHandler implements the app-level OIDC login flow under /auth/sso.
 // It is provider-agnostic: everything specific to an IdP lives in the
@@ -87,12 +94,21 @@ func (h *SSOHandler) Start(c *gin.Context) {
 		return
 	}
 
+	// Browser-extension logins pass their chromiumapp.org redirect so the
+	// callback hands the token straight back to the extension.
+	extRedirect := c.Query("ext_redirect")
+	if extRedirect != "" && !extRedirectPattern.MatchString(extRedirect) {
+		h.errorPage(c, http.StatusBadRequest, "Invalid extension redirect.")
+		return
+	}
+
 	redirectURI := h.baseURL(c) + "/auth/sso/" + url.PathEscape(client.ID) + "/callback"
 	state, err := oidc.SignState(h.jwtSecret, oidc.State{
 		Provider:     client.ID,
 		Nonce:        nonce,
 		CodeVerifier: verifier,
 		RedirectURI:  redirectURI,
+		ExtRedirect:  extRedirect,
 	})
 	if err != nil {
 		h.errorPage(c, http.StatusInternalServerError, "Could not start the sign-in flow.")
@@ -189,6 +205,21 @@ func (h *SSOHandler) Callback(c *gin.Context) {
 	if err != nil {
 		log.Printf("sso %s: issuing session token: %v", providerID, err)
 		h.errorPage(c, http.StatusInternalServerError, "Could not create your session.")
+		return
+	}
+
+	// Extension flow: hand the token back via the fragment of the
+	// chromiumapp.org URL captured by chrome.identity.launchWebAuthFlow.
+	// The pattern was validated at Start and the state is signed, so this
+	// can only ever point at an extension redirect origin. Fragments never
+	// reach servers or proxy logs.
+	if state.ExtRedirect != "" {
+		if !extRedirectPattern.MatchString(state.ExtRedirect) {
+			h.errorPage(c, http.StatusBadRequest, "Invalid extension redirect.")
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		c.Redirect(http.StatusFound, state.ExtRedirect+"#sso="+url.QueryEscape(token))
 		return
 	}
 

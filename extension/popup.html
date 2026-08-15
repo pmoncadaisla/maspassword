@@ -17,21 +17,49 @@
       <p class="login-sub" data-i18n="login.sub"></p>
     </div>
     <div class="popup-body login-body">
-      <div class="form-group">
-        <label for="login-email" data-i18n="login.email"></label>
-        <input type="email" id="login-email" autocomplete="username" spellcheck="false">
+      <div id="sso-buttons"></div>
+      <div class="auth-sep" id="login-sep" style="display:none"><span data-i18n="login.or"></span></div>
+      <div id="srp-form">
+        <div class="form-group">
+          <label for="login-email" data-i18n="login.email"></label>
+          <input type="email" id="login-email" autocomplete="username" spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label for="login-password" data-i18n="login.master"></label>
+          <input type="password" id="login-password">
+        </div>
+        <button class="btn btn-primary btn-block" id="btn-login" data-i18n="login.cta"></button>
       </div>
-      <div class="form-group">
-        <label for="login-password" data-i18n="login.master"></label>
-        <input type="password" id="login-password">
-      </div>
-      <button class="btn btn-primary btn-block" id="btn-login" data-i18n="login.cta"></button>
       <div id="login-error" class="error-msg"></div>
+      <div id="setup-hint" style="display:none">
+        <p class="hint" data-i18n="login.needsSetup"></p>
+        <button class="btn btn-secondary btn-block" id="btn-open-web" data-i18n="login.openWeb"></button>
+      </div>
       <details class="server-details">
         <summary data-i18n="login.server"></summary>
         <input type="url" id="server-url" placeholder="https://…" spellcheck="false">
         <p class="hint" data-i18n="login.serverHint"></p>
       </details>
+    </div>
+  </div>
+
+  <!-- Unlock screen (after SSO: only the master password is missing) -->
+  <div id="screen-unlock" class="screen">
+    <div class="login-hero">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h1>MasPassword</h1>
+      <p class="login-sub" id="unlock-email"></p>
+    </div>
+    <div class="popup-body login-body">
+      <div class="form-group">
+        <label for="unlock-password" data-i18n="login.master"></label>
+        <input type="password" id="unlock-password">
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-unlock" data-i18n="unlock.cta"></button>
+      <div id="unlock-error" class="error-msg"></div>
+      <button class="btn-link" id="btn-unlock-back" data-i18n="unlock.back"></button>
     </div>
   </div>
 
