@@ -383,6 +383,24 @@ const es = {
   'devices.created': 'Creado',
   'devices.lastUsed': 'Último uso',
   'devices.never': 'Nunca usado',
+  // Acceso con passkey (WebAuthn + PRF)
+  'passkeyAuth.login': 'Entrar con passkey',
+  'passkeyAuth.unlock': 'Desbloquear con passkey',
+  'passkeyAuth.manage': 'Acceso con passkey',
+  'passkeyAuth.hint': 'Registra una passkey (llavero de iCloud, huella, llave de seguridad…) para entrar sin escribir la contraseña maestra. La clave de cifrado viaja envuelta por el secreto de la passkey: el servidor sigue sin poder leer nada.',
+  'passkeyAuth.name': 'Nombre',
+  'passkeyAuth.namePlaceholder': 'MacBook de Pablo',
+  'passkeyAuth.create': 'Registrar passkey',
+  'passkeyAuth.list': 'Passkeys registradas',
+  'passkeyAuth.empty': 'Aún no hay passkeys registradas.',
+  'passkeyAuth.created': 'Passkey registrada. Ya puedes entrar con ella.',
+  'passkeyAuth.createdNoPrf': 'Passkey registrada sin cifrado (el dispositivo no soporta PRF): al entrar seguirá pidiendo la contraseña maestra.',
+  'passkeyAuth.noPrf': 'sin PRF',
+  'passkeyAuth.deleteConfirm': '¿Eliminar esta passkey? Dejará de servir para entrar.',
+  'passkeyAuth.failed': 'No se pudo registrar la passkey',
+  'passkeyAuth.loginFailed': 'No se pudo entrar con la passkey',
+  'passkeyAuth.unsupported': 'Este navegador no soporta passkeys',
+  'passkeyAuth.needUnlock': 'Desbloquea la caja fuerte antes de registrar una passkey',
 };
 
 const en = {
@@ -744,6 +762,24 @@ const en = {
   'devices.created': 'Created',
   'devices.lastUsed': 'Last used',
   'devices.never': 'Never used',
+  // Passkey login (WebAuthn + PRF)
+  'passkeyAuth.login': 'Sign in with a passkey',
+  'passkeyAuth.unlock': 'Unlock with a passkey',
+  'passkeyAuth.manage': 'Passkey access',
+  'passkeyAuth.hint': 'Register a passkey (iCloud Keychain, fingerprint, security key…) to sign in without typing the master password. The encryption key travels wrapped under the passkey\'s secret: the server still cannot read anything.',
+  'passkeyAuth.name': 'Name',
+  'passkeyAuth.namePlaceholder': "Pablo's MacBook",
+  'passkeyAuth.create': 'Register passkey',
+  'passkeyAuth.list': 'Registered passkeys',
+  'passkeyAuth.empty': 'No passkeys registered yet.',
+  'passkeyAuth.created': 'Passkey registered. You can sign in with it now.',
+  'passkeyAuth.createdNoPrf': 'Passkey registered without encryption (the device lacks PRF support): signing in will still ask for the master password.',
+  'passkeyAuth.noPrf': 'no PRF',
+  'passkeyAuth.deleteConfirm': 'Delete this passkey? It will no longer sign you in.',
+  'passkeyAuth.failed': 'Could not register the passkey',
+  'passkeyAuth.loginFailed': 'Could not sign in with the passkey',
+  'passkeyAuth.unsupported': 'This browser does not support passkeys',
+  'passkeyAuth.needUnlock': 'Unlock the vault before registering a passkey',
 };
 
 const fr = {
@@ -1105,6 +1141,24 @@ const fr = {
   'devices.created': 'Créé',
   'devices.lastUsed': 'Dernière utilisation',
   'devices.never': 'Jamais utilisé',
+  // Accès par passkey (WebAuthn + PRF)
+  'passkeyAuth.login': 'Se connecter avec une passkey',
+  'passkeyAuth.unlock': 'Déverrouiller avec une passkey',
+  'passkeyAuth.manage': 'Accès par passkey',
+  'passkeyAuth.hint': 'Enregistrez une passkey (trousseau iCloud, empreinte, clé de sécurité…) pour vous connecter sans saisir le mot de passe maître. La clé de chiffrement voyage enveloppée par le secret de la passkey : le serveur ne peut toujours rien lire.',
+  'passkeyAuth.name': 'Nom',
+  'passkeyAuth.namePlaceholder': 'MacBook de Pablo',
+  'passkeyAuth.create': 'Enregistrer la passkey',
+  'passkeyAuth.list': 'Passkeys enregistrées',
+  'passkeyAuth.empty': 'Aucune passkey enregistrée pour le moment.',
+  'passkeyAuth.created': 'Passkey enregistrée. Vous pouvez maintenant vous connecter avec.',
+  'passkeyAuth.createdNoPrf': "Passkey enregistrée sans chiffrement (l'appareil ne prend pas en charge PRF) : la connexion demandera toujours le mot de passe maître.",
+  'passkeyAuth.noPrf': 'sans PRF',
+  'passkeyAuth.deleteConfirm': 'Supprimer cette passkey ? Elle ne permettra plus de se connecter.',
+  'passkeyAuth.failed': "Impossible d'enregistrer la passkey",
+  'passkeyAuth.loginFailed': 'Connexion avec la passkey impossible',
+  'passkeyAuth.unsupported': 'Ce navigateur ne prend pas en charge les passkeys',
+  'passkeyAuth.needUnlock': 'Déverrouillez le coffre avant d\'enregistrer une passkey',
 };
 
 // Exposed for tests and tooling (key-set parity checks, i18n-keys.md generation).

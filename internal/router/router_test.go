@@ -36,6 +36,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		JWKSURLOverride:  "https://auth.test/jwks",
 	}})
 	ssoHandler := handler.NewSSOHandler(registry, "router-test-secret", "", nil)
+	passkeyHandler := handler.NewPasskeyHandler(nil, "router-test-secret", "")
 
 	return Setup(
 		handler.NewAuthHandler(nil),
@@ -47,6 +48,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		handler.NewSettingsHandler(nil), // DefaultTheme is nil-safe
 		handler.NewDeviceHandler(nil),
 		ssoHandler,
+		passkeyHandler,
 		nil, // deviceRepo (middleware only runs on /api)
 		"router-test-secret",
 		"*",

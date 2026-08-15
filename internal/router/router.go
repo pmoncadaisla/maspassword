@@ -21,6 +21,7 @@ func Setup(
 	settingsHandler *handler.SettingsHandler,
 	deviceHandler *handler.DeviceHandler,
 	ssoHandler *handler.SSOHandler,
+	passkeyHandler *handler.PasskeyHandler,
 	deviceRepo repository.DeviceTokenRepository,
 	jwtSecret string,
 	corsOrigins string,
@@ -55,6 +56,7 @@ func Setup(
 				"sso_providers":  ssoHandler.ProviderList(),
 				"signup_enabled": signupEnabled,
 				"password_login": passwordLoginEnabled,
+				"passkey_login":  true,
 				"version":        version,
 				"default_theme":  settingsHandler.DefaultTheme(c.Request.Context()),
 			})
@@ -64,6 +66,10 @@ func Setup(
 		auth.GET("/sso/providers", ssoHandler.Providers)
 		auth.GET("/sso/:provider/start", ssoHandler.Start)
 		auth.GET("/sso/:provider/callback", ssoHandler.Callback)
+
+		// Passkey login (WebAuthn assertion + PRF-wrapped keys)
+		auth.POST("/passkey/challenge", passkeyHandler.Challenge)
+		auth.POST("/passkey/login", passkeyHandler.Login)
 		auth.GET("/recovery/:email", authHandler.GetRecoveryData)
 		auth.POST("/recover/challenge", authHandler.RecoverChallenge)
 		auth.POST("/recover", authHandler.Recover)
@@ -90,6 +96,12 @@ func Setup(
 		// Auth session (for IAP flow)
 		api.GET("/auth/session", authHandler.GetSession)
 		api.POST("/auth/setup-encryption", authHandler.SetupEncryption)
+
+		// Login passkeys (management; registration is attestation-free
+		// because it happens over an authenticated session)
+		api.GET("/auth/passkeys", passkeyHandler.List)
+		api.POST("/auth/passkeys", passkeyHandler.Register)
+		api.DELETE("/auth/passkeys/:id", passkeyHandler.Delete)
 
 		// Vaults
 		api.GET("/vaults", vaultHandler.List)

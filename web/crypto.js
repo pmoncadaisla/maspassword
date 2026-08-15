@@ -11,9 +11,42 @@ export async function deriveKey(password, email) {
     { name: 'PBKDF2', salt: enc.encode('vault-internal:' + email), iterations: 600000, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
+    // Extractable so it can be wrapped under a passkey's PRF output
+    // (passkey login) — it never leaves the device unwrapped.
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// --- Passkey (WebAuthn PRF) unlock -----------------------------------------
+// A passkey with the PRF extension yields a per-credential secret; HKDF turns
+// it into an AES key that wraps/unwraps the user's encryption key. The
+// wrapped blob is stored server-side, but the PRF output never leaves the
+// client, so the zero-knowledge model is unchanged.
+
+export async function derivePrfKey(prfOutput) {
+  const ikm = await crypto.subtle.importKey('raw', prfOutput, 'HKDF', false, ['deriveKey']);
+  const enc = new TextEncoder();
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: enc.encode('maspassword:passkey-unlock:v1') },
+    ikm,
+    { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
   );
+}
+
+// Wrap the current encryption key under a PRF-derived key (registration).
+export async function wrapEncKey(prfKey, encKey) {
+  const raw = await crypto.subtle.exportKey('raw', encKey);
+  return encrypt(prfKey, btoa(String.fromCharCode(...new Uint8Array(raw))));
+}
+
+// Unwrap it back into a usable AES-GCM key (passkey login).
+export async function unwrapEncKey(prfKey, blob) {
+  const rawB64 = await decrypt(prfKey, blob);
+  const raw = Uint8Array.from(atob(rawB64), c => c.charCodeAt(0));
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
 // Encrypt plaintext string → base64(iv + ciphertext)

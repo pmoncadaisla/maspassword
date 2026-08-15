@@ -78,7 +78,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	deviceHandler := handler.NewDeviceHandler(deviceRepo)
 
 	ssoHandler := handler.NewSSOHandler(oidc.NewRegistry(nil), jwtSecret, "", userRepo)
-	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler, deviceHandler, ssoHandler, deviceRepo, jwtSecret, "*", false, nil, userRepo, nil, true, true, "test")
+	passkeyHandler := handler.NewPasskeyHandler(repository.NewPasskeyRepository(db), jwtSecret, "")
+	r := router.Setup(authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler, deviceHandler, ssoHandler, passkeyHandler, deviceRepo, jwtSecret, "*", false, nil, userRepo, nil, true, true, "test")
 	ts := httptest.NewServer(r)
 
 	cleanup := func() {

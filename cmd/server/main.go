@@ -110,6 +110,7 @@ func main() {
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo)
 	ssoHandler := handler.NewSSOHandler(ssoRegistry, cfg.JWTSecret, cfg.AppBaseURL, userRepo)
+	passkeyHandler := handler.NewPasskeyHandler(repository.NewPasskeyRepository(db), cfg.JWTSecret, cfg.AppBaseURL)
 
 	if len(cfg.AdminEmails) > 0 {
 		log.Printf("Admin panel enabled for %d email(s)", len(cfg.AdminEmails))
@@ -118,7 +119,7 @@ func main() {
 	// Router
 	r := router.Setup(
 		authHandler, vaultHandler, itemHandler, teamHandler, userHandler, shareLinkHandler, settingsHandler,
-		deviceHandler, ssoHandler, deviceRepo,
+		deviceHandler, ssoHandler, passkeyHandler, deviceRepo,
 		cfg.JWTSecret, cfg.CORSOrigins,
 		cfg.IAPEnabled, iapValidator, userRepo, cfg.AdminEmails,
 		cfg.SignupEnabled,

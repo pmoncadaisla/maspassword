@@ -58,6 +58,10 @@
         <div id="sso-buttons" class="sso-buttons"></div>
         <div class="auth-separator"><span data-i18n="auth.or">o</span></div>
       </div>
+      <!-- Passkey login (WebAuthn + PRF): shown when the server and browser support it -->
+      <button class="btn btn-secondary btn-passkey" id="btn-passkey-login" style="display:none">
+        <span data-icon="key" data-icon-size="15"></span> <span data-i18n="passkeyAuth.login">Entrar con passkey</span>
+      </button>
       <!-- SRP form: hidden entirely when SSO providers are configured (SSO-first login) -->
       <div id="srp-login">
         <div class="form-group">
@@ -188,6 +192,9 @@
         <input type="password" id="lock-password" placeholder="Tu contraseña maestra" data-i18n-placeholder="auth.masterPassword.placeholder" autocomplete="current-password">
       </div>
       <button class="btn btn-primary" id="btn-unlock" data-i18n="auth.unlock">Desbloquear</button>
+      <button class="btn btn-secondary btn-passkey" id="btn-lock-passkey" style="display:none">
+        <span data-icon="key" data-icon-size="15"></span> <span data-i18n="passkeyAuth.unlock">Desbloquear con passkey</span>
+      </button>
       <p><button class="link-btn" id="btn-lock-logout" data-i18n="lock.logoutInstead">Prefiero cerrar sesión</button></p>
     </div>
   </div>
@@ -240,6 +247,10 @@
           <button class="sidebar-item" id="btn-link-device">
             <span class="sidebar-item-icon" data-icon="link"></span>
             <span class="sidebar-item-name" data-i18n="devices.link">Vincular dispositivo</span>
+          </button>
+          <button class="sidebar-item" id="btn-manage-passkeys">
+            <span class="sidebar-item-icon" data-icon="key"></span>
+            <span class="sidebar-item-name" data-i18n="passkeyAuth.manage">Acceso con passkey</span>
           </button>
           <button class="sidebar-item" id="btn-cmd-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
             <span class="sidebar-item-icon" data-icon="search"></span>
@@ -742,6 +753,30 @@
     <div id="device-list" class="device-list"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btn-close-devices" data-i18n="actions.close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Login passkeys (WebAuthn + PRF).
+     ZERO-KNOWLEDGE: the server stores the credential public key and the
+     user's encryption key WRAPPED under the passkey's PRF secret. The PRF
+     output only ever exists on this device, so the server still cannot
+     decrypt anything. -->
+<div class="modal-overlay" id="modal-passkeys">
+  <div class="modal">
+    <h3><span data-icon="key" data-icon-size="17"></span> <span data-i18n="passkeyAuth.manage">Acceso con passkey</span></h3>
+    <p class="label-hint" data-i18n="passkeyAuth.hint">Registra una passkey (llavero de iCloud, huella, llave de seguridad…) para entrar sin contraseña maestra.</p>
+    <div id="passkey-create-form">
+      <div class="form-group">
+        <label data-i18n="passkeyAuth.name">Nombre</label>
+        <input type="text" id="passkey-name-input" placeholder="MacBook de Pablo" data-i18n-placeholder="passkeyAuth.namePlaceholder" maxlength="60" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn btn-primary" id="btn-create-passkey" data-i18n="passkeyAuth.create">Registrar passkey</button>
+    </div>
+    <div class="extras-title device-list-title" data-i18n="passkeyAuth.list">Passkeys registradas</div>
+    <div id="passkey-list" class="device-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-close-passkeys" data-i18n="actions.close">Cerrar</button>
     </div>
   </div>
 </div>

@@ -1,5 +1,5 @@
 import { SRPClient, generateVerifier } from '/srp.js';
-import { deriveKey, encrypt, decrypt, generatePassword, generateKeyPair, encryptPrivateKey, decryptPrivateKey, encryptWithPublicKey, decryptWithPrivateKey, generateVaultKey, importVaultKey, generateTOTP, generateRecoveryKey, deriveRecoveryKey } from '/crypto.js';
+import { deriveKey, encrypt, decrypt, generatePassword, generateKeyPair, encryptPrivateKey, decryptPrivateKey, encryptWithPublicKey, decryptWithPrivateKey, generateVaultKey, importVaultKey, generateTOTP, generateRecoveryKey, deriveRecoveryKey, derivePrfKey, wrapEncKey, unwrapEncKey } from '/crypto.js';
 import { generatePassword as genAdvanced, generatePassphrase, passwordEntropyBits } from '/generator.js';
 import { estimateStrength } from '/strength.js';
 import { checkPwnedCount } from '/breach.js';
@@ -765,13 +765,13 @@ async function detectAuthMode() {
     appVersion = data.version || '';
     renderVersion();
     rememberDefaultSkin(data.default_theme);
-    renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false, data.password_login !== false);
+    renderSSOLogin(data.sso_providers || [], data.signup_enabled !== false, data.password_login !== false, data.passkey_login === true);
     return data.iap_enabled === true;
   } catch {
     // Server unreachable and nothing cached decided the login options yet:
     // fall back to the email form rather than leaving the spinner forever.
     if (document.documentElement.dataset.auth === 'unknown') {
-      renderSSOLogin([], true, true);
+      renderSSOLogin([], true, true, false);
     }
     return false;
   }
@@ -784,7 +784,7 @@ async function detectAuthMode() {
 // login attempts against other people's emails. The recovery link stays
 // visible so an SSO user who forgot their master password can still recover
 // their data with the recovery key.
-function renderSSOLogin(providers, signupEnabled, passwordLogin) {
+function renderSSOLogin(providers, signupEnabled, passwordLogin, passkeyLogin) {
   const wrap = document.getElementById('sso-login');
   if (wrap && providers.length) {
     const btns = document.getElementById('sso-buttons');
@@ -812,6 +812,14 @@ function renderSSOLogin(providers, signupEnabled, passwordLogin) {
     if (row) row.style.display = 'none';
   }
 
+  // Passkey login button (login screen + lock screen): server support plus
+  // WebAuthn availability in this browser.
+  const pkAvailable = !!passkeyLogin && !!window.PublicKeyCredential;
+  const pkBtn = document.getElementById('btn-passkey-login');
+  if (pkBtn) pkBtn.style.display = pkAvailable ? '' : 'none';
+  const pkLock = document.getElementById('btn-lock-passkey');
+  if (pkLock) pkLock.style.display = pkAvailable ? '' : 'none';
+
   // Resolve the pre-paint state (html[data-auth], set by the head script)
   // and cache the answer so the next load paints the right option from the
   // first frame — no form-to-SSO swap, no spinner.
@@ -821,6 +829,7 @@ function renderSSOLogin(providers, signupEnabled, passwordLogin) {
       providers: providers.map(p => ({ id: p.id, name: p.name })),
       signup: !!signupEnabled,
       passwordLogin: !!passwordLogin,
+      passkeyLogin: !!passkeyLogin,
     }));
   } catch {}
 }
@@ -2363,6 +2372,198 @@ async function loadDevices() {
   }).join('');
 }
 
+// --- Login passkeys (WebAuthn + PRF) ---
+// A passkey both authenticates (assertion verified server-side) and, when the
+// authenticator supports the PRF extension (iCloud Keychain on macOS 15/iOS
+// 18, Google Password Manager, security keys…), decrypts: at registration the
+// user's encryption key is wrapped under a key derived from the PRF output
+// and stored server-side. The PRF secret never leaves this device, so the
+// server still can't read anything — zero knowledge holds, no master
+// password needed at login.
+
+// Fixed PRF evaluation input: the output is per-credential anyway, and a
+// fixed input is what makes usernameless (discoverable) login possible.
+const PASSKEY_PRF_INPUT = new TextEncoder().encode('maspassword:passkey-unlock:v1');
+
+function bufToB64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlToBuf(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+}
+function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+
+async function registerLoginPasskey() {
+  if (!window.PublicKeyCredential) return toast(t('passkeyAuth.unsupported'), true);
+  if (!encKey) return toast(t('passkeyAuth.needUnlock'), true);
+  const btn = document.getElementById('btn-create-passkey');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+  try {
+    const session = await api('GET', '/api/auth/session');
+    const existing = (await api('GET', '/api/auth/passkeys')) || [];
+
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        rp: { id: location.hostname, name: 'MasPassword' },
+        user: {
+          id: new TextEncoder().encode(session.user_id),
+          name: session.email,
+          displayName: session.display_name || session.email,
+        },
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+        authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+        excludeCredentials: existing.map(p => ({ type: 'public-key', id: b64urlToBuf(p.credential_id) })),
+        extensions: { prf: { eval: { first: PASSKEY_PRF_INPUT } } },
+      },
+    });
+
+    const spki = cred.response.getPublicKey && cred.response.getPublicKey();
+    if (!spki || cred.response.getPublicKeyAlgorithm() !== -7) {
+      throw Object.assign(new Error('unsupported algorithm'), { name: 'UnsupportedAlg' });
+    }
+
+    // Some authenticators return the PRF output at create; others only say
+    // "enabled" and need a follow-up assertion to evaluate it.
+    let prfOut = cred.getClientExtensionResults()?.prf?.results?.first;
+    if (!prfOut && cred.getClientExtensionResults()?.prf?.enabled) {
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rpId: location.hostname,
+          allowCredentials: [{ type: 'public-key', id: cred.rawId }],
+          userVerification: 'required',
+          extensions: { prf: { eval: { first: PASSKEY_PRF_INPUT } } },
+        },
+      });
+      prfOut = assertion.getClientExtensionResults()?.prf?.results?.first;
+    }
+
+    let blob = '';
+    if (prfOut) {
+      const prfKey = await derivePrfKey(prfOut);
+      blob = await wrapEncKey(prfKey, encKey);
+    }
+
+    const name = document.getElementById('passkey-name-input').value.trim();
+    await api('POST', '/api/auth/passkeys', {
+      name,
+      credential_id: bufToB64url(cred.rawId),
+      public_key: bufToB64(spki),
+      transports: (cred.response.getTransports ? cred.response.getTransports() : []).join(','),
+      prf_salt: bufToB64(PASSKEY_PRF_INPUT),
+      prf_encrypted_enc_key: blob,
+    });
+    document.getElementById('passkey-name-input').value = '';
+    toast(blob ? t('passkeyAuth.created') : t('passkeyAuth.createdNoPrf'));
+    loadLoginPasskeys();
+  } catch (e) {
+    // NotAllowedError = the user cancelled the browser dialog; stay quiet.
+    if (e?.name !== 'NotAllowedError') toast(t('passkeyAuth.failed'), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('passkeyAuth.create');
+  }
+}
+
+async function loadLoginPasskeys() {
+  const list = document.getElementById('passkey-list');
+  let items = [];
+  try {
+    items = (await api('GET', '/api/auth/passkeys')) || [];
+  } catch {
+    list.innerHTML = '';
+    return;
+  }
+  if (!items.length) {
+    list.innerHTML = `<p class="label-hint">${esc(t('passkeyAuth.empty'))}</p>`;
+    return;
+  }
+  list.innerHTML = items.map(p => {
+    const used = p.last_used_at
+      ? `${esc(t('devices.lastUsed'))} ${esc(formatRelative(p.last_used_at))}`
+      : esc(t('devices.never'));
+    return `<div class="device-row">
+      <span class="device-row-icon">${icon('key', { size: 14 })}</span>
+      <span class="device-row-info">
+        <span class="device-row-name">${esc(p.name)}${p.has_prf ? '' : ` <span class="device-badge-revoked">${esc(t('passkeyAuth.noPrf'))}</span>`}</span>
+        <span class="device-row-meta">${esc(t('devices.created'))} ${esc(formatRelative(p.created_at))} · ${used}</span>
+      </span>
+      <button class="btn-icon btn-icon-danger js-delete-passkey" data-id="${escAttr(p.id)}" title="${escAttr(t('actions.delete'))}">${icon('trash', { size: 14 })}</button>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.js-delete-passkey').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(t('passkeyAuth.deleteConfirm'))) return;
+      try {
+        await api('DELETE', `/api/auth/passkeys/${btn.dataset.id}`);
+        loadLoginPasskeys();
+      } catch (e) { toast(e.message, true); }
+    });
+  });
+}
+
+// Usernameless login: the browser lists the user's discoverable credentials
+// for this domain; the picked one identifies the account. With PRF the vault
+// unlocks directly; without it, fall back to the master-password screen.
+async function passkeyLogin() {
+  if (!window.PublicKeyCredential) return toast(t('passkeyAuth.unsupported'), true);
+  try {
+    const ch = await (await fetch('/auth/passkey/challenge', { method: 'POST' })).json();
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: b64urlToBuf(ch.challenge),
+        rpId: ch.rp_id,
+        userVerification: 'required',
+        extensions: { prf: { eval: { first: PASSKEY_PRF_INPUT } } },
+      },
+    });
+    const resp = assertion.response;
+    const res = await fetch('/auth/passkey/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        challenge_token: ch.challenge_token,
+        credential_id: bufToB64url(assertion.rawId),
+        client_data_json: bufToB64url(resp.clientDataJSON),
+        authenticator_data: bufToB64url(resp.authenticatorData),
+        signature: bufToB64url(resp.signature),
+      }),
+    });
+    if (!res.ok) throw new Error('passkey login rejected');
+    const data = await res.json();
+    token = data.token;
+    sessionStorage.setItem('token', token);
+
+    const prfOut = assertion.getClientExtensionResults()?.prf?.results?.first;
+    if (prfOut && data.prf_encrypted_enc_key) {
+      const prfKey = await derivePrfKey(prfOut);
+      const k = await unwrapEncKey(prfKey, data.prf_encrypted_enc_key);
+      const session = await api('GET', '/api/auth/session');
+      privateKey = await decryptPrivateKey(k, session.encrypted_private_key);
+      encKey = k;
+      iapSession = session;
+      lockContext = { email: session.email, encryptedPrivateKey: session.encrypted_private_key };
+      startAutoLock();
+      toast(t('toast.unlocked'));
+      await Promise.all([loadVaults(), loadTeams()]);
+      startOnboarding(session.email);
+      showMainApp();
+      renderSidebar();
+      setHash('/');
+    } else {
+      // Auth-only passkey: identity proven, but only the master password can
+      // decrypt — reuse the SSO/IAP unlock screen.
+      await initIAPSession();
+    }
+  } catch (e) {
+    if (e?.name !== 'NotAllowedError') toast(t('passkeyAuth.loginFailed'), true);
+  }
+}
+
 // --- Modals ---
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -3069,6 +3270,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Linked devices modal (QR pairing)
   document.getElementById('btn-link-device').addEventListener('click', openDevicesModal);
+
+  // Login passkeys (register / list / delete / sign in)
+  document.getElementById('btn-manage-passkeys').addEventListener('click', () => {
+    openModal('modal-passkeys');
+    loadLoginPasskeys();
+  });
+  document.getElementById('btn-close-passkeys').addEventListener('click', () => closeModal('modal-passkeys'));
+  document.getElementById('btn-create-passkey').addEventListener('click', registerLoginPasskey);
+  document.getElementById('btn-passkey-login').addEventListener('click', passkeyLogin);
+  document.getElementById('btn-lock-passkey').addEventListener('click', passkeyLogin);
   document.getElementById('btn-create-device').addEventListener('click', createDevice);
   document.getElementById('device-name-input').addEventListener('keydown', e => { if (e.key === 'Enter') createDevice(); });
   document.getElementById('btn-close-devices').addEventListener('click', () => {
@@ -3242,7 +3453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const cachedMode = JSON.parse(localStorage.getItem('mp-auth-mode') || 'null');
     if (cachedMode) {
-      renderSSOLogin(cachedMode.providers || [], cachedMode.signup !== false, cachedMode.passwordLogin !== false);
+      renderSSOLogin(cachedMode.providers || [], cachedMode.signup !== false, cachedMode.passwordLogin !== false, cachedMode.passkeyLogin === true);
     }
   } catch {}
 

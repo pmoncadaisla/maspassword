@@ -2481,3 +2481,13 @@ html[data-auth="unknown"] .auth-loading { display: flex; }
   border-color: var(--border-strong);
   border-top-color: var(--accent);
 }
+
+/* Passkey login/unlock buttons (login + lock screens) */
+.btn-passkey {
+  width: 100%;
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
