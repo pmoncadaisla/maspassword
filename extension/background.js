@@ -255,11 +255,18 @@ async function getVaultDecryptionKey(vault) {
 
 // --- API ---
 async function api(method, path, body) {
+  const hadToken = !!token;
   const opts = { method, headers: {} };
   if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   const res = await fetch(serverUrl + path, opts);
   const data = res.status !== 204 ? await res.json().catch(() => null) : null;
+  if (res.status === 401 && hadToken) {
+    // The session JWT expired (1h): relock instead of lingering in a
+    // logged-in-but-broken state (empty popup, empty vault pickers).
+    logout();
+    throw new Error('session expired');
+  }
   if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
   return data;
 }

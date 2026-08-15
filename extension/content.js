@@ -18,6 +18,9 @@
   // username field is often gone from the DOM (email on step 1, password on
   // step 2), so remember the last username-ish value the user typed.
   let lastTypedUsername = '';
+  // True when this page IS the configured MasPassword server: the extension
+  // steps aside completely (native WebAuthn dialogs, no autofill/capture).
+  let passthroughNative = false;
 
   // --- i18n (content scripts don't load the web app's i18n module) ---
   const STRINGS = {
@@ -505,6 +508,13 @@
   });
 
   async function handlePasskeyReq(d) {
+    // On MasPassword itself every WebAuthn request goes to the NATIVE
+    // browser dialog: an app-login passkey must live outside the vault it
+    // opens (iCloud Keychain, security key…), never inside it.
+    if (passthroughNative) {
+      if (d.kind === 'abortConditional') return;
+      return respondToPage(d.id, { fallbackNative: true });
+    }
     if (d.kind === 'create') return handleCreate(d);
     if (d.kind === 'get') return handleGet(d);
     if (d.kind === 'getConditional') return handleConditional(d);
@@ -519,7 +529,12 @@
         () => respondToPage(d.id, { fallbackNative: true }),
         () => respondToPage(d.id, { cancelled: true }));
     }
-    const vaults = (await bg({ type: 'getVaults' })).vaults || [];
+    const vaults = (await bg({ type: 'getVaults' }))?.vaults || [];
+    if (!vaults.length) {
+      // Expired session or no vaults: never show an empty picker — let the
+      // browser create the passkey natively instead.
+      return respondToPage(d.id, { fallbackNative: true });
+    }
     pkCreateDialog(p, vaults,
       async (vaultId) => {
         const res = await bg({ type: 'passkeyRegister', ...p, vaultId });
@@ -706,11 +721,23 @@
 
   function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
 
-  // Tell page.js the relay is live so it flushes any buffered requests.
-  window.postMessage({ [PK_NS]: true, dir: 'ready' }, location.origin);
-
   // --- Init ---
-  function init() {
+  async function init() {
+    // Detect the extension's own server BEFORE releasing buffered passkey
+    // requests, so they resolve natively there.
+    const status = await bg({ type: 'getStatus' });
+    try {
+      passthroughNative = !!status?.serverUrl && new URL(status.serverUrl).origin === location.origin;
+    } catch {}
+
+    // Tell page.js the relay is live so it flushes any buffered requests.
+    window.postMessage({ [PK_NS]: true, dir: 'ready' }, location.origin);
+
+    // On MasPassword itself: no autofill icons, no credential capture (we
+    // are not going to offer saving the master password into the vault it
+    // opens), no passkey UI — the browser's native dialogs take over.
+    if (passthroughNative) return;
+
     // Resolve the deployment's theme once; anything injected afterwards is
     // themed. (Injection happens on user interaction, well after this.)
     bg({ type: 'getMode' }).then(mode => { uiTheme = mode?.theme || ''; });
