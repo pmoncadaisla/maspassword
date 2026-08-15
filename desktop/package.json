@@ -2,7 +2,7 @@
   "name": "maspassword-desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "MasPassword desktop app for macOS (Tauri v2)",
+  "description": "Sésamo desktop app for macOS (Tauri v2)",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",

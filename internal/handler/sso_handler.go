@@ -234,9 +234,9 @@ func (h *SSOHandler) Callback(c *gin.Context) {
 
 // callbackPage hands the session token to the SPA via the URL fragment.
 const callbackPage = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>MasPassword</title></head>
+<html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Sésamo</title></head>
 <body><script>location.replace('/app#sso=' + encodeURIComponent(%s));</script>
-<noscript><a href="/app">Continue to MasPassword</a></noscript></body></html>`
+<noscript><a href="/app">Continue to Sésamo</a></noscript></body></html>`
 
 // errorPage renders a minimal self-contained error page (no stack traces)
 // with a link back to the app.
@@ -246,9 +246,9 @@ func (h *SSOHandler) errorPage(c *gin.Context, status int, msg string) {
 }
 
 const errorPage = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>MasPassword — sign-in error</title></head>
+<html><head><meta charset="utf-8"><title>Sésamo — sign-in error</title></head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem">
 <h1 style="font-size:1.2rem">Could not sign you in</h1>
 <p>%s</p>
-<p><a href="/app">Back to MasPassword</a></p>
+<p><a href="/app">Back to Sésamo</a></p>
 </body></html>`

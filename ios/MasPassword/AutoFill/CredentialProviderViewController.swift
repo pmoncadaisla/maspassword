@@ -54,7 +54,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         host.didMove(toParent: self)
     }
 
-    /// User picked MasPassword from the AutoFill picker: show the list
+    /// User picked Sésamo from the AutoFill picker: show the list
     /// filtered by the page's service identifiers (after unlock).
     override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
         model.begin(request: AutoFillRequest(
@@ -80,7 +80,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         model.begin(request: request)
     }
 
-    /// "Set up MasPassword in Settings > Passwords": nothing to configure
+    /// "Set up Sésamo in Settings > Passwords": nothing to configure
     /// beyond having linked the app, so just explain and close.
     override func prepareInterfaceForExtensionConfiguration() {
         model.beginConfigurationInfo()

@@ -1,5 +1,5 @@
 /* ============================================================================
-   MasPassword — flat, clean UI system
+   Sésamo — flat, clean UI system
    ----------------------------------------------------------------------------
    One coherent stylesheet: design tokens (light + dark), base, components.
    Principles: flat surfaces, 1px hairlines, a single emerald accent,
@@ -2259,6 +2259,14 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: none; box
 }
 [data-skin="orange"] .sidebar-item.active .sidebar-item-icon { color: var(--text); }
 [data-skin="orange"] .nav-item.active { font-weight: 700; }
+
+/* --- Orange skin: brand marks — the Sésamo door, white on brand orange
+   (#ff7900, logo treatment: matches the app icon, exempt from text AA) --- */
+[data-skin="orange"] .auth-mark,
+[data-skin="orange"] .brand-mark {
+  background: #ff7900;
+  color: #ffffff;
+}
 
 /* --- Orange skin: links — underlined ink, orange on hover (ODS) --- */
 [data-skin="orange"] .link-btn,

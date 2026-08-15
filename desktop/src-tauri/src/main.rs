@@ -1,5 +1,5 @@
-// MasPassword desktop (macOS) — a thin native wrapper around the self-hosted
-// MasPassword web app.
+// Sésamo desktop (macOS) — a thin native wrapper around the self-hosted
+// Sésamo web app.
 //
 // The web UI uses *relative* API paths (`/auth/mode`, `/api/...`) and same-origin
 // session cookies, so the wrapper must point a real webview at the user's server
@@ -55,7 +55,7 @@ fn open_vault(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Reuse the vault window if it already exists (e.g. reconnecting).
     if app.get_webview_window("vault").is_none() {
         WebviewWindowBuilder::new(&app, "vault", WebviewUrl::External(parsed))
-            .title("MasPassword")
+            .title("Sésamo")
             .inner_size(1160.0, 800.0)
             .min_inner_size(720.0, 560.0)
             .center()
@@ -85,5 +85,5 @@ fn main() {
             forget_server
         ])
         .run(tauri::generate_context!())
-        .expect("error while running the MasPassword desktop app");
+        .expect("error while running the Sésamo desktop app");
 }

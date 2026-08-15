@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — RFC 6238 TOTP (dependency-free)
+// Sésamo — RFC 6238 TOTP (dependency-free)
 //
 // Uses the Web Crypto API (crypto.subtle) HMAC-SHA1, available in
 // extension popups and in Node v22. No external dependencies.

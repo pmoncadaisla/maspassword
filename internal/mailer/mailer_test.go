@@ -44,7 +44,7 @@ func TestRenderInviteMember(t *testing.T) {
 	if !strings.Contains(subject, "Equipo Seguridad") {
 		t.Errorf("subject missing team name: %q", subject)
 	}
-	for _, want := range []string{"Ana García", "Equipo Seguridad", "member", "https://mp.example.com", "MasPassword", "mensaje autom"} {
+	for _, want := range []string{"Ana García", "Equipo Seguridad", "member", "https://mp.example.com", "s&eacute;samo", "mensaje autom"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("html missing %q", want)
 		}
@@ -64,10 +64,10 @@ func TestRenderInviteMemberWithoutBaseURLHasNoButton(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
-	if strings.Contains(html, "Abrir MasPassword") {
+	if strings.Contains(html, "Abrir Sésamo") {
 		t.Error("button must be omitted when base URL is empty")
 	}
-	if strings.Contains(text, "Abrir MasPassword") {
+	if strings.Contains(text, "Abrir Sésamo") {
 		t.Error("text link must be omitted when base URL is empty")
 	}
 }
@@ -158,7 +158,7 @@ func TestSendPostsMailgunForm(t *testing.T) {
 		t.Errorf("unexpected basic auth %q:%q", gotUser, gotPass)
 	}
 	want := map[string]string{
-		"from":    "MasPassword <noreply@mg.example.com>",
+		"from":    "Sésamo <noreply@mg.example.com>",
 		"to":      "dest@example.com",
 		"subject": "Hola",
 		"html":    "<p>Hola</p>",

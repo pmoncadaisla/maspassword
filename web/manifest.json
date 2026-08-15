@@ -1,24 +1,30 @@
 {
-  "name": "Vault Internal",
-  "short_name": "Vault",
-  "description": "Zero-Knowledge Password Manager",
+  "name": "Sésamo",
+  "short_name": "Sésamo",
+  "description": "Gestor de contraseñas zero-knowledge",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#6366f1",
+  "background_color": "#000000",
+  "theme_color": "#ff7900",
   "orientation": "any",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

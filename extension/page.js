@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — WebAuthn page hook (MAIN world)
+// Sésamo — WebAuthn page hook (MAIN world)
 //
 // Injected into the page's own JS world at document_start so it can
 // replace navigator.credentials.create/get BEFORE the site calls them.

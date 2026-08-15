@@ -7,30 +7,33 @@ import (
 	"strings"
 )
 
-// cardTmpl is the shared card layout: light background, white card with a
-// MasPassword header, content area, optional button and an automatic-message
-// footer. All styles are inline for email-client compatibility.
+// cardTmpl is the shared card layout: light background, white card with the
+// Sésamo header (orange mark + lowercase wordmark, ODS square design: no
+// border radius, orange button with black bold text), content area, optional
+// button and an automatic-message footer. All styles are inline for
+// email-client compatibility (the door mark is a plain orange square: SVG is
+// unreliable in email clients).
 var cardTmpl = template.Must(template.New("card").Parse(`<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <title>{{.Title}}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f2f4f8;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f8;padding:32px 12px;">
+<body style="margin:0;padding:0;background-color:#f6f6f6;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f6;padding:32px 12px;">
 <tr><td align="center">
-<table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:10px;border:1px solid #e3e8ef;font-family:Arial,Helvetica,sans-serif;">
-<tr><td style="padding:20px 32px;border-bottom:1px solid #e3e8ef;">
-<span style="font-size:20px;font-weight:bold;color:#111827;">Mas<span style="color:#ff7900;">Password</span></span>
+<table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background-color:#ffffff;border:1px solid #dddddd;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<tr><td style="padding:20px 32px;border-bottom:1px solid #dddddd;">
+<span style="display:inline-block;width:16px;height:16px;background-color:#ff7900;vertical-align:-2px;"></span>&nbsp;<span style="font-size:20px;font-weight:bold;color:#000000;letter-spacing:-0.02em;">s&eacute;samo</span>
 </td></tr>
-<tr><td style="padding:28px 32px;color:#1f2933;font-size:15px;line-height:1.6;">
+<tr><td style="padding:28px 32px;color:#333333;font-size:15px;line-height:1.6;">
 {{.Body}}
 {{if .ButtonURL}}<p style="text-align:center;margin:28px 0 8px;">
-<a href="{{.ButtonURL}}" style="display:inline-block;background-color:#ff7900;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:8px;">{{.ButtonLabel}}</a>
+<a href="{{.ButtonURL}}" style="display:inline-block;background-color:#ff7900;color:#000000;font-weight:bold;text-decoration:none;padding:12px 28px;">{{.ButtonLabel}}</a>
 </p>{{end}}
 </td></tr>
-<tr><td style="padding:16px 32px;border-top:1px solid #e3e8ef;color:#9aa5b1;font-size:12px;text-align:center;">
-Este es un mensaje autom&aacute;tico de MasPassword. No respondas a este correo.
+<tr><td style="padding:16px 32px;border-top:1px solid #dddddd;color:#999999;font-size:12px;text-align:center;">
+Este es un mensaje autom&aacute;tico de S&eacute;samo, un producto MasOrange. No respondas a este correo.
 </td></tr>
 </table>
 </td></tr>
@@ -48,7 +51,7 @@ type cardData struct {
 
 var inviteMemberBody = template.Must(template.New("invite_member").Parse(
 	`<p>Hola,</p>
-<p><strong>{{.Actor}}</strong> te ha a&ntilde;adido al equipo <strong>{{.Team}}</strong> en MasPassword con el rol de <strong>{{.Role}}</strong>.</p>
+<p><strong>{{.Actor}}</strong> te ha a&ntilde;adido al equipo <strong>{{.Team}}</strong> en S&eacute;samo con el rol de <strong>{{.Role}}</strong>.</p>
 <p>Ya puedes acceder a las contrase&ntilde;as compartidas con el equipo.</p>`))
 
 var inviteAdminsBody = template.Must(template.New("invite_admins").Parse(
@@ -80,30 +83,30 @@ func renderCard(d cardData) (string, error) {
 // Sending multipart (html+text) instead of HTML-only lowers the spam score.
 func renderTextCard(body, buttonURL, buttonLabel string) string {
 	var b strings.Builder
-	b.WriteString("MasPassword\n\n")
+	b.WriteString("Sésamo\n\n")
 	b.WriteString(body)
 	if buttonURL != "" {
 		b.WriteString(fmt.Sprintf("\n%s: %s\n", buttonLabel, buttonURL))
 	}
-	b.WriteString("\n--\nEste es un mensaje automático de MasPassword. No respondas a este correo.\n")
+	b.WriteString("\n--\nEste es un mensaje automático de Sésamo, un producto MasOrange. No respondas a este correo.\n")
 	return b.String()
 }
 
 // RenderInviteMember builds the email sent to a user added to a team.
 // baseURL, when non-empty, adds a button linking to the app.
 func RenderInviteMember(team, actor, role, baseURL string) (subject, html, text string, err error) {
-	subject = fmt.Sprintf("Te han añadido al equipo %s en MasPassword", team)
+	subject = fmt.Sprintf("Te han añadido al equipo %s en Sésamo", team)
 	body, err := renderBody(inviteMemberBody, map[string]string{"Team": team, "Actor": actor, "Role": role})
 	if err != nil {
 		return "", "", "", err
 	}
-	html, err = renderCard(cardData{Title: subject, Body: body, ButtonURL: baseURL, ButtonLabel: "Abrir MasPassword"})
+	html, err = renderCard(cardData{Title: subject, Body: body, ButtonURL: baseURL, ButtonLabel: "Abrir Sésamo"})
 	if err != nil {
 		return "", "", "", err
 	}
 	text = renderTextCard(fmt.Sprintf(
-		"Hola,\n\n%s te ha añadido al equipo %s en MasPassword con el rol de %s.\n\nYa puedes acceder a las contraseñas compartidas con el equipo.\n",
-		actor, team, role), baseURL, "Abrir MasPassword")
+		"Hola,\n\n%s te ha añadido al equipo %s en Sésamo con el rol de %s.\n\nYa puedes acceder a las contraseñas compartidas con el equipo.\n",
+		actor, team, role), baseURL, "Abrir Sésamo")
 	return subject, html, text, nil
 }
 

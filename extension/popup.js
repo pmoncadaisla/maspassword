@@ -1,5 +1,5 @@
 // ============================================================
-// MasPassword — Popup Script (ES module)
+// Sésamo — Popup Script (ES module)
 // ============================================================
 
 import { domainsMatch } from './domain.js';
@@ -24,7 +24,7 @@ const STRINGS = {
     'login.continueWith': 'Continuar con {name}',
     'login.ssoFailed': 'No se pudo iniciar sesión con {name}',
     'login.needsSetup': 'Tu cuenta aún no tiene contraseña maestra. Entra en la web para crearla y vuelve a intentarlo.',
-    'login.openWeb': 'Abrir MasPassword en la web',
+    'login.openWeb': 'Abrir Sésamo en la web',
     'unlock.cta': 'Desbloquear',
     'unlock.back': 'Usar otra cuenta',
     'unlock.wrong': 'Contraseña maestra incorrecta',
@@ -73,7 +73,7 @@ const STRINGS = {
     'login.continueWith': 'Continue with {name}',
     'login.ssoFailed': 'Could not sign in with {name}',
     'login.needsSetup': 'Your account has no master password yet. Create it in the web app, then try again.',
-    'login.openWeb': 'Open MasPassword on the web',
+    'login.openWeb': 'Open Sésamo on the web',
     'unlock.cta': 'Unlock',
     'unlock.back': 'Use another account',
     'unlock.wrong': 'Wrong master password',
@@ -168,7 +168,7 @@ async function init() {
 // SSO providers exist, whether email/password login is allowed at all, and
 // the deployment's default theme (the popup mirrors the web app's skin).
 function applySkin(theme) {
-  document.documentElement.dataset.skin = theme === 'orange' ? 'orange' : '';
+  document.documentElement.dataset.skin = theme === 'light' ? '' : 'orange';
 }
 
 async function refreshMode(force = false) {

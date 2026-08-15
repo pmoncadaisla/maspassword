@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Talk to the MasPassword server. -->
+    <!-- Talk to the Sésamo server. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Scan the pairing QR (zxing). Requested at runtime by the scan screen. -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -45,7 +45,7 @@
             android:exported="false"
             android:theme="@style/Theme.MasPassword.AutofillDialog" />
 
-        <!-- System autofill provider: makes MasPassword selectable under
+        <!-- System autofill provider: makes Sésamo selectable under
              Settings > Passwords & accounts > Autofill service. The
              BIND_AUTOFILL_SERVICE permission ensures only the OS can bind. -->
         <service

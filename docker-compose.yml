@@ -1,4 +1,4 @@
-# Despliegue autocontenido: PostgreSQL + servidor MasPassword.
+# Despliegue autocontenido: PostgreSQL + servidor Sésamo.
 #
 #   JWT_SECRET=$(openssl rand -hex 32) docker compose up -d
 #

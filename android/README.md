@@ -1,6 +1,6 @@
-# MasPassword for Android
+# Sésamo for Android
 
-Native Android client (Kotlin, Views) for the MasPassword zero-knowledge
+Native Android client (Kotlin, Views) for the Sésamo zero-knowledge
 password manager. Read-only by design: browse vaults, search, copy
 credentials, live TOTP codes, and fill logins system-wide through the Android
 Autofill framework. All decryption happens on the phone; the server only ever
@@ -153,13 +153,13 @@ detects the 401 and drops back to the link screen.
 ## Enabling system autofill
 
 Settings → Passwords & accounts (on some OEMs: System → Languages & input) →
-**Autofill service** → MasPassword. The service can also be reached from the
+**Autofill service** → Sésamo. The service can also be reached from the
 gear icon next to the service entry, which opens the app.
 
 How filling works:
 
 - **Locked** (first use after boot / process death): suggestions show a
-  single "Unlock MasPassword" entry → master password dialog → matching
+  single "Unlock Sésamo" entry → master password dialog → matching
   logins are offered.
 - **Unlocked, browser page**: items whose saved URL shares the page's
   **registrable domain** (eTLD+1) appear by name; tapping one asks for
@@ -170,12 +170,12 @@ How filling works:
   matches nothing.
 - **Native apps**: package names are deliberately **not** mapped to domains
   (a sideloaded app can claim any package name), so nothing is auto-offered;
-  a "Search MasPassword" entry opens a manual picker instead.
+  a "Search Sésamo" entry opens a manual picker instead.
 
 ### Autofill limitations (honest list)
 
 - **No SaveInfo**: the app is a read-only client, so Android will never show
-  a "save this password in MasPassword?" bar. Create items in the web vault.
+  a "save this password in Sésamo?" bar. Create items in the web vault.
 - **First unlock needed**: after a reboot or once Android kills the process,
   keys are gone (by design); the first fill of the day goes through the
   master-password dialog.

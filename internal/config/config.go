@@ -82,7 +82,7 @@ func Load() *Config {
 	mailgunDomain := os.Getenv("MAILGUN_DOMAIN")
 	mailgunFrom := os.Getenv("MAILGUN_FROM")
 	if mailgunFrom == "" && mailgunDomain != "" {
-		mailgunFrom = "MasPassword <noreply@" + mailgunDomain + ">"
+		mailgunFrom = "Sésamo <noreply@" + mailgunDomain + ">"
 	}
 
 	return &Config{

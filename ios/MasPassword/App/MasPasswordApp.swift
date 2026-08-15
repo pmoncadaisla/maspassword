@@ -47,7 +47,7 @@ struct BiometricCurtain: View {
             Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             VStack(spacing: 12) {
                 Image(systemName: "lock.fill").font(.system(size: 42))
-                Text("MasPassword is locked").font(.headline)
+                Text("Sésamo is locked").font(.headline)
             }
         }
         .transition(.opacity)

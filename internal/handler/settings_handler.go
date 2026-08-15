@@ -10,8 +10,9 @@ import (
 	"github.com/masorange/maspassword/pkg/dto"
 )
 
-// Themes selectable as the instance-wide default. "light" is the built-in
-// look and always the fallback; "orange" is the Orange Design System skin.
+// Themes selectable as the instance-wide default. "orange" is the Orange
+// Design System skin — the Sésamo brand look and the fallback; "light" is
+// the built-in look, kept as an explicit opt-out.
 const (
 	ThemeLight  = "light"
 	ThemeOrange = "orange"
@@ -23,12 +24,12 @@ func IsValidTheme(v string) bool {
 }
 
 // NormalizeTheme maps any stored/unknown value to a valid theme, defaulting
-// to "light".
+// to "orange" (the brand look).
 func NormalizeTheme(v string) string {
 	if IsValidTheme(v) {
 		return v
 	}
-	return ThemeLight
+	return ThemeOrange
 }
 
 // SettingsHandler serves the admin-only global settings endpoints and the
@@ -42,16 +43,16 @@ func NewSettingsHandler(repo repository.SettingsRepository) *SettingsHandler {
 }
 
 // DefaultTheme reads the instance-wide default theme, normalized to a valid
-// value. Read errors degrade to "light" (the endpoint stays available even if
-// the settings table is briefly unreachable).
+// value. Read errors degrade to "orange" (the endpoint stays available even
+// if the settings table is briefly unreachable).
 func (h *SettingsHandler) DefaultTheme(ctx context.Context) string {
 	if h == nil || h.repo == nil {
-		return ThemeLight
+		return ThemeOrange
 	}
 	value, err := h.repo.Get(ctx, repository.SettingKeyDefaultTheme)
 	if err != nil {
 		log.Printf("reading default theme: %v", err)
-		return ThemeLight
+		return ThemeOrange
 	}
 	return NormalizeTheme(value)
 }

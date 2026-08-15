@@ -1,4 +1,4 @@
-# XcodeGen spec for the MasPassword iOS app + AutoFill extension.
+# XcodeGen spec for the Sésamo iOS app + AutoFill extension.
 #
 #   brew install xcodegen        # on a Mac
 #   cd ios && xcodegen generate  # produces MasPassword.xcodeproj
@@ -60,7 +60,7 @@ targets:
     info:
       path: MasPassword/App/Info.plist
       properties:
-        CFBundleDisplayName: MasPassword
+        CFBundleDisplayName: Sésamo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -72,7 +72,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: >-
-          MasPassword uses the camera only to scan the pairing QR code shown
+          Sésamo uses the camera only to scan the pairing QR code shown
           in your web vault. Images never leave the device.
         NSFaceIDUsageDescription: >-
           Face ID re-locks and re-opens the app while it stays running, so you
@@ -102,7 +102,7 @@ targets:
     info:
       path: MasPassword/AutoFill/Info.plist
       properties:
-        CFBundleDisplayName: MasPassword AutoFill
+        CFBundleDisplayName: Sésamo AutoFill
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

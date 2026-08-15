@@ -1,6 +1,6 @@
-# MasPassword iOS
+# Sésamo iOS
 
-Native iOS client (SwiftUI, iOS 16+) for the MasPassword zero-knowledge
+Native iOS client (SwiftUI, iOS 16+) for the Sésamo zero-knowledge
 password manager, plus a **Password AutoFill credential-provider extension**
 so logins can be filled system-wide (Safari and apps) with QuickType
 suggestions.
@@ -160,12 +160,12 @@ Re-linking is idempotent; revoke old device tokens from the web app.
 ## Enabling AutoFill on the phone
 
 Settings → **Passwords → Password Options** → enable **AutoFill Passwords**
-and tick **MasPassword** (iOS 17: *Settings → Passwords → Password Options →
+and tick **Sésamo** (iOS 17: *Settings → Passwords → Password Options →
 Allow filling from*). Afterwards:
 
-- QuickType shows `username — MasPassword` above the keyboard on matching
+- QuickType shows `username — Sésamo` above the keyboard on matching
   sites/apps (identities are refreshed after every app unlock + sync).
-- Tapping a suggestion (or picking MasPassword from the key icon) opens the
+- Tapping a suggestion (or picking Sésamo from the key icon) opens the
   extension, which asks for the master password, then fills.
 - Matching is **fail-closed by registrable domain** (`Domains.swift`, the
   same eTLD+1 port the Chrome extension uses): `evil-google.com` never

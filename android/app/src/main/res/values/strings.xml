@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MasPassword</string>
+    <string name="app_name">Sésamo</string>
 
     <!-- Link screen -->
     <string name="link_title">Link this device</string>
@@ -55,7 +55,7 @@
     <string name="type_identity">Identity</string>
 
     <!-- Biometric gate -->
-    <string name="biometric_title">Unlock MasPassword</string>
+    <string name="biometric_title">Unlock Sésamo</string>
 
     <!-- Unlink -->
     <string name="unlink_title">Unlink this device?</string>
@@ -63,15 +63,15 @@
     <string name="unlink_confirm">Unlink</string>
 
     <!-- Autofill -->
-    <string name="autofill_unlock_title">Unlock MasPassword</string>
-    <string name="autofill_search_title">Search MasPassword…</string>
+    <string name="autofill_unlock_title">Unlock Sésamo</string>
+    <string name="autofill_search_title">Search Sésamo…</string>
     <string name="autofill_search_subtitle">No verified match for this app</string>
     <string name="autofill_confirm_title">Fill “%1$s”?</string>
     <string name="autofill_confirm_prompt">Confirm to fill</string>
     <string name="autofill_fill_button">Fill “%1$s”</string>
     <string name="autofill_pick_title">Choose a login to fill</string>
     <string name="autofill_pick_title_domain">Choose a login for %1$s</string>
-    <string name="autofill_save_unsupported">MasPassword on Android is read-only; save passwords in the web vault.</string>
+    <string name="autofill_save_unsupported">Sésamo on Android is read-only; save passwords in the web vault.</string>
 
     <!-- Errors -->
     <string name="error_generic">Something went wrong.</string>

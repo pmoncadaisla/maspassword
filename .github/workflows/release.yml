@@ -81,9 +81,9 @@ jobs:
           if [[ "${GITHUB_REF}" != refs/tags/* ]]; then VERSION="sha-${GITHUB_SHA::7}"; fi
           BUNDLE=desktop/src-tauri/target/universal-apple-darwin/release/bundle
           mkdir -p dist
-          cp "${BUNDLE}"/dmg/*.dmg "dist/MasPassword-${VERSION}-macos-universal.dmg"
-          ditto -c -k --keepParent "${BUNDLE}/macos/MasPassword.app" \
-            "dist/MasPassword-${VERSION}-macos-universal.app.zip"
+          cp "${BUNDLE}"/dmg/*.dmg "dist/Sesamo-${VERSION}-macos-universal.dmg"
+          ditto -c -k --keepParent "${BUNDLE}/macos/Sesamo.app" \
+            "dist/Sesamo-${VERSION}-macos-universal.app.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: dist-desktop-macos
@@ -101,10 +101,10 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_REF}" != refs/tags/* ]]; then VERSION="sha-${GITHUB_SHA::7}"; fi
           mkdir -p dist
-          (cd extension && zip -r "../dist/maspassword-extension-${VERSION}.zip" . \
+          (cd extension && zip -r "../dist/sesamo-extension-${VERSION}.zip" . \
             -x '*.test.mjs' -x 'alltests.mjs' -x 'package.json' -x 'package-lock.json' \
             -x 'node_modules/*')
-          unzip -l "dist/maspassword-extension-${VERSION}.zip"
+          unzip -l "dist/sesamo-extension-${VERSION}.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: dist-extension
@@ -202,7 +202,7 @@ jobs:
             echo ""
             echo "## Instalacion rapida"
             echo ""
-            echo "- **macOS**: abre el dmg, arrastra MasPassword a Aplicaciones y autoriza el binario sin firmar con \`xattr -cr /Applications/MasPassword.app\`."
+            echo "- **macOS**: abre el dmg, arrastra Sesamo a Aplicaciones y autoriza el binario sin firmar con \`xattr -cr /Applications/Sesamo.app\`."
             echo "- **Extension**: descomprime el zip y cargalo desde \`chrome://extensions\` (modo desarrollador > Cargar extension sin empaquetar)."
             echo "- **Servidor**: \`JWT_SECRET=\$(openssl rand -hex 32) docker compose up -d\` — instrucciones completas en el [README](https://github.com/${GITHUB_REPOSITORY}#instalacion)."
             echo ""

@@ -20,7 +20,7 @@ import (
 	"github.com/masorange/maspassword/internal/service"
 )
 
-// PasskeyHandler implements passkey login for MasPassword itself: WebAuthn
+// PasskeyHandler implements passkey login for Sésamo itself: WebAuthn
 // assertions authenticate, and the PRF-wrapped encryption key stored at
 // registration lets the CLIENT decrypt without a master password. The
 // server only ever sees the wrapped blob.

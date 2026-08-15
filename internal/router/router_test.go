@@ -73,7 +73,7 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 
 	// "/" serves the landing page.
 	w := get(r, "/")
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "MasPassword") {
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Sésamo") {
 		t.Errorf("GET / = %d, want landing page", w.Code)
 	}
 	// The landing must carry the bounce script for returning users.

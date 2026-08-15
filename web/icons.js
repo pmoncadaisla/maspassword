@@ -9,6 +9,9 @@
 
 // Inner SVG markup per icon (paths only — the <svg> wrapper is added by icon()).
 const PATHS = {
+  // Sésamo brand mark: two door leaves opening toward the viewer ("ábrete,
+  // sésamo"). Filled polygons (the rest of the set is stroke-based).
+  sesamo: '<polygon fill="currentColor" stroke="none" points="2,0.5 10.5,3.5 10.5,20.5 2,23.5"/><polygon fill="currentColor" stroke="none" points="22,0.5 13.5,3.5 13.5,20.5 22,23.5"/>',
   vault: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="7.5" cy="7.5" r=".5"/><path d="m7.9 7.9 2.7 2.7"/><circle cx="16.5" cy="7.5" r=".5"/><path d="m13.4 10.6 2.7-2.7"/><circle cx="7.5" cy="16.5" r=".5"/><path d="m7.9 16.1 2.7-2.7"/><circle cx="16.5" cy="16.5" r=".5"/><path d="m13.4 13.4 2.7 2.7"/><circle cx="12" cy="12" r="2"/>',
   key: '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/>',
   card: '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',

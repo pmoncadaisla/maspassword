@@ -19,7 +19,7 @@ import (
 type Config struct {
 	APIKey     string
 	Domain     string
-	From       string // defaults to "MasPassword <noreply@{Domain}>"
+	From       string // defaults to "Sésamo <noreply@{Domain}>"
 	EU         bool   // use the EU API endpoint
 	AppBaseURL string // base URL of the web app, used for links in emails
 }
@@ -40,7 +40,7 @@ func New(cfg Config) *Mailer {
 	}
 	from := cfg.From
 	if from == "" && cfg.Domain != "" {
-		from = fmt.Sprintf("MasPassword <noreply@%s>", cfg.Domain)
+		from = fmt.Sprintf("Sésamo <noreply@%s>", cfg.Domain)
 	}
 	return &Mailer{
 		apiKey:     cfg.APIKey,

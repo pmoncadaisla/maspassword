@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — Registrable-domain (eTLD+1) matching
+// Sésamo — Registrable-domain (eTLD+1) matching
 //
 // Anti-phishing: saved logins are matched to the current page by
 // their REGISTRABLE DOMAIN (eTLD+1), never by naive substring

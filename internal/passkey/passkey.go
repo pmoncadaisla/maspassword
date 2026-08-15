@@ -1,4 +1,4 @@
-// Package passkey verifies WebAuthn assertions for MasPassword's own login.
+// Package passkey verifies WebAuthn assertions for Sésamo's own login.
 //
 // It deliberately avoids attestation and CBOR: registration happens over an
 // authenticated session and the client submits the credential public key in

@@ -1,4 +1,4 @@
-// i18n.js — internationalization for MasPassword (vanilla ES module, no build step).
+// i18n.js — internationalization for Sésamo (vanilla ES module, no build step).
 //
 // Locales: es (default), en, fr. Flat string catalogs with dot.notation keys.
 // All three catalogs MUST keep identical key sets (enforced by tests/i18n.test.js).
@@ -26,7 +26,7 @@ const DEFAULT_LOCALE = 'es';
 
 const es = {
   // App / global
-  'app.name': 'Vault Internal',
+  'app.name': 'Sésamo',
   'app.tagline': 'Gestor de contraseñas de conocimiento cero.',
   'app.zeroKnowledge': 'Tus contraseñas nunca salen de tu dispositivo sin cifrar.',
   'version.running': 'Version {v}',
@@ -375,7 +375,7 @@ const es = {
   'devices.name': 'Nombre del dispositivo',
   'devices.create': 'Crear y mostrar QR',
   'devices.tokenOnce': 'Guárdalo ahora: no se volverá a mostrar',
-  'devices.scanHint': 'Escanéalo con la app móvil de MasPassword',
+  'devices.scanHint': 'Escanéalo con la app móvil de Sésamo',
   'devices.list': 'Dispositivos vinculados',
   'devices.revoke': 'Revocar',
   'devices.revoked': 'Revocado',
@@ -405,7 +405,7 @@ const es = {
 
 const en = {
   // App / global
-  'app.name': 'Vault Internal',
+  'app.name': 'Sésamo',
   'app.tagline': 'Zero-Knowledge Password Manager.',
   'app.zeroKnowledge': 'Your passwords never leave your device unencrypted.',
   'version.running': 'Version {v}',
@@ -754,7 +754,7 @@ const en = {
   'devices.name': 'Device name',
   'devices.create': 'Create & show QR',
   'devices.tokenOnce': "Save it now: it won't be shown again",
-  'devices.scanHint': 'Scan it with the MasPassword mobile app',
+  'devices.scanHint': 'Scan it with the Sésamo mobile app',
   'devices.list': 'Linked devices',
   'devices.revoke': 'Revoke',
   'devices.revoked': 'Revoked',
@@ -784,7 +784,7 @@ const en = {
 
 const fr = {
   // App / global
-  'app.name': 'Vault Internal',
+  'app.name': 'Sésamo',
   'app.tagline': 'Gestionnaire de mots de passe à connaissance nulle.',
   'app.zeroKnowledge': 'Vos mots de passe ne quittent jamais votre appareil sans être chiffrés.',
   'version.running': 'Version {v}',
@@ -1133,7 +1133,7 @@ const fr = {
   'devices.name': "Nom de l'appareil",
   'devices.create': 'Créer et afficher le QR',
   'devices.tokenOnce': 'Enregistrez-le maintenant : il ne sera plus affiché',
-  'devices.scanHint': "Scannez-le avec l'app mobile MasPassword",
+  'devices.scanHint': "Scannez-le avec l'app mobile Sésamo",
   'devices.list': 'Appareils associés',
   'devices.revoke': 'Révoquer',
   'devices.revoked': 'Révoqué',

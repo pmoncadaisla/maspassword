@@ -52,7 +52,7 @@ struct SettingsView: View {
                         }
                     }
                 } footer: {
-                    Text("Then: Settings › Passwords › Password Options › enable MasPassword "
+                    Text("Then: Settings › Passwords › Password Options › enable Sésamo "
                          + "under “Allow filling from”.")
                 }
 

@@ -1,4 +1,6 @@
-# MasPassword — instrucciones para Claude
+# Sésamo (repo `maspassword`) — instrucciones para Claude
+
+El producto se llama **Sésamo** ("sesamo" donde no se puede acentuar: nombres de fichero, bundle macOS, artefactos). Los identificadores internos (módulo Go, imagen Docker, servicio Cloud Run, paquetes `com.maspassword.*`) conservan `maspassword`.
 
 ## Al terminar trabajo: release + despliegue
 

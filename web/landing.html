@@ -22,12 +22,13 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MasPassword — Gestor de contraseñas zero-knowledge</title>
-<meta name="description" content="MasPassword cifra tus contraseñas en tu dispositivo antes de enviarlas. El servidor solo guarda datos cifrados: ni los administradores pueden leerlos.">
-<link rel="icon" href="/icons/icon-192.png">
+<title>Sésamo — Gestor de contraseñas zero-knowledge</title>
+<meta name="description" content="Sésamo cifra tus contraseñas en tu dispositivo antes de enviarlas. El servidor solo guarda datos cifrados: ni los administradores pueden leerlos.">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png">
 <style>
 /* ----------------------------------------------------------------------------
-   Landing MasPassword — Orange Design System (Boosted) look.
+   Landing Sésamo — Orange Design System (Boosted) look.
    Black & white carry the page, orange is the accent. Square design language:
    no rounded corners, hard 2px borders, bold Helvetica, crisp focus outlines.
    Self-contained: no dependency on the app's styles.css.
@@ -86,9 +87,10 @@ header {
   position: sticky; top: 0; z-index: 10;
 }
 .header-inner { display: flex; align-items: center; gap: 28px; height: 64px; }
-.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--paper); font-size: 19px; font-weight: 700; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--paper); font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
 .brand:hover { color: var(--paper); }
-.brand-square { width: 22px; height: 22px; background: var(--orange); flex: none; }
+/* Sésamo mark: two door leaves opening toward the viewer ("ábrete, sésamo") */
+.brand-door { width: 22px; height: 22px; fill: var(--orange); flex: none; }
 .nav { display: flex; gap: 22px; margin-left: 8px; }
 .nav a { color: var(--paper); text-decoration: none; font-size: 15px; font-weight: 500; }
 .nav a:hover { color: var(--orange); }
@@ -108,7 +110,7 @@ header {
 /* Hero visual: CSS mockup of the vault (square, hard borders, no screenshots) */
 .mock { border: 2px solid var(--ink); background: var(--paper); }
 .mock-titlebar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 700; }
-.mock-titlebar .brand-square { width: 12px; height: 12px; }
+.mock-titlebar .brand-door { width: 13px; height: 13px; }
 .mock-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-top: 1px solid var(--grey-2); }
 .mock-row:first-of-type { border-top: 0; }
 .mock-ico { width: 30px; height: 30px; flex: none; background: var(--grey-1); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: var(--orange-a11y); }
@@ -190,7 +192,7 @@ footer a:hover { color: var(--orange); }
 
 <header>
   <div class="container header-inner">
-    <a class="brand" href="/"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <a class="brand" href="/"><svg class="brand-door" viewBox="0 0 96 96" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>sésamo</a>
     <nav class="nav" aria-label="Secciones">
       <a href="#como-funciona">Cómo funciona</a>
       <a href="#funciones">Funciones</a>
@@ -210,7 +212,7 @@ footer a:hover { color: var(--orange); }
     <div class="container hero-grid">
       <div>
         <h1>Tus contraseñas se cifran antes de salir de tu dispositivo.</h1>
-        <p class="lead">MasPassword es un gestor de contraseñas zero-knowledge. Tu contraseña maestra nunca viaja por la red y el servidor solo guarda datos cifrados: ni siquiera los administradores pueden leerlos.</p>
+        <p class="lead">Sésamo es un gestor de contraseñas zero-knowledge. Tu contraseña maestra nunca viaja por la red y el servidor solo guarda datos cifrados: ni siquiera los administradores pueden leerlos.</p>
         <div class="hero-ctas">
           <a class="btn btn-primary" href="/app#/signup">Crear cuenta</a>
           <a class="btn btn-outline" href="#como-funciona">Ver cómo funciona</a>
@@ -218,7 +220,7 @@ footer a:hover { color: var(--orange); }
         <p class="hero-note">Sin instalación: funciona en el navegador. Extensión y app de escritorio opcionales.</p>
       </div>
       <div class="mock" aria-hidden="true">
-        <div class="mock-titlebar"><span class="brand-square"></span>Caja fuerte personal</div>
+        <div class="mock-titlebar"><svg class="brand-door" viewBox="0 0 96 96" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>Caja fuerte personal</div>
         <div class="mock-row"><span class="mock-ico">G</span><span><span class="mock-name">GitHub</span><br><span class="mock-user">ana@ejemplo.com</span></span><span class="mock-dots">••••••••••••</span></div>
         <div class="mock-row"><span class="mock-ico">W</span><span><span class="mock-name">Workday</span><br><span class="mock-user">ana.perez</span></span><span class="mock-dots">••••••••</span></div>
         <div class="mock-row"><span class="mock-ico">V</span><span><span class="mock-name">VPN corporativa</span><br><span class="mock-user">aperez</span></span><span class="mock-dots">••••••••••</span></div>
@@ -363,8 +365,8 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up -d</div>
 
   <div class="cta-band">
     <div class="container">
-      <h2>Empieza en dos minutos</h2>
-      <p>Crea tu cuenta, elige una contraseña maestra y guarda tu primera credencial. La guía de primeros pasos te acompaña dentro de la aplicación.</p>
+      <h2>Ábrete, Sésamo</h2>
+      <p>Crea tu cuenta en dos minutos, elige una contraseña maestra y guarda tu primera credencial. La guía de primeros pasos te acompaña dentro de la aplicación.</p>
       <a class="btn btn-dark" href="/app#/signup">Crear cuenta</a>
     </div>
   </div>
@@ -373,13 +375,13 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up -d</div>
 
 <footer>
   <div class="container footer-grid">
-    <a class="brand" href="/"><span class="brand-square" aria-hidden="true"></span>MasPassword</a>
+    <a class="brand" href="/"><svg class="brand-door" viewBox="0 0 96 96" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>sésamo</a>
     <nav aria-label="Enlaces">
       <a href="/app">Abrir la aplicación</a>
       <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>
       <a href="https://github.com/pmoncadaisla/maspassword/releases/latest">Descargas</a>
     </nav>
-    <span>Cifrado de extremo a extremo. El servidor nunca ve tus datos en claro.</span>
+    <span>Un producto MasOrange. Cifrado de extremo a extremo: el servidor nunca ve tus datos en claro.</span>
   </div>
 </footer>
 

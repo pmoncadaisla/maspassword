@@ -1,13 +1,15 @@
+/* Sésamo launcher — the brand splash (ODS): black canvas, orange door mark,
+   square geometry, orange primary with black bold text. */
 :root {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --surface-hover: #21262d;
-  --border: #30363d;
-  --text: #e6edf3;
-  --text-dim: #8b949e;
-  --primary: #2ea88a;
-  --primary-hover: #35c29e;
-  --danger: #f85149;
+  --bg: #000000;
+  --surface: #141414;
+  --surface-hover: #1f1f1f;
+  --border: #333333;
+  --text: #ffffff;
+  --text-dim: #999999;
+  --orange: #ff7900;
+  --orange-hover: #f16e00;
+  --danger: #ff6666;
 }
 
 * {
@@ -22,8 +24,8 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont,
+    "Noto Sans", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -42,14 +44,15 @@ body {
 }
 
 .logo {
-  font-size: 56px;
-  line-height: 1;
+  width: 76px;
+  height: 76px;
+  fill: var(--orange);
   margin-bottom: 4px;
 }
 
 h1 {
-  font-size: 26px;
-  font-weight: 650;
+  font-size: 30px;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -69,11 +72,11 @@ form,
 }
 
 label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 input {
@@ -82,30 +85,30 @@ input {
   font-size: 15px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 2px solid var(--border);
+  border-radius: 0;
   outline: none;
   user-select: text;
   transition: border-color 0.15s;
 }
 
 input:focus {
-  border-color: var(--primary);
+  border-color: var(--orange);
 }
 
 button {
   font-family: inherit;
   cursor: pointer;
   border: none;
-  border-radius: 9px;
+  border-radius: 0;
 }
 
 button.primary {
-  padding: 11px 14px;
+  padding: 12px 14px;
   font-size: 15px;
-  font-weight: 600;
-  color: #04170f;
-  background: var(--primary);
+  font-weight: 700;
+  color: #000000;
+  background: var(--orange);
   transition: background 0.15s, transform 0.05s;
   white-space: nowrap;
   overflow: hidden;
@@ -113,7 +116,7 @@ button.primary {
 }
 
 button.primary:hover {
-  background: var(--primary-hover);
+  background: var(--orange-hover);
 }
 
 button.primary:active {
@@ -136,6 +139,9 @@ button.link {
 button.link:hover {
   color: var(--text);
   text-decoration: underline;
+  text-decoration-color: var(--orange);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .error {
@@ -150,4 +156,10 @@ button.link:hover {
   font-size: 12px;
   line-height: 1.45;
   max-width: 320px;
+}
+
+.byline {
+  margin-top: 2px;
+  color: #666666;
+  font-size: 11px;
 }

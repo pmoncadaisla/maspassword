@@ -1,5 +1,5 @@
 // ============================================================
-// MasPassword — Content Script
+// Sésamo — Content Script
 // Detects login/signup forms, injects autofill UI, captures
 // submitted credentials, and relays passkey (WebAuthn) requests.
 // ============================================================
@@ -8,7 +8,7 @@
   if (window.__vaultInternalInjected) return;
   window.__vaultInternalInjected = true;
 
-  const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>`;
+  const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="currentColor" width="18" height="18" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>`;
 
   let dropdown = null;
   let saveBanner = null;
@@ -18,57 +18,57 @@
   // username field is often gone from the DOM (email on step 1, password on
   // step 2), so remember the last username-ish value the user typed.
   let lastTypedUsername = '';
-  // True when this page IS the configured MasPassword server: the extension
+  // True when this page IS the configured Sésamo server: the extension
   // steps aside completely (native WebAuthn dialogs, no autofill/capture).
   let passthroughNative = false;
 
   // --- i18n (content scripts don't load the web app's i18n module) ---
   const STRINGS = {
     es: {
-      'dd.locked': 'Abre MasPassword para iniciar sesión',
+      'dd.locked': 'Abre Sésamo para iniciar sesión',
       'dd.empty': 'No hay contraseñas guardadas para este sitio',
       'dd.generate': 'Generar contraseña segura',
-      'dd.open': 'Abrir MasPassword',
+      'dd.open': 'Abrir Sésamo',
       'gen.filled': 'Contraseña generada',
-      'save.title.new': '¿Guardar contraseña en MasPassword?',
-      'save.title.update': '¿Actualizar contraseña en MasPassword?',
+      'save.title.new': '¿Guardar contraseña en Sésamo?',
+      'save.title.update': '¿Actualizar contraseña en Sésamo?',
       'save.body': '{user} en {site}',
       'save.noUser': 'Sin usuario',
       'save.save': 'Guardar',
       'save.update': 'Actualizar',
       'save.dismiss': 'Ahora no',
-      'save.saved': 'Contraseña guardada en MasPassword',
+      'save.saved': 'Contraseña guardada en Sésamo',
       'save.updated': 'Contraseña actualizada',
       'save.failed': 'No se pudo guardar: {err}',
       'pk.shared': 'compartida', 'pk.createTitle': 'Crear un passkey',
       'pk.createFor': 'Para {rp}', 'pk.saveTo': 'Guardar en',
       'pk.cancel': 'Cancelar', 'pk.create': 'Crear',
       'pk.useTitle': 'Usar un passkey', 'pk.useFor': 'Para {rp}',
-      'pk.lockedTitle': 'MasPassword está bloqueado',
+      'pk.lockedTitle': 'Sésamo está bloqueado',
       'pk.lockedBody': 'Desbloquea la extensión para usar tus passkeys, o continúa con el navegador.',
       'pk.useBrowser': 'Usar el navegador',
     },
     en: {
-      'dd.locked': 'Open MasPassword to log in',
+      'dd.locked': 'Open Sésamo to log in',
       'dd.empty': 'No saved passwords for this site',
       'dd.generate': 'Generate a strong password',
-      'dd.open': 'Open MasPassword',
+      'dd.open': 'Open Sésamo',
       'gen.filled': 'Password generated',
-      'save.title.new': 'Save password to MasPassword?',
-      'save.title.update': 'Update password in MasPassword?',
+      'save.title.new': 'Save password to Sésamo?',
+      'save.title.update': 'Update password in Sésamo?',
       'save.body': '{user} on {site}',
       'save.noUser': 'No username',
       'save.save': 'Save',
       'save.update': 'Update',
       'save.dismiss': 'Not now',
-      'save.saved': 'Password saved to MasPassword',
+      'save.saved': 'Password saved to Sésamo',
       'save.updated': 'Password updated',
       'save.failed': 'Could not save: {err}',
       'pk.shared': 'shared', 'pk.createTitle': 'Create a passkey',
       'pk.createFor': 'For {rp}', 'pk.saveTo': 'Save to',
       'pk.cancel': 'Cancel', 'pk.create': 'Create',
       'pk.useTitle': 'Use a passkey', 'pk.useFor': 'For {rp}',
-      'pk.lockedTitle': 'MasPassword is locked',
+      'pk.lockedTitle': 'Sésamo is locked',
       'pk.lockedBody': 'Unlock the extension to use your passkeys, or continue with the browser.',
       'pk.useBrowser': 'Use the browser',
     },
@@ -93,11 +93,12 @@
     });
   }
 
-  // Server-driven skin: when the deployment's default theme is "orange",
-  // everything we inject picks up the ODS look (same as the web app).
-  let uiTheme = '';
+  // Server-driven skin: everything we inject picks up the ODS look — the
+  // Sésamo brand — unless the deployment opts out with theme "light"
+  // (same resolution as the web app).
+  let uiTheme = 'orange';
   function themed(el) {
-    if (uiTheme === 'orange') el.classList.add('vi-orange');
+    if (uiTheme !== 'light') el.classList.add('vi-orange');
     return el;
   }
 
@@ -508,7 +509,7 @@
   });
 
   async function handlePasskeyReq(d) {
-    // On MasPassword itself every WebAuthn request goes to the NATIVE
+    // On Sésamo itself every WebAuthn request goes to the NATIVE
     // browser dialog: an app-login passkey must live outside the vault it
     // opens (iCloud Keychain, security key…), never inside it.
     if (passthroughNative) {
@@ -621,7 +622,7 @@
     pkOverlay.className = 'vi-pk-overlay';
     themed(pkOverlay);
     pkOverlay.innerHTML = `<div class="vi-pk-card" role="dialog" aria-modal="true">
-      <div class="vi-pk-brand">${ICON_SVG}<span>MasPassword</span></div>
+      <div class="vi-pk-brand">${ICON_SVG}<span>Sésamo</span></div>
       ${innerHtml}
     </div>`;
     document.body.appendChild(pkOverlay);
@@ -733,14 +734,14 @@
     // Tell page.js the relay is live so it flushes any buffered requests.
     window.postMessage({ [PK_NS]: true, dir: 'ready' }, location.origin);
 
-    // On MasPassword itself: no autofill icons, no credential capture (we
+    // On Sésamo itself: no autofill icons, no credential capture (we
     // are not going to offer saving the master password into the vault it
     // opens), no passkey UI — the browser's native dialogs take over.
     if (passthroughNative) return;
 
     // Resolve the deployment's theme once; anything injected afterwards is
     // themed. (Injection happens on user interaction, well after this.)
-    bg({ type: 'getMode' }).then(mode => { uiTheme = mode?.theme || ''; });
+    bg({ type: 'getMode' }).then(mode => { uiTheme = mode?.theme || 'orange'; });
     injectIcons();
     watchCredentialCapture();
     // A login on the previous page may have staged credentials — offer now.

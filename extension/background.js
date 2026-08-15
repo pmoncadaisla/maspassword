@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — Chrome Extension Background Service Worker
+// Sésamo — Chrome Extension Background Service Worker
 // Handles auth, API, crypto, and item matching
 //
 // Declared as a MODULE service worker (manifest background.type =

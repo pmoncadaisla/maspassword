@@ -1,9 +1,9 @@
-# MasPassword
+# Sésamo
 
 [![Release](https://github.com/pmoncadaisla/maspassword/actions/workflows/release.yml/badge.svg)](https://github.com/pmoncadaisla/maspassword/actions/workflows/release.yml)
 [![Latest release](https://img.shields.io/github/v/release/pmoncadaisla/maspassword)](https://github.com/pmoncadaisla/maspassword/releases/latest)
 
-Gestor de contrasenas zero-knowledge con cifrado extremo a extremo. Las contrasenas se cifran en el cliente antes de enviarse al servidor, lo que garantiza que ni siquiera los administradores del sistema pueden acceder a los datos en texto plano.
+Sésamo (antes MasPassword) es un gestor de contrasenas zero-knowledge con cifrado extremo a extremo. Las contrasenas se cifran en el cliente antes de enviarse al servidor, lo que garantiza que ni siquiera los administradores del sistema pueden acceder a los datos en texto plano.
 
 ## Instalacion rapida (Docker)
 
@@ -31,12 +31,12 @@ Los binarios se publican en [Releases](https://github.com/pmoncadaisla/maspasswo
 
 ### App de escritorio (macOS)
 
-1. Descarga `MasPassword-<version>-macos-universal.dmg` desde Releases. Es un binario universal (Apple Silicon + Intel).
-2. Abre el `.dmg` y arrastra MasPassword a Aplicaciones.
+1. Descarga `Sesamo-<version>-macos-universal.dmg` desde Releases. Es un binario universal (Apple Silicon + Intel).
+2. Abre el `.dmg` y arrastra Sesamo a Aplicaciones.
 3. El binario no va firmado con certificado de Apple Developer, asi que Gatekeeper lo bloquea la primera vez. Autorizalo con:
 
    ```bash
-   xattr -cr /Applications/MasPassword.app
+   xattr -cr /Applications/Sesamo.app
    ```
 
    (o clic derecho > Abrir, solo la primera vez)
@@ -46,7 +46,7 @@ Cada release incluye `SHA256SUMS.txt` para verificar la descarga: `shasum -a 256
 
 ### Extension de Chrome
 
-1. Descarga `maspassword-extension-<version>.zip` desde Releases y descomprimelo.
+1. Descarga `sesamo-extension-<version>.zip` desde Releases y descomprimelo.
 2. Abre `chrome://extensions` y activa el **modo desarrollador**.
 3. **Cargar extension sin empaquetar** y selecciona la carpeta descomprimida.
 

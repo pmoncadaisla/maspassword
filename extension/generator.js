@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — Password generator (dependency-free)
+// Sésamo — Password generator (dependency-free)
 //
 // Cryptographically secure: uses crypto.getRandomValues with
 // rejection sampling so there is NO modulo bias across the pool.

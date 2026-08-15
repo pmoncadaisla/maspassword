@@ -200,7 +200,7 @@ final class AppState: ObservableObject {
         do {
             let ok = try await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: "Unlock your MasPassword vaults")
+                localizedReason: "Unlock your Sésamo vaults")
             if ok { biometricallyCovered = false } else { lock() }
         } catch {
             lock() // cancel/failed -> require the master password again

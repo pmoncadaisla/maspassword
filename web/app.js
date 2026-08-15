@@ -561,9 +561,9 @@ function toggleTheme() {
 // --- Skin (user-selectable visual theme) ---
 // Two independent dimensions on <html>: data-skin ("orange" or absent = Light)
 // and data-theme (dark mode). The Orange skin implements the Orange Design
-// System and supports both modes.
+// System — the Sésamo brand look — and supports both modes.
 // Resolution order: localStorage 'mp-skin' (user choice) → 'mp-skin-default'
-// (instance default, cached from every /auth/mode fetch) → 'light'.
+// (instance default, cached from every /auth/mode fetch) → 'orange' (brand).
 const SKINS = ['light', 'orange'];
 
 function currentSkin() {
@@ -592,7 +592,7 @@ function setSkinAttr(skin) {
 
 // Applies AND persists the user's own skin choice.
 function applySkin(skin) {
-  if (!SKINS.includes(skin)) skin = 'light';
+  if (!SKINS.includes(skin)) skin = 'orange';
   setSkinAttr(skin);
   try { localStorage.setItem('mp-skin', skin); } catch {}
 }
@@ -600,7 +600,7 @@ function applySkin(skin) {
 // Caches the instance-wide default theme (from /auth/mode or an admin save)
 // and applies it when the user has not made an explicit choice.
 function rememberDefaultSkin(value) {
-  const dt = value === 'orange' ? 'orange' : 'light';
+  const dt = value === 'light' ? 'light' : 'orange';
   try {
     localStorage.setItem('mp-skin-default', dt);
     if (!localStorage.getItem('mp-skin')) setSkinAttr(dt);
@@ -633,11 +633,11 @@ async function refreshAdminUI() {
 async function openGlobalSettings() {
   const sel = document.getElementById('global-default-theme');
   // Prefill from the cached default, then refresh from the server.
-  sel.value = localStorage.getItem('mp-skin-default') === 'orange' ? 'orange' : 'light';
+  sel.value = localStorage.getItem('mp-skin-default') === 'light' ? 'light' : 'orange';
   openModal('modal-global-settings');
   try {
     const s = await api('GET', '/api/admin/settings');
-    sel.value = s?.default_theme === 'orange' ? 'orange' : 'light';
+    sel.value = s?.default_theme === 'light' ? 'light' : 'orange';
   } catch (e) {
     toast(e.message, true);
   }
@@ -732,7 +732,7 @@ function strengthScore(pw) {
 
 // --- Version ---
 function renderVersion() {
-  const label = appVersion ? `MasPassword ${appVersion}` : 'MasPassword';
+  const label = appVersion ? `Sésamo ${appVersion}` : 'Sésamo';
   ['app-version-login', 'app-version-sidebar', 'app-version-share'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = label;
@@ -2407,7 +2407,7 @@ async function registerLoginPasskey() {
 
     const cred = await navigator.credentials.create({
       publicKey: {
-        rp: { id: location.hostname, name: 'MasPassword' },
+        rp: { id: location.hostname, name: 'Sésamo' },
         user: {
           id: new TextEncoder().encode(session.user_id),
           name: session.email,

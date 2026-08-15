@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#fafbfc">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Vault Internal</title>
+  <title>Sésamo</title>
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" type="image/png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/styles.css">
   <script>
@@ -21,13 +23,15 @@
       } catch (e) {}
       // Skin (visual theme): user choice ('mp-skin') wins over the cached
       // instance default ('mp-skin-default', refreshed from /auth/mode).
-      // Absent attribute = "light" (the built-in look).
+      // "orange" (the Sésamo brand look) is the default; "light" opts out.
       try {
         var s = localStorage.getItem('mp-skin') || localStorage.getItem('mp-skin-default');
-        if (s === 'orange') {
+        if (s !== 'light') {
           document.documentElement.setAttribute('data-skin', 'orange');
         }
-      } catch (e) {}
+      } catch (e) {
+        document.documentElement.setAttribute('data-skin', 'orange');
+      }
       // Login options (cached from /auth/mode): decide before first paint
       // whether the email form exists, so the login screen never paints one
       // option and then swaps to another. 'unknown' shows a spinner until
@@ -48,8 +52,8 @@
   <!-- AUTH: Login -->
   <div id="screen-login" class="screen auth-screen active">
     <div class="auth-container">
-      <div class="auth-mark" data-icon="vault" data-icon-size="26"></div>
-      <h2 data-i18n="app.name">Vault Internal</h2>
+      <div class="auth-mark" data-icon="sesamo" data-icon-size="26"></div>
+      <h2 data-i18n="app.name">Sésamo</h2>
       <p><span data-i18n="app.tagline">Gestor de contraseñas de conocimiento cero.</span><br><span data-i18n="app.zeroKnowledge">Tus contraseñas nunca salen de tu dispositivo sin cifrar.</span></p>
       <!-- Placeholder while the login options are unknown (first visit) -->
       <div id="auth-loading" class="auth-loading"><div class="spinner"></div></div>
@@ -107,7 +111,7 @@
   <div id="screen-iap-unlock" class="screen auth-screen">
     <div class="auth-container">
       <div class="auth-mark" data-icon="lock" data-icon-size="26"></div>
-      <h2 data-i18n="app.name">Vault Internal</h2>
+      <h2 data-i18n="app.name">Sésamo</h2>
       <p data-i18n="auth.iap.unlockHint">Identidad verificada con tu cuenta corporativa. Introduce tu contraseña maestra para desbloquear tu caja fuerte.</p>
       <div id="iap-unlock-email" class="auth-email-hint"></div>
       <div class="form-group">
@@ -216,8 +220,8 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="brand-mark" data-icon="vault" data-icon-size="15"></span>
-        <h1 class="sidebar-logo" data-i18n="app.name">Vault Internal</h1>
+        <span class="brand-mark" data-icon="sesamo" data-icon-size="15"></span>
+        <h1 class="sidebar-logo" data-i18n="app.name">Sésamo</h1>
       </div>
       <div class="sidebar-global-search">
         <input type="text" id="global-search-input" class="search-input" placeholder="Buscar en todas las cajas fuertes…" data-i18n-placeholder="search.global.placeholder" autocomplete="off" spellcheck="false">

@@ -9,7 +9,7 @@ struct AutoFillRootView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("MasPassword")
+                .navigationTitle("Sésamo")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -26,7 +26,7 @@ struct AutoFillRootView: View {
             VStack(spacing: 12) {
                 Image(systemName: "iphone.slash").font(.largeTitle).foregroundStyle(.secondary)
                 Text("No linked vault").font(.headline)
-                Text("Open the MasPassword app and link this device with the QR code "
+                Text("Open the Sésamo app and link this device with the QR code "
                      + "from the web vault, then unlock it once.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -36,7 +36,7 @@ struct AutoFillRootView: View {
         case .configurationInfo:
             VStack(spacing: 12) {
                 Image(systemName: "checkmark.seal").font(.largeTitle).foregroundStyle(.green)
-                Text("MasPassword is ready").font(.headline)
+                Text("Sésamo is ready").font(.headline)
                 Text("Suggestions appear above the keyboard after you unlock and sync "
                      + "the app. Each fill asks for your master password — keys are "
                      + "never stored on this device.")

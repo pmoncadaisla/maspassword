@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Matches the web app's flat blue accent. -->
-    <color name="mp_primary">#2563EB</color>
-    <color name="mp_primary_dark">#1E40AF</color>
-    <color name="mp_on_primary">#FFFFFF</color>
+    <!-- Sésamo brand (Orange Design System): orange accent, black on orange. -->
+    <color name="mp_primary">#FF7900</color>
+    <color name="mp_primary_dark">#F16E00</color>
+    <color name="mp_on_primary">#000000</color>
     <color name="mp_error">#DC2626</color>
     <color name="mp_muted">#6B7280</color>
-    <color name="mp_launcher_background">#1E293B</color>
+    <color name="mp_launcher_background">#FF7900</color>
 </resources>

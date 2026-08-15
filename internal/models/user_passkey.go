@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// UserPasskey is a WebAuthn credential that signs into MasPassword itself.
+// UserPasskey is a WebAuthn credential that signs into Sésamo itself.
 // PRFEncryptedEncKey carries the user's encryption key wrapped by a key
 // derived from the credential's PRF output; the server never sees either
 // side in the clear.

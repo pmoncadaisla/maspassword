@@ -65,7 +65,7 @@ struct UnlockView: View {
                 .font(.footnote)
                 .padding(.bottom)
             }
-            .navigationTitle("MasPassword")
+            .navigationTitle("Sésamo")
             .navigationBarTitleDisplayMode(.inline)
         }
     }

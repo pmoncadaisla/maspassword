@@ -55,7 +55,7 @@ final class AutoFillModel: ObservableObject {
     /// Master-password unlock against the cached ciphertext (fully offline).
     func unlock(masterPassword: String) {
         guard let cache = SharedCache.load() else {
-            errorMessage = "No vault cache. Open the MasPassword app and unlock once."
+            errorMessage = "No vault cache. Open the Sésamo app and unlock once."
             return
         }
         working = true

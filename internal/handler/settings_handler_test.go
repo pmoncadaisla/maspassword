@@ -55,8 +55,8 @@ func TestThemeValidation(t *testing.T) {
 		if IsValidTheme(v) {
 			t.Errorf("IsValidTheme(%q) = true, want false", v)
 		}
-		if got := NormalizeTheme(v); got != ThemeLight {
-			t.Errorf("NormalizeTheme(%q) = %q, want %q", v, got, ThemeLight)
+		if got := NormalizeTheme(v); got != ThemeOrange {
+			t.Errorf("NormalizeTheme(%q) = %q, want %q", v, got, ThemeOrange)
 		}
 	}
 }
@@ -65,23 +65,23 @@ func TestDefaultTheme(t *testing.T) {
 	repo := newFakeSettingsRepo()
 	h := NewSettingsHandler(repo)
 
-	if got := h.DefaultTheme(context.Background()); got != "light" {
-		t.Errorf("unset default theme = %q, want light", got)
+	if got := h.DefaultTheme(context.Background()); got != "orange" {
+		t.Errorf("unset default theme = %q, want orange (brand)", got)
 	}
 
-	repo.values[repository.SettingKeyDefaultTheme] = "orange"
-	if got := h.DefaultTheme(context.Background()); got != "orange" {
-		t.Errorf("default theme = %q, want orange", got)
+	repo.values[repository.SettingKeyDefaultTheme] = "light"
+	if got := h.DefaultTheme(context.Background()); got != "light" {
+		t.Errorf("default theme = %q, want light (explicit opt-out)", got)
 	}
 
 	repo.values[repository.SettingKeyDefaultTheme] = "bogus"
-	if got := h.DefaultTheme(context.Background()); got != "light" {
-		t.Errorf("bogus stored theme = %q, want light", got)
+	if got := h.DefaultTheme(context.Background()); got != "orange" {
+		t.Errorf("bogus stored theme = %q, want orange", got)
 	}
 
 	repo.getErr = errors.New("db down")
-	if got := h.DefaultTheme(context.Background()); got != "light" {
-		t.Errorf("errored read = %q, want light (degrade gracefully)", got)
+	if got := h.DefaultTheme(context.Background()); got != "orange" {
+		t.Errorf("errored read = %q, want orange (degrade gracefully)", got)
 	}
 }
 
@@ -93,7 +93,7 @@ func settingsTestRouter(repo repository.SettingsRepository) *gin.Engine {
 	return r
 }
 
-func TestGetSettings_DefaultsToLight(t *testing.T) {
+func TestGetSettings_DefaultsToOrange(t *testing.T) {
 	r := settingsTestRouter(newFakeSettingsRepo())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/settings", nil)
@@ -107,8 +107,8 @@ func TestGetSettings_DefaultsToLight(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	if body["default_theme"] != "light" {
-		t.Errorf("default_theme = %q, want light", body["default_theme"])
+	if body["default_theme"] != "orange" {
+		t.Errorf("default_theme = %q, want orange", body["default_theme"])
 	}
 }
 

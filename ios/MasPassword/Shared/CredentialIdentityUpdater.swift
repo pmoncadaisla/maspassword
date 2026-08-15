@@ -3,7 +3,7 @@ import AuthenticationServices
 
 /// Publishes QuickType suggestions: one ASPasswordCredentialIdentity per
 /// decrypted login item, keyed by the item's REGISTRABLE DOMAIN and carrying
-/// the item id as recordIdentifier. iOS then surfaces "user@ · MasPassword"
+/// the item id as recordIdentifier. iOS then surfaces "user@ · Sésamo"
 /// above the keyboard on matching sites/apps; tapping it launches the
 /// AutoFill extension with that record id (which still requires an unlock —
 /// the identity store holds only domain + username + id, never passwords).
@@ -16,7 +16,7 @@ import AuthenticationServices
 enum CredentialIdentityUpdater {
 
     /// Replace all published identities with the given rows. Call after each
-    /// successful unlock+sync. No-op when the user hasn't enabled MasPassword
+    /// successful unlock+sync. No-op when the user hasn't enabled Sésamo
     /// in Settings > Passwords > Password Options.
     static func replaceAll(with rows: [(domain: String, username: String, recordId: String)]) async {
         let store = ASCredentialIdentityStore.shared

@@ -1,5 +1,5 @@
 // ============================================================
-// Vault Internal — WebAuthn provider primitives
+// Sésamo — WebAuthn provider primitives
 //
 // The pieces a software passkey authenticator needs: minimal CBOR
 // encoding (registration responses are CBOR), COSE public keys,
@@ -13,7 +13,7 @@
 
 import { registrableDomain } from './domain.js';
 
-// AAGUID identifying MasPassword as a passkey provider. Constant across
+// AAGUID identifying Sésamo (né MasPassword) as a passkey provider. Constant across
 // installs (that is how provider-identification lists work); spells
 // "masp/as/sw/or/dpkv01" in ASCII hex.
 export const AAGUID = new Uint8Array([
