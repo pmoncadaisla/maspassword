@@ -3047,6 +3047,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { ssoToken = decodeURIComponent(location.hash.slice(5)); }
     catch { ssoToken = location.hash.slice(5); }
     history.replaceState(null, '', location.pathname + location.search);
+    // Persist NOW: the hash is already scrubbed, so if anything later in
+    // this boot fails, a plain reload can still pick the session up instead
+    // of forcing the user through Google again.
+    try { sessionStorage.setItem('token', ssoToken); } catch {}
   }
 
   // i18n first: resolve locale, inject flat SVG icons, translate static markup.
@@ -3474,6 +3478,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else if (iapMode) {
     await initIAPSession();
+  } else if (sessionStorage.getItem('token')) {
+    // A previous boot left a live session token (SSO hand-off that crashed
+    // mid-boot, or a plain reload): resume at the unlock screen instead of
+    // sending the user through the identity provider again.
+    token = sessionStorage.getItem('token');
+    if (!(await initIAPSession())) {
+      token = null;
+      sessionStorage.removeItem('token');
+      handleRoute();
+    }
   } else {
     handleRoute();
   }

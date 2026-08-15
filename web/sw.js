@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-v15';
+const CACHE_NAME = 'vault-v16';
 // '/app' is the app shell (also the manifest start_url). '/' (landing) and
 // '/index.html' (301 → /app) are intentionally NOT cached: redirects poison
 // the cache for navigations, and the landing should always come from the
@@ -48,8 +48,22 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Static assets: cache first, then network
+  // Network first, cache as offline fallback. Cache-first served MIXED
+  // versions right after a deploy: the SW update can activate mid-load
+  // (skipWaiting + claim delete the old cache between the HTML request and
+  // its module requests), so the shell and its ES modules came from
+  // different releases and the app failed to boot — always on the SSO
+  // return navigation. Fresh-from-network keeps every load internally
+  // consistent; the cache still covers offline use.
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    fetch(e.request)
+      .then((res) => {
+        if (res.ok && e.request.method === 'GET') {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
