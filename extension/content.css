@@ -267,3 +267,159 @@
   }
   .vi-save-btn-dismiss:hover { background: #45464e; }
 }
+
+/* ============================================================
+   Passkey dialogs (WebAuthn provider): modal for create/pick,
+   inline dropdown for conditional (autofill) UI.
+   ============================================================ */
+.vi-pk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  animation: vi-pk-fade 0.12s ease-out;
+}
+@keyframes vi-pk-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.vi-pk-card {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  padding: 20px;
+  animation: vi-dropdown-in 0.14s ease-out;
+}
+
+.vi-pk-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #10a37f;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.vi-pk-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.vi-pk-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.vi-pk-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 16px 0 6px;
+}
+
+.vi-pk-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.vi-pk-list {
+  margin-top: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.vi-pk-item {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+.vi-pk-item:last-child { border-bottom: none; }
+.vi-pk-item:hover { background: #f3f4f6; }
+.vi-pk-item-title { font-size: 14px; font-weight: 500; color: #111827; }
+.vi-pk-item-user { font-size: 12px; color: #6b7280; margin-top: 1px; }
+
+.vi-pk-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.vi-pk-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.vi-pk-btn-primary { background: #10a37f; color: #fff; }
+.vi-pk-btn-primary:hover { background: #0d8a6a; }
+.vi-pk-btn-ghost { background: #f3f4f6; color: #6b7280; }
+.vi-pk-btn-ghost:hover { background: #e5e7eb; }
+
+.vi-pk-dropdown {
+  position: absolute;
+  z-index: 2147483647;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  animation: vi-dropdown-in 0.12s ease-out;
+}
+.vi-pk-dropdown-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #10a37f;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .vi-pk-card { background: #26272c; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .vi-pk-title { color: #f3f4f6; }
+  .vi-pk-sub, .vi-pk-label { color: #9ca3af; }
+  .vi-pk-select {
+    background: #1f2024; border-color: #3a3b42; color: #f3f4f6;
+  }
+  .vi-pk-list { border-color: #3a3b42; }
+  .vi-pk-item { border-bottom-color: #313238; }
+  .vi-pk-item:hover { background: #313238; }
+  .vi-pk-item-title { color: #f3f4f6; }
+  .vi-pk-item-user { color: #9ca3af; }
+  .vi-pk-btn-ghost { background: #3a3b42; color: #cbd5e1; }
+  .vi-pk-btn-ghost:hover { background: #45464e; }
+  .vi-pk-dropdown { background: #26272c; border-color: #3a3b42; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+  .vi-pk-dropdown-head { border-bottom-color: #313238; }
+}

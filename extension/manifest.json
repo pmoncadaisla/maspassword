@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Vault Internal",
-  "version": "1.1.0",
-  "description": "Zero-knowledge password manager - autofill, save, and generate passwords",
+  "version": "1.2.0",
+  "description": "Zero-knowledge password manager - autofill, passkeys, save, and generate passwords",
   "permissions": [
     "storage",
     "activeTab",
@@ -24,6 +24,12 @@
     }
   },
   "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["page.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],

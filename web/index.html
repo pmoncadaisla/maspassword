@@ -300,6 +300,7 @@
             <button class="btn-icon fav-star" id="btn-fav-item" data-icon="star" data-icon-size="17" data-i18n-title="items.favorite" title="Favorito"></button>
             <button class="btn-icon" id="btn-share-item" data-icon="share" data-i18n-title="share.title" title="Compartir elemento"></button>
             <button class="btn-icon" id="btn-item-history" data-icon="history" data-i18n-title="history.title" title="Historial de contraseñas"></button>
+            <button class="btn-icon" id="btn-move-item" data-icon="external" data-i18n-title="move.title" title="Mover a otra caja fuerte"></button>
             <button class="btn-icon" id="btn-edit-item" data-icon="edit" data-i18n-title="actions.edit" title="Editar"></button>
             <button class="btn-icon btn-icon-danger" id="btn-delete-item" data-icon="trash" data-i18n-title="actions.delete" title="Eliminar"></button>
           </div>
@@ -344,6 +345,22 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btn-cancel-vault" data-i18n="actions.cancel">Cancelar</button>
       <button class="btn btn-primary" id="btn-save-vault" data-i18n="actions.create">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Move item to another vault -->
+<div class="modal-overlay" id="modal-move-item">
+  <div class="modal">
+    <h3 data-i18n="move.title">Mover a otra caja fuerte</h3>
+    <p class="label-hint" data-i18n="move.help">El elemento se vuelve a cifrar con la clave de la caja fuerte de destino. Nadie más ve el texto plano.</p>
+    <div class="form-group">
+      <label data-i18n="move.target">Caja fuerte de destino</label>
+      <select id="move-target-vault" class="input"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-move" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirm-move" data-i18n="move.confirm">Mover</button>
     </div>
   </div>
 </div>

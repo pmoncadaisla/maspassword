@@ -8,6 +8,13 @@
 // ============================================================
 
 import { domainsMatch } from './domain.js';
+import {
+  ALG_ES256, FLAG_UP, FLAG_UV, FLAG_BE, FLAG_BS, FLAG_AT,
+  b64urlEncode, b64urlDecode, concatBytes, coseEc2Key, buildAuthData,
+  buildAttestedCredentialData, buildAttestationObject, rpIdValidFor,
+  sha256, generatePasskeyKeypair, spkiFromPrivateJwk, signAssertion,
+  randomCredentialId,
+} from './webauthn.js';
 
 // --- BLAKE2b-256 (inlined) ---
 const BLAKE2B_IV = [
@@ -342,13 +349,175 @@ async function saveNewItem(vaultId, data) {
   return newItem;
 }
 
+// --- Passkeys (WebAuthn provider) ---
+// The relay content script forwards intercepted navigator.credentials
+// calls here. The ORIGIN IS NEVER TAKEN FROM THE MESSAGE: it comes from
+// chrome.runtime's `sender`, so a page cannot impersonate another site.
+// clientDataJSON is also built here, from that trusted origin.
+
+function senderOrigin(sender) {
+  const raw = sender?.origin || (sender?.url ? new URL(sender.url).origin : '');
+  if (!/^https?:\/\//.test(raw)) return null;
+  return raw;
+}
+
+async function ensureItemsCache() {
+  if (isLoggedIn() && allItemsCache.length === 0) await refreshAllItems();
+}
+
+function passkeyItemsFor(rpId) {
+  return allItemsCache.filter(it => it.data?.passkey?.rpId === rpId && it.data.passkey.privateKey);
+}
+
+// Resolve and validate the RP ID for a request coming from `origin`.
+function resolveRpId(origin, requested) {
+  const hostname = new URL(origin).hostname;
+  const rpId = requested || hostname;
+  return rpIdValidFor(hostname, rpId) ? rpId : null;
+}
+
+function clientDataFor(type, challengeB64, origin) {
+  // Serialized field order follows the WebAuthn "limited verification
+  // algorithm" prefix convention (type, challenge, origin, crossOrigin).
+  return JSON.stringify({ type, challenge: challengeB64, origin, crossOrigin: false });
+}
+
+// List usable passkeys for an rpId (optionally restricted to the RP's
+// allowCredentials list). Returns display metadata only — no key material.
+async function passkeyCandidates(msg, sender) {
+  const origin = senderOrigin(sender);
+  if (!origin) return { error: 'bad-origin' };
+  if (!isLoggedIn()) return { locked: true, items: [] };
+  await ensureItemsCache();
+  const rpId = resolveRpId(origin, msg.rpId);
+  if (!rpId) return { securityError: true };
+
+  let items = passkeyItemsFor(rpId);
+  const allow = msg.allowCredentialIds || [];
+  if (allow.length) items = items.filter(it => allow.includes(it.data.passkey.credentialId));
+  return {
+    rpId,
+    items: items.map(it => ({
+      itemId: it.itemId,
+      title: it.data.title || rpId,
+      userName: it.data.passkey.userName || it.data.username || '',
+      credentialId: it.data.passkey.credentialId,
+    })),
+  };
+}
+
+// Create a passkey: generate P-256, store it inside an encrypted item,
+// return the WebAuthn registration response pieces.
+async function passkeyRegister(msg, sender) {
+  const origin = senderOrigin(sender);
+  if (!origin) return { error: 'bad-origin' };
+  if (!isLoggedIn()) return { locked: true };
+  await ensureItemsCache();
+  const rpId = resolveRpId(origin, msg.rpId);
+  if (!rpId) return { securityError: true };
+
+  // excludeCredentials: the RP says "this user already has one here".
+  const existing = passkeyItemsFor(rpId);
+  const excluded = (msg.excludeCredentialIds || []);
+  if (existing.some(it => excluded.includes(it.data.passkey.credentialId))) {
+    return { excluded: true };
+  }
+
+  const { privateKeyJwk, x, y } = await generatePasskeyKeypair();
+  const credentialId = randomCredentialId();
+  const credentialIdB64 = b64urlEncode(credentialId);
+
+  const passkey = {
+    rpId,
+    credentialId: credentialIdB64,
+    userHandle: msg.userHandle || '',
+    userName: msg.userName || '',
+    userDisplayName: msg.userDisplayName || '',
+    privateKey: privateKeyJwk,
+    alg: ALG_ES256,
+    createdAt: Date.now(),
+  };
+
+  // Same rpId + same userHandle -> the RP is re-registering that account:
+  // replace the stored passkey instead of piling up duplicates.
+  const replaceable = existing.find(it =>
+    it.data.passkey.userHandle === passkey.userHandle);
+  if (replaceable) {
+    const vault = vaultsCache.find(v => v.id === replaceable.vaultId);
+    const key = await getVaultDecryptionKey(vault);
+    const data = { ...replaceable.data, username: replaceable.data.username || passkey.userName, passkey };
+    await api('PUT', `/api/vaults/${replaceable.vaultId}/items/${replaceable.itemId}`, {
+      data_encrypted: await encryptData(key, JSON.stringify(data)),
+      version: replaceable.version,
+    });
+    await refreshAllItems();
+  } else {
+    const vaultId = msg.vaultId ||
+      (vaultsCache.find(v => !v.team_id) || vaultsCache[0])?.id;
+    if (!vaultId) return { error: 'No vault available' };
+    await saveNewItem(vaultId, {
+      type: 'login',
+      title: msg.rpName || rpId,
+      username: passkey.userName,
+      password: '',
+      url: origin,
+      notes: '',
+      passkey,
+    });
+  }
+
+  const authData = buildAuthData(
+    await sha256(rpId),
+    FLAG_UP | FLAG_UV | FLAG_BE | FLAG_BS | FLAG_AT,
+    buildAttestedCredentialData(credentialId, coseEc2Key(x, y)));
+
+  return {
+    ok: true,
+    rpId,
+    credentialId: credentialIdB64,
+    clientDataJSON: clientDataFor('webauthn.create', msg.challenge, origin),
+    attestationObject: b64urlEncode(buildAttestationObject(authData)),
+    authenticatorData: b64urlEncode(authData),
+    publicKey: b64urlEncode(await spkiFromPrivateJwk(privateKeyJwk)),
+    publicKeyAlg: ALG_ES256,
+    transports: ['internal', 'hybrid'],
+  };
+}
+
+// Sign an assertion with a stored passkey the user picked in the relay UI.
+async function passkeyAssert(msg, sender) {
+  const origin = senderOrigin(sender);
+  if (!origin) return { error: 'bad-origin' };
+  if (!isLoggedIn()) return { locked: true };
+  await ensureItemsCache();
+  const rpId = resolveRpId(origin, msg.rpId);
+  if (!rpId) return { securityError: true };
+
+  const item = allItemsCache.find(it => it.itemId === msg.itemId);
+  const pk = item?.data?.passkey;
+  if (!pk || pk.rpId !== rpId) return { error: 'Passkey not found' };
+
+  const clientDataJSON = clientDataFor('webauthn.get', msg.challenge, origin);
+  const authData = buildAuthData(await sha256(rpId), FLAG_UP | FLAG_UV | FLAG_BE | FLAG_BS);
+  const signature = await signAssertion(pk.privateKey, authData, await sha256(clientDataJSON));
+
+  return {
+    ok: true,
+    credentialId: pk.credentialId,
+    clientDataJSON,
+    authenticatorData: b64urlEncode(authData),
+    signature: b64urlEncode(signature),
+    userHandle: pk.userHandle || null,
+  };
+}
+
 // --- Message handler ---
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleMessage(msg, sender).then(sendResponse).catch(e => sendResponse({ error: e.message }));
   return true; // async response
 });
 
-async function handleMessage(msg) {
+async function handleMessage(msg, sender) {
   await restoreSession();
 
   switch (msg.type) {
@@ -385,6 +554,15 @@ async function handleMessage(msg) {
 
     case 'generatePassword':
       return { password: generatePassword(msg.length || 20) };
+
+    case 'passkeyCandidates':
+      return passkeyCandidates(msg, sender);
+
+    case 'passkeyRegister':
+      return passkeyRegister(msg, sender);
+
+    case 'passkeyAssert':
+      return passkeyAssert(msg, sender);
 
     case 'fillCredentials':
       // Send to content script of the active tab

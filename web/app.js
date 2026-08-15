@@ -1378,6 +1378,26 @@ function renderDetail(data) {
       `<div class="field"><div class="field-main"><div class="field-label">${esc(t('fields.notes'))}</div><div class="field-value">-</div></div></div>`;
   }
 
+  // Passkey (WebAuthn credential stored inside the encrypted blob by the
+  // browser extension). The web app shows and manages it; it can't sign
+  // assertions (that is the extension's job on the real site).
+  if (data.passkey && data.passkey.rpId) {
+    html += `<div class="detail-section-title">${esc(t('passkey.title'))}</div>`;
+    html += `<div class="field"><div class="field-main">
+        <div class="field-label">${esc(t('passkey.rp'))}</div>
+        <div class="field-value">${esc(data.passkey.rpId)}</div>
+      </div>
+      <div class="field-actions">
+        <button class="btn-icon btn-icon-danger js-remove-passkey" title="${escAttr(t('passkey.remove'))}">${icon('trash', { size: 15 })}</button>
+      </div></div>`;
+    if (data.passkey.userName) {
+      html += fieldRow(t('passkey.account'), data.passkey.userName);
+    }
+    if (data.passkey.createdAt) {
+      html += fieldRow(t('passkey.created'), formatRelative(new Date(data.passkey.createdAt).toISOString()));
+    }
+  }
+
   // Custom fields (inside the encrypted blob): hidden ones masked with reveal toggle.
   const cfs = data.customFields || [];
   if (cfs.length) {
@@ -1457,6 +1477,72 @@ async function deleteCurrentItem() {
     await loadItems();
     showDetailEmpty();
     setHash(`/vault/${currentVault.id}`);
+  } catch (e) { toast(e.message, true); }
+}
+
+// --- Move item to another vault ---
+// The item's plaintext is re-encrypted under the destination vault's key and
+// created there, then the source copy is deleted. Both keys live only in this
+// client, so the server still sees nothing but ciphertext at every step.
+async function openMoveModal() {
+  if (!currentItem || !currentItem._data || !currentVault) return;
+  const select = document.getElementById('move-target-vault');
+  const targets = vaults.filter(v => v.id !== currentVault.id);
+  if (!targets.length) return toast(t('move.noTargets'), true);
+  const opts = [];
+  for (const v of targets) {
+    let name = 'Vault';
+    try { name = await decrypt(await getVaultDecryptionKey(v), v.name_encrypted); } catch {}
+    opts.push(`<option value="${escAttr(v.id)}">${esc(name)}</option>`);
+  }
+  select.innerHTML = opts.join('');
+  openModal('modal-move-item');
+}
+
+async function confirmMoveItem() {
+  if (!currentItem || !currentItem._data || !currentVault) return;
+  const targetId = document.getElementById('move-target-vault').value;
+  const target = vaults.find(v => v.id === targetId);
+  if (!target || target.id === currentVault.id) return;
+  const btn = document.getElementById('btn-confirm-move');
+  btn.disabled = true;
+  try {
+    const targetKey = await getVaultDecryptionKey(target);
+    const dataEnc = await encrypt(targetKey, JSON.stringify(currentItem._data));
+    // Create the destination copy first; only delete the source once it exists,
+    // so a failure mid-move never loses the item.
+    const created = await api('POST', `/api/vaults/${target.id}/items`, { data_encrypted: dataEnc });
+    await api('DELETE', `/api/vaults/${currentVault.id}/items/${currentItem.id}`);
+    toast(t('move.done'));
+    closeModal('modal-move-item');
+    globalIndex = null;
+    currentItem = null;
+    await selectVault(target.id);
+    if (created?.id) await openItem(created.id);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Remove a stored passkey from the current item (keeps the rest of the login).
+async function removeCurrentPasskey() {
+  if (!currentItem || !currentItem._data || !currentVault) return;
+  if (!currentItem._data.passkey) return;
+  if (!confirm(t('passkey.removeConfirm'))) return;
+  const data = { ...currentItem._data };
+  delete data.passkey;
+  try {
+    const key = await getVaultDecryptionKey(currentVault);
+    const dataEnc = await encrypt(key, JSON.stringify(data));
+    await api('PUT', `/api/vaults/${currentVault.id}/items/${currentItem.id}`, {
+      data_encrypted: dataEnc, version: currentItem.version,
+    });
+    toast(t('passkey.removed'));
+    globalIndex = null;
+    await loadItems();
+    await openItem(currentItem.id);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2879,6 +2965,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btn-delete-item').addEventListener('click', deleteCurrentItem);
+
+  // Move item between vaults
+  document.getElementById('btn-move-item').addEventListener('click', openMoveModal);
+  document.getElementById('btn-confirm-move').addEventListener('click', confirmMoveItem);
+  document.getElementById('btn-cancel-move').addEventListener('click', () => closeModal('modal-move-item'));
+
+  // Remove a passkey shown in the detail panel (delegated: the button is
+  // re-rendered on every openItem).
+  document.getElementById('detail-content').addEventListener('click', (e) => {
+    if (e.target.closest('.js-remove-passkey')) removeCurrentPasskey();
+  });
 
   // Share modal
   document.getElementById('btn-create-share').addEventListener('click', createShareLink);

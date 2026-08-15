@@ -12,3 +12,4 @@
 // glob), so tests are never double-counted.
 import './domain.test.mjs';
 import './totp.test.mjs';
+import './webauthn.test.mjs';

@@ -117,6 +117,21 @@ const es = {
   'items.customFields.add': 'Añadir campo',
   'items.customFields.label': 'Etiqueta',
   'items.customFields.value': 'Valor',
+  // Passkeys (credenciales WebAuthn guardadas dentro de un elemento)
+  'passkey.title': 'Passkey',
+  'passkey.rp': 'Sitio',
+  'passkey.account': 'Cuenta',
+  'passkey.created': 'Creada',
+  'passkey.remove': 'Eliminar passkey',
+  'passkey.removeConfirm': '¿Eliminar la passkey de este elemento? Dejarás de poder iniciar sesión con ella.',
+  'passkey.removed': 'Passkey eliminada',
+  // Mover elemento entre cajas fuertes
+  'move.title': 'Mover a otra caja fuerte',
+  'move.help': 'El elemento se cifrará de nuevo con la clave de la caja de destino.',
+  'move.target': 'Caja fuerte de destino',
+  'move.confirm': 'Mover',
+  'move.noTargets': 'No hay otras cajas fuerte disponibles',
+  'move.done': 'Elemento movido',
   'items.icon.change': 'Cambiar icono',
 
   // Item types
@@ -463,6 +478,21 @@ const en = {
   'items.customFields.add': 'Add field',
   'items.customFields.label': 'Label',
   'items.customFields.value': 'Value',
+  // Passkeys (WebAuthn credentials stored inside an item)
+  'passkey.title': 'Passkey',
+  'passkey.rp': 'Site',
+  'passkey.account': 'Account',
+  'passkey.created': 'Created',
+  'passkey.remove': 'Remove passkey',
+  'passkey.removeConfirm': "Remove this item's passkey? You will no longer be able to sign in with it.",
+  'passkey.removed': 'Passkey removed',
+  // Move item between vaults
+  'move.title': 'Move to another vault',
+  'move.help': "The item will be re-encrypted with the destination vault's key.",
+  'move.target': 'Destination vault',
+  'move.confirm': 'Move',
+  'move.noTargets': 'No other vaults available',
+  'move.done': 'Item moved',
   'items.icon.change': 'Change icon',
 
   // Item types
@@ -809,6 +839,21 @@ const fr = {
   'items.customFields.add': 'Ajouter un champ',
   'items.customFields.label': 'Libellé',
   'items.customFields.value': 'Valeur',
+  // Passkeys (identifiants WebAuthn stockés dans un élément)
+  'passkey.title': 'Passkey',
+  'passkey.rp': 'Site',
+  'passkey.account': 'Compte',
+  'passkey.created': 'Créée',
+  'passkey.remove': 'Supprimer la passkey',
+  'passkey.removeConfirm': 'Supprimer la passkey de cet élément ? Vous ne pourrez plus vous connecter avec.',
+  'passkey.removed': 'Passkey supprimée',
+  // Déplacer un élément entre coffres
+  'move.title': 'Déplacer vers un autre coffre',
+  'move.help': "L'élément sera rechiffré avec la clé du coffre de destination.",
+  'move.target': 'Coffre de destination',
+  'move.confirm': 'Déplacer',
+  'move.noTargets': 'Aucun autre coffre disponible',
+  'move.done': 'Élément déplacé',
   'items.icon.change': "Changer l'icône",
 
   // Item types
