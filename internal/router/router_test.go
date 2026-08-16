@@ -76,9 +76,10 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Sésamo") {
 		t.Errorf("GET / = %d, want landing page", w.Code)
 	}
-	// The landing must carry the bounce script for returning users.
+	// The landing must carry the bounce script for app hash routes
+	// (#/share, #/vault, #sso) so deep links never die on the landing.
 	if !strings.Contains(w.Body.String(), "location.replace('/app'") {
-		t.Error("landing page must bounce returning users to /app")
+		t.Error("landing page must bounce app hash routes to /app")
 	}
 
 	// "/app" serves the SPA.

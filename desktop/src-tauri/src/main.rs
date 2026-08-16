@@ -52,9 +52,15 @@ fn open_vault(app: tauri::AppHandle, url: String) -> Result<(), String> {
         _ => return Err("Server URL must start with http:// or https://".into()),
     }
 
+    // The app shell lives at /app; the bare origin serves the public landing
+    // page, which is useless inside the desktop shell. The saved server URL
+    // stays the clean origin.
+    let mut window_url = parsed;
+    window_url.set_path("/app");
+
     // Reuse the vault window if it already exists (e.g. reconnecting).
     if app.get_webview_window("vault").is_none() {
-        WebviewWindowBuilder::new(&app, "vault", WebviewUrl::External(parsed))
+        WebviewWindowBuilder::new(&app, "vault", WebviewUrl::External(window_url))
             .title("Sésamo")
             .inner_size(1160.0, 800.0)
             .min_inner_size(720.0, 560.0)

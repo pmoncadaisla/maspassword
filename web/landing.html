@@ -2,22 +2,14 @@
 <html lang="es">
 <head>
 <script>
-// The landing lives at "/" but must never get in the way of the app:
-//  - App hash routes (#/share/…, #/vault/…, #sso=…) bounce to /app keeping
-//    the fragment (share keys and SSO tokens never leave the browser).
-//  - Returning users (any mp-* localStorage the app writes on every boot)
-//    arriving without a hash go straight to /app — PWA, desktop and
-//    bookmarked "/" users skip the landing automatically.
-//  - Anchor visits (e.g. /#apps from the in-app onboarding) and genuinely
-//    new visitors see the landing.
+// The landing lives at "/" but must never swallow app deep links: app hash
+// routes (#/share/…, #/vault/…, #sso=…) bounce to /app keeping the fragment
+// (share keys and SSO tokens never leave the browser). Everyone else —
+// including returning users — sees the landing: the PWA (start_url) and the
+// desktop shell open /app directly, and "Iniciar sesión" is one click away.
 (function () {
   var h = location.hash;
-  var appRoute = /^#\/?(share|vault|sso)/.test(h);
-  var known = false;
-  try {
-    known = !!(localStorage.getItem('mp-theme') || localStorage.getItem('mp-skin') || localStorage.getItem('mp-locale'));
-  } catch (e) {}
-  if (appRoute || (known && !h)) location.replace('/app' + h);
+  if (/^#\/?(share|vault|sso)/.test(h)) location.replace('/app' + h);
 })();
 </script>
 <meta charset="UTF-8">
