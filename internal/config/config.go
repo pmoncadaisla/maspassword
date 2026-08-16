@@ -27,6 +27,10 @@ type Config struct {
 	// (stops credential probing against known emails) and clients hide the
 	// email form entirely.
 	PasswordLoginEnabled bool
+	// RedirectAllTo retires a deployment that moved to a new domain: when set,
+	// the server answers every request with a permanent redirect to this
+	// origin (same path and query) and never touches the database.
+	RedirectAllTo string
 }
 
 // AdminEmails is a case-insensitive set of administrator email addresses.
@@ -103,5 +107,7 @@ func Load() *Config {
 		SignupEnabled:   os.Getenv("SIGNUP_ENABLED") != "false",
 
 		PasswordLoginEnabled: os.Getenv("PASSWORD_LOGIN") != "false",
+
+		RedirectAllTo: os.Getenv("REDIRECT_ALL_TO"),
 	}
 }

@@ -26,6 +26,15 @@ var version = "dev"
 
 func main() {
 	cfg := config.Load()
+
+	// Retired deployment: with REDIRECT_ALL_TO set the server does nothing but
+	// send every request to the new origin — no database, no app.
+	if cfg.RedirectAllTo != "" {
+		log.Printf("Redirect mode: every request -> %s (version=%s, port=%s)", cfg.RedirectAllTo, version, cfg.ServerPort)
+		runServer(cfg.ServerPort, router.RedirectAll(cfg.RedirectAllTo))
+		return
+	}
+
 	log.Printf("Starting server (version=%s, port=%s, iap=%v)", version, cfg.ServerPort, cfg.IAPEnabled)
 
 	// Database
@@ -127,14 +136,19 @@ func main() {
 		version,
 	)
 
-	// Server with graceful shutdown
+	runServer(cfg.ServerPort, r)
+}
+
+// runServer serves h on the given port until SIGINT/SIGTERM, then shuts down
+// gracefully.
+func runServer(port string, h http.Handler) {
 	srv := &http.Server{
-		Addr:    ":" + cfg.ServerPort,
-		Handler: r,
+		Addr:    ":" + port,
+		Handler: h,
 	}
 
 	go func() {
-		log.Printf("Server starting on port %s", cfg.ServerPort)
+		log.Printf("Server starting on port %s", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}

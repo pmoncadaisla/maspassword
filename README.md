@@ -223,6 +223,7 @@ cp .env.example .env
 | `SERVER_PORT` | Puerto del servidor HTTP | `8080` |
 | `CORS_ORIGINS` | Origenes permitidos para CORS | `http://localhost:3000` |
 | `SRP_BITS` | Tamano de clave SRP | `2048` |
+| `REDIRECT_ALL_TO` | Retira el despliegue: redirige (301) toda peticion a este origen, sin tocar la base de datos | — (desactivado) |
 
 ### Compilar y ejecutar
 
