@@ -88,8 +88,9 @@ func (s *teamService) AddMember(ctx context.Context, adminID, teamID uuid.UUID, 
 		return nil, err
 	}
 
-	// Find or create placeholder user by email
-	user, err := s.userRepo.FindOrCreateByEmail(ctx, req.Email)
+	// Find or create placeholder user by email. Created-here is irrelevant:
+	// invited users get the invite email, not the welcome one.
+	user, _, err := s.userRepo.FindOrCreateByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("finding or creating user: %w", err)
 	}

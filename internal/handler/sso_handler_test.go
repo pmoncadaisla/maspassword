@@ -68,15 +68,15 @@ func (m *fakeUserRepo) GetByEmail(_ context.Context, email string) (*models.User
 	return nil, repository.ErrUserNotFound
 }
 
-func (m *fakeUserRepo) FindOrCreateByEmail(_ context.Context, email string) (*models.User, error) {
+func (m *fakeUserRepo) FindOrCreateByEmail(_ context.Context, email string) (*models.User, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if u, ok := m.users[email]; ok {
-		return u, nil
+		return u, false, nil
 	}
 	u := &models.User{ID: uuid.New(), Email: email}
 	m.users[email] = u
-	return u, nil
+	return u, true, nil
 }
 
 func (m *fakeUserRepo) UpdateKeys(_ context.Context, _ uuid.UUID, _, _ string) error { return nil }
@@ -187,7 +187,7 @@ func newSSOTestEnv(t *testing.T, allowedDomains []string) *ssoTestEnv {
 		AllowedDomains:   allowedDomains,
 	}})
 
-	env.handler = NewSSOHandler(registry, ssoTestSecret, "", env.userRepo)
+	env.handler = NewSSOHandler(registry, ssoTestSecret, "", env.userRepo, nil)
 
 	// Same route shapes as the real router (static + :provider siblings).
 	r := gin.New()

@@ -49,6 +49,14 @@ type cardData struct {
 	ButtonLabel string
 }
 
+// welcomeBody greets a just-created account (first SSO sign-in). It is static
+// HTML (no template data), but kept as a template for symmetry with the rest.
+var welcomeBody = template.Must(template.New("welcome").Parse(
+	`<p>Hola,</p>
+<p>Tu cuenta de S&eacute;samo se acaba de crear con tu inicio de sesi&oacute;n de Google. Ya tienes tu caja fuerte personal para guardar contrase&ntilde;as, notas y m&aacute;s.</p>
+<p>S&eacute;samo es un gestor de contrase&ntilde;as de conocimiento cero: todo se cifra en tu dispositivo con una <strong>contrase&ntilde;a maestra</strong> que solo t&uacute; conoces y que crear&aacute;s al entrar por primera vez. Guarda bien la <strong>clave de recuperaci&oacute;n</strong> que te daremos entonces: sin ella y sin tu contrase&ntilde;a maestra, nadie &mdash; ni siquiera nosotros &mdash; puede descifrar tus datos.</p>
+<p>Si no has sido t&uacute;, puedes ignorar este correo: sin tu inicio de sesi&oacute;n de Google la cuenta no puede usarse.</p>`))
+
 var inviteMemberBody = template.Must(template.New("invite_member").Parse(
 	`<p>Hola,</p>
 <p><strong>{{.Actor}}</strong> te ha a&ntilde;adido al equipo <strong>{{.Team}}</strong> en S&eacute;samo con el rol de <strong>{{.Role}}</strong>.</p>
@@ -90,6 +98,24 @@ func renderTextCard(body, buttonURL, buttonLabel string) string {
 	}
 	b.WriteString("\n--\nEste es un mensaje automático de Sésamo, un producto MasOrange. No respondas a este correo.\n")
 	return b.String()
+}
+
+// RenderWelcome builds the email sent when an account is created on first
+// SSO sign-in. baseURL, when non-empty, adds a button linking to the app.
+func RenderWelcome(baseURL string) (subject, html, text string, err error) {
+	subject = "Te damos la bienvenida a Sésamo"
+	body, err := renderBody(welcomeBody, nil)
+	if err != nil {
+		return "", "", "", err
+	}
+	html, err = renderCard(cardData{Title: subject, Body: body, ButtonURL: baseURL, ButtonLabel: "Abrir Sésamo"})
+	if err != nil {
+		return "", "", "", err
+	}
+	text = renderTextCard(
+		"Hola,\n\nTu cuenta de Sésamo se acaba de crear con tu inicio de sesión de Google. Ya tienes tu caja fuerte personal para guardar contraseñas, notas y más.\n\nSésamo es un gestor de contraseñas de conocimiento cero: todo se cifra en tu dispositivo con una contraseña maestra que solo tú conoces y que crearás al entrar por primera vez. Guarda bien la clave de recuperación que te daremos entonces: sin ella y sin tu contraseña maestra, nadie — ni siquiera nosotros — puede descifrar tus datos.\n\nSi no has sido tú, puedes ignorar este correo: sin tu inicio de sesión de Google la cuenta no puede usarse.\n",
+		baseURL, "Abrir Sésamo")
+	return subject, html, text, nil
 }
 
 // RenderInviteMember builds the email sent to a user added to a team.

@@ -18,7 +18,11 @@ type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
-	FindOrCreateByEmail(ctx context.Context, email string) (*models.User, error)
+	// FindOrCreateByEmail returns the user for email, creating it (without
+	// SRP credentials) on first sight. The bool reports whether this call
+	// created the account — callers use it for one-time actions (welcome
+	// email); a creation lost to a concurrent race reports false.
+	FindOrCreateByEmail(ctx context.Context, email string) (*models.User, bool, error)
 	UpdateKeys(ctx context.Context, userID uuid.UUID, publicKey, encryptedPrivateKey string) error
 	UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error
 	UpdateRecoveryKey(ctx context.Context, userID uuid.UUID, recoveryEncryptedPrivateKey string) error
@@ -128,25 +132,26 @@ func (r *userRepo) GetPublicKeysByIDs(ctx context.Context, userIDs []uuid.UUID) 
 	return result, nil
 }
 
-func (r *userRepo) FindOrCreateByEmail(ctx context.Context, email string) (*models.User, error) {
+func (r *userRepo) FindOrCreateByEmail(ctx context.Context, email string) (*models.User, bool, error) {
 	user, err := r.GetByEmail(ctx, email)
 	if err == nil {
-		return user, nil
+		return user, false, nil
 	}
 	if !errors.Is(err, ErrUserNotFound) {
-		return nil, err
+		return nil, false, err
 	}
 
-	// Create user without SRP credentials (IAP user)
+	// Create user without SRP credentials (SSO/IAP user)
 	newUser := &models.User{Email: email}
 	if err := r.Create(ctx, newUser); err != nil {
 		if isUniqueViolation(err) {
 			// Race condition: another request created the user
-			return r.GetByEmail(ctx, email)
+			u, err := r.GetByEmail(ctx, email)
+			return u, false, err
 		}
-		return nil, err
+		return nil, false, err
 	}
-	return newUser, nil
+	return newUser, true, nil
 }
 
 func (r *userRepo) UpdateSRPCredentials(ctx context.Context, userID uuid.UUID, srpSalt, srpVerifier string) error {

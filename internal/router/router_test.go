@@ -35,7 +35,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		TokenURLOverride: "https://auth.test/token",
 		JWKSURLOverride:  "https://auth.test/jwks",
 	}})
-	ssoHandler := handler.NewSSOHandler(registry, "router-test-secret", "", nil)
+	ssoHandler := handler.NewSSOHandler(registry, "router-test-secret", "", nil, nil)
 	passkeyHandler := handler.NewPasskeyHandler(nil, "router-test-secret", "")
 
 	return Setup(

@@ -28,8 +28,8 @@ func (s *stubUserRepo) GetByID(context.Context, uuid.UUID) (*models.User, error)
 func (s *stubUserRepo) GetByEmail(context.Context, string) (*models.User, error) {
 	return nil, nil
 }
-func (s *stubUserRepo) FindOrCreateByEmail(context.Context, string) (*models.User, error) {
-	return nil, nil
+func (s *stubUserRepo) FindOrCreateByEmail(context.Context, string) (*models.User, bool, error) {
+	return nil, false, nil
 }
 func (s *stubUserRepo) UpdateKeys(context.Context, uuid.UUID, string, string) error { return nil }
 func (s *stubUserRepo) UpdateSRPCredentials(context.Context, uuid.UUID, string, string) error {

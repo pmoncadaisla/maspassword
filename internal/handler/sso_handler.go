@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -9,8 +10,10 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/masorange/maspassword/internal/mailer"
 	"github.com/masorange/maspassword/internal/names"
 	"github.com/masorange/maspassword/internal/oidc"
 	"github.com/masorange/maspassword/internal/repository"
@@ -31,15 +34,37 @@ type SSOHandler struct {
 	jwtSecret  []byte
 	appBaseURL string
 	userRepo   repository.UserRepository
+	mail       *mailer.Mailer // may be nil/disabled; welcome emails become no-ops
 }
 
-func NewSSOHandler(registry *oidc.Registry, jwtSecret, appBaseURL string, userRepo repository.UserRepository) *SSOHandler {
+func NewSSOHandler(registry *oidc.Registry, jwtSecret, appBaseURL string, userRepo repository.UserRepository, mail *mailer.Mailer) *SSOHandler {
 	return &SSOHandler{
 		registry:   registry,
 		jwtSecret:  []byte(jwtSecret),
 		appBaseURL: strings.TrimSuffix(appBaseURL, "/"),
 		userRepo:   userRepo,
+		mail:       mail,
 	}
+}
+
+// sendWelcome emails a just-created account in the background. Login never
+// waits on (or fails because of) the mailer.
+func (h *SSOHandler) sendWelcome(email string) {
+	if !h.mail.Enabled() {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic in welcome email: %v", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := h.mail.SendWelcome(ctx, email); err != nil {
+			log.Printf("sending welcome email to %s: %v", email, err)
+		}
+	}()
 }
 
 // ProviderList exposes the configured providers (embedded in /auth/mode).
@@ -180,11 +205,14 @@ func (h *SSOHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userRepo.FindOrCreateByEmail(c.Request.Context(), claims.Email)
+	user, created, err := h.userRepo.FindOrCreateByEmail(c.Request.Context(), claims.Email)
 	if err != nil {
 		log.Printf("sso %s: find-or-create %s: %v", providerID, claims.Email, err)
 		h.errorPage(c, http.StatusInternalServerError, "Could not resolve your account.")
 		return
+	}
+	if created {
+		h.sendWelcome(user.Email)
 	}
 
 	// Backfill the display name once: prefer the IdP "name" claim, otherwise

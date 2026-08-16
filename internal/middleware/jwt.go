@@ -108,7 +108,7 @@ func DualAuth(jwtSecret string, iapValidator *iap.Validator, userRepo repository
 			}
 
 			// Find or create user by email
-			user, err := userRepo.FindOrCreateByEmail(c.Request.Context(), claims.Email)
+			user, _, err := userRepo.FindOrCreateByEmail(c.Request.Context(), claims.Email)
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"error": gin.H{"code": "INTERNAL_ERROR", "message": "failed to resolve user"},

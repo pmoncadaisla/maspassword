@@ -109,7 +109,7 @@ func main() {
 	shareLinkHandler := handler.NewShareLinkHandler(shareLinkService)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo)
-	ssoHandler := handler.NewSSOHandler(ssoRegistry, cfg.JWTSecret, cfg.AppBaseURL, userRepo)
+	ssoHandler := handler.NewSSOHandler(ssoRegistry, cfg.JWTSecret, cfg.AppBaseURL, userRepo, mail)
 	passkeyHandler := handler.NewPasskeyHandler(repository.NewPasskeyRepository(db), cfg.JWTSecret, cfg.AppBaseURL)
 
 	if len(cfg.AdminEmails) > 0 {

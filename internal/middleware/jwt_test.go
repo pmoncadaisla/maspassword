@@ -142,13 +142,13 @@ func (m *mockUserRepo) GetByEmail(_ context.Context, email string) (*models.User
 	return nil, repository.ErrUserNotFound
 }
 
-func (m *mockUserRepo) FindOrCreateByEmail(_ context.Context, email string) (*models.User, error) {
+func (m *mockUserRepo) FindOrCreateByEmail(_ context.Context, email string) (*models.User, bool, error) {
 	if u, ok := m.users[email]; ok {
-		return u, nil
+		return u, false, nil
 	}
 	u := &models.User{ID: uuid.New(), Email: email}
 	m.users[email] = u
-	return u, nil
+	return u, true, nil
 }
 
 func (m *mockUserRepo) UpdateKeys(_ context.Context, _ uuid.UUID, _, _ string) error {

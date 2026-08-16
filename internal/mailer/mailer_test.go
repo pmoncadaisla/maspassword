@@ -34,6 +34,45 @@ func TestDisabledMailerIsNoOp(t *testing.T) {
 	if err := nilMailer.SendMemberInvited(context.Background(), "a@b.c", "Equipo", "Ana", "member"); err != nil {
 		t.Fatalf("nil mailer SendMemberInvited must be a no-op, got %v", err)
 	}
+	if err := nilMailer.SendWelcome(context.Background(), "a@b.c"); err != nil {
+		t.Fatalf("nil mailer SendWelcome must be a no-op, got %v", err)
+	}
+}
+
+func TestRenderWelcome(t *testing.T) {
+	subject, html, text, err := RenderWelcome("https://opensesamo.com")
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if subject != "Te damos la bienvenida a Sésamo" {
+		t.Errorf("subject = %q", subject)
+	}
+	for _, want := range []string{"s&eacute;samo", "contrase&ntilde;a maestra", "recuperaci&oacute;n", "https://opensesamo.com", "Abrir S", "mensaje autom"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("html missing %q", want)
+		}
+	}
+	for _, want := range []string{"contraseña maestra", "recuperación", "https://opensesamo.com", "mensaje autom"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text missing %q", want)
+		}
+	}
+	if strings.Contains(text, "<") {
+		t.Errorf("text part must not contain markup: %q", text)
+	}
+}
+
+func TestRenderWelcomeWithoutBaseURLHasNoButton(t *testing.T) {
+	_, html, text, err := RenderWelcome("")
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if strings.Contains(html, "Abrir S") {
+		t.Error("button must be omitted when base URL is empty")
+	}
+	if strings.Contains(text, "Abrir S") {
+		t.Error("text link must be omitted when base URL is empty")
+	}
 }
 
 func TestRenderInviteMember(t *testing.T) {

@@ -98,6 +98,19 @@ func (m *Mailer) Send(ctx context.Context, to, subject, html, text string) error
 	return nil
 }
 
+// SendWelcome emails a user whose account was just created on first sign-in.
+func (m *Mailer) SendWelcome(ctx context.Context, to string) error {
+	base := ""
+	if m != nil {
+		base = m.appBaseURL
+	}
+	subject, html, text, err := RenderWelcome(base)
+	if err != nil {
+		return err
+	}
+	return m.Send(ctx, to, subject, html, text)
+}
+
 // SendMemberInvited emails a user who has just been added to a team.
 func (m *Mailer) SendMemberInvited(ctx context.Context, to, team, actor, role string) error {
 	base := ""
