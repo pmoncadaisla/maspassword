@@ -108,6 +108,19 @@ function currentHash() {
   return location.hash.replace(/^#\/?/, '/');
 }
 
+// Whether the SRP signup form applies to this deployment: requires password
+// login AND open signup (both from /auth/mode, cached in mp-auth-mode).
+// Returns null while no answer has been cached yet.
+function srpSignupAvailability() {
+  try {
+    const m = JSON.parse(localStorage.getItem('mp-auth-mode') || 'null');
+    if (!m) return null;
+    return m.passwordLogin !== false && m.signup !== false;
+  } catch {
+    return null;
+  }
+}
+
 async function handleRoute() {
   // One-time share links come BEFORE any auth check: recipients don't need an
   // account. The decryption key lives only in the fragment and never leaves
@@ -132,6 +145,21 @@ async function handleRoute() {
   // Auth routes (always accessible)
   if (hash === '/signup') {
     if (token) return; // already logged in, ignore
+    // Signup is SRP-based: on SSO-only deployments (or with signup closed)
+    // the route resolves to the login screen, where the SSO buttons live —
+    // that IS how you create an account there. While the auth mode is still
+    // unknown (first visit, /auth/mode in flight) show the login screen too:
+    // it has the spinner, and renderSSOLogin re-routes when the answer lands.
+    const avail = srpSignupAvailability();
+    if (avail === false) {
+      history.replaceState(null, '', '#/login');
+      showAuthScreen('login');
+      return;
+    }
+    if (avail === null) {
+      showAuthScreen('login');
+      return;
+    }
     showAuthScreen('signup');
     return;
   }
@@ -810,6 +838,14 @@ function renderSSOLogin(providers, signupEnabled, passwordLogin, passkeyLogin) {
     const link = document.getElementById('btn-show-signup');
     const row = link && link.closest('p');
     if (row) row.style.display = 'none';
+    // The signup screen may already be showing (deep link resolved before
+    // this answer, or a stale cache): withdraw it in favor of the login
+    // screen, where the SSO buttons live.
+    const signupScreen = document.getElementById('screen-signup');
+    if (signupScreen && signupScreen.classList.contains('active') && !token) {
+      history.replaceState(null, '', '#/login');
+      showAuthScreen('login');
+    }
   }
 
   // Passkey login button (login screen + lock screen): server support plus
