@@ -427,7 +427,7 @@ async function login() {
     } else {
       showMainApp();
       renderSidebar();
-      setHash('/');
+      await restoreRouteAfterUnlock();
     }
   } catch (e) {
     toast(t('toast.loginFailed', { error: e.message }), true);
@@ -848,13 +848,15 @@ function renderSSOLogin(providers, signupEnabled, passwordLogin, passkeyLogin) {
     }
   }
 
-  // Passkey login button (login screen + lock screen): server support plus
-  // WebAuthn availability in this browser.
+  // Passkey login button (login, lock and post-reload unlock screens):
+  // server support plus WebAuthn availability in this browser.
   const pkAvailable = !!passkeyLogin && !!window.PublicKeyCredential;
   const pkBtn = document.getElementById('btn-passkey-login');
   if (pkBtn) pkBtn.style.display = pkAvailable ? '' : 'none';
   const pkLock = document.getElementById('btn-lock-passkey');
   if (pkLock) pkLock.style.display = pkAvailable ? '' : 'none';
+  const pkUnlock = document.getElementById('btn-iap-unlock-passkey');
+  if (pkUnlock) pkUnlock.style.display = pkAvailable ? '' : 'none';
 
   // Resolve the pre-paint state (html[data-auth], set by the head script)
   // and cache the answer so the next load paints the right option from the
@@ -883,7 +885,13 @@ async function initIAPSession() {
     sessionStorage.setItem('token', token);
 
     if (iapSession.encryption_setup) {
-      // Encryption already set up — show unlock screen
+      // Encryption already set up — show unlock screen. Showing it rewrites
+      // the hash to /iap-unlock, so save the pre-reload route first (a PWA
+      // pull-to-refresh keeps the hash) to restore it after the unlock.
+      const h = currentHash();
+      if (h && h !== '/' && h !== '/login' && h !== '/signup' && h !== '/iap-unlock' && h !== '/lock') {
+        pendingRoute = location.hash;
+      }
       showAuthScreen('iap-unlock');
       document.getElementById('iap-unlock-email').textContent = iapSession.email;
     } else {
@@ -894,6 +902,32 @@ async function initIAPSession() {
     return true;
   } catch {
     return false;
+  }
+}
+
+// Land the user back where they were after a fresh unlock, with items loaded.
+// The pre-reload route survives either in pendingRoute (captured before the
+// unlock screen rewrote the hash) or in the hash itself (SRP login flow).
+// With no route to restore, open the first vault instead of leaving the item
+// pane — the only pane visible on mobile — empty.
+async function restoreRouteAfterUnlock() {
+  if (pendingRoute) {
+    const route = pendingRoute;
+    pendingRoute = null;
+    // replaceState swaps the hash WITHOUT firing hashchange: handleRoute runs
+    // exactly once. A plain hash assignment would queue a second, concurrent
+    // run that races the first one's loadItems().
+    history.replaceState(null, '', route);
+    await handleRoute();
+    return;
+  }
+  const h = currentHash();
+  if (h && h !== '/' && h !== '/login' && h !== '/signup' && h !== '/iap-unlock' && h !== '/lock') {
+    await handleRoute();
+  } else if (vaults.length) {
+    await selectVault(vaults[0].id);
+  } else {
+    setHash('/');
   }
 }
 
@@ -918,7 +952,7 @@ async function iapUnlock() {
     startOnboarding(iapSession.email);
     showMainApp();
     renderSidebar();
-    setHash('/');
+    await restoreRouteAfterUnlock();
   } catch (e) {
     toast(t('toast.wrongMasterPassword'), true);
     encKey = null;
@@ -2589,7 +2623,7 @@ async function passkeyLogin() {
       startOnboarding(session.email);
       showMainApp();
       renderSidebar();
-      setHash('/');
+      await restoreRouteAfterUnlock();
     } else {
       // Auth-only passkey: identity proven, but only the master password can
       // decrypt — reuse the SSO/IAP unlock screen.
@@ -3320,6 +3354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-create-passkey').addEventListener('click', registerLoginPasskey);
   document.getElementById('btn-passkey-login').addEventListener('click', passkeyLogin);
   document.getElementById('btn-lock-passkey').addEventListener('click', passkeyLogin);
+  document.getElementById('btn-iap-unlock-passkey').addEventListener('click', passkeyLogin);
   document.getElementById('btn-create-device').addEventListener('click', createDevice);
   document.getElementById('device-name-input').addEventListener('keydown', e => { if (e.key === 'Enter') createDevice(); });
   document.getElementById('btn-close-devices').addEventListener('click', () => {
