@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { LOCALES, MESSAGES, initI18n, getLocale, setLocale, t, applyI18n } from '../i18n.js';
 
 // --- Test helpers: mock browser globals (Node 22 has neither localStorage
@@ -97,6 +98,28 @@ test('required keys for the upcoming UI are present', () => {
 test('spec-pinned ES values are exact', () => {
   assert.equal(MESSAGES.es['version.running'], 'Version {v}');
   assert.equal(MESSAGES.es['items.lastEdited'], 'Editado por {name} {when}');
+});
+
+// A key defined twice in the same catalog is invisible at runtime — the last
+// literal silently wins — so check the source text, not the parsed object.
+test('no locale defines the same key twice', () => {
+  const src = readFileSync(new URL('../i18n.js', import.meta.url), 'utf8');
+  const starts = [...src.matchAll(/^const (\w+) = \{/gm)];
+  const named = starts.filter(([, name]) => LOCALES.includes(name));
+  assert.equal(named.length, LOCALES.length, 'every locale has a catalog literal');
+
+  for (const [i, match] of starts.entries()) {
+    const name = match[1];
+    if (!LOCALES.includes(name)) continue;
+    const end = i + 1 < starts.length ? starts[i + 1].index : src.length;
+    const seen = new Set();
+    const dupes = [];
+    for (const [, key] of src.slice(match.index, end).matchAll(/^ {2}'([^']+)':/gm)) {
+      if (seen.has(key)) dupes.push(key);
+      seen.add(key);
+    }
+    assert.deepEqual(dupes, [], `${name} defines duplicate keys: ${dupes.join(', ')}`);
+  }
 });
 
 test('core app strings are covered in the catalog', () => {

@@ -23,6 +23,9 @@ Levanta PostgreSQL y el servidor (imagen multi-arch amd64/arm64) con las migraci
 - **PWA:** aplicacion web instalable con soporte offline via Service Worker.
 - **Extension de navegador:** autocompletado de credenciales (Manifest V3, compatible con Chrome/Edge).
 - **Versionado de items:** control de versiones para evitar conflictos en actualizaciones concurrentes.
+- **Exportacion interoperable:** descarga la boveda como `.kdbx` (KeePass 4, cifrado con su propia contrasena), CSV o JSON. El descifrado y el cifrado del fichero ocurren en el navegador; el servidor solo ve texto cifrado.
+- **Mover y copiar items entre bovedas:** el item se vuelve a cifrar con la clave de destino, util cuando algo personal pasa a ser del equipo.
+- **Borrado de bovedas:** el propietario (o un admin del equipo) puede eliminar una boveda con confirmacion escribiendo su nombre; items, historial, claves y comparticiones caen en cascada.
 - **Anti-enumeracion:** respuestas ficticias ante emails invalidos para prevenir la enumeracion de usuarios.
 
 ## Instalacion
@@ -182,6 +185,7 @@ maspassword/
 |--------|------|-------------|
 | GET | `/api/vaults` | Listar bovedas accesibles |
 | POST | `/api/vaults` | Crear boveda personal |
+| DELETE | `/api/vaults/:id` | Eliminar boveda (propietario o admin del equipo) |
 | GET | `/api/vaults/:id/items` | Listar items de una boveda |
 | POST | `/api/vaults/:id/items` | Crear item cifrado |
 | PUT | `/api/vaults/:id/items/:itemId` | Actualizar item |

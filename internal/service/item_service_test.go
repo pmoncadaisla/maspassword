@@ -149,6 +149,13 @@ func (f *fakeVaultRepo) AddTeamShare(_ context.Context, vaultID, teamID uuid.UUI
 func (f *fakeVaultRepo) ListTeamShares(_ context.Context, vaultID uuid.UUID) ([]repository.VaultTeamShare, error) {
 	return f.teamShares[vaultID], nil
 }
+func (f *fakeVaultRepo) Delete(_ context.Context, id uuid.UUID) error {
+	if _, ok := f.vaults[id]; !ok {
+		return repository.ErrVaultNotFound
+	}
+	delete(f.vaults, id)
+	return nil
+}
 
 type fakeVaultKeyRepo struct {
 	keys map[string]*models.VaultKey

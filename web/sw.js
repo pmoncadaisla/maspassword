@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sesamo-v21';
+const CACHE_NAME = 'sesamo-v22';
 // '/app' is the app shell (also the manifest start_url). '/' (landing) and
 // '/index.html' (301 → /app) are intentionally NOT cached: redirects poison
 // the cache for navigations, and the landing should always come from the
@@ -22,6 +22,7 @@ const ASSETS = [
   '/onboarding.js',
   '/qr.js',
   '/keystore.js',
+  '/export.js',
   '/manifest.json',
 ];
 

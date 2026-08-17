@@ -22,6 +22,7 @@ type VaultService interface {
 	ShareVault(ctx context.Context, userID, vaultID uuid.UUID, req dto.ShareVaultRequest) error
 	ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error)
 	ListShares(ctx context.Context, userID, vaultID uuid.UUID) ([]dto.VaultShareInfo, error)
+	Delete(ctx context.Context, userID, vaultID uuid.UUID) error
 }
 
 type vaultService struct {
@@ -177,6 +178,27 @@ func (s *vaultService) ListShares(ctx context.Context, userID, vaultID uuid.UUID
 		})
 	}
 	return result, nil
+}
+
+// Delete removes a vault and everything in it (items, history, keys, shares —
+// the database cascades). Personal vaults can only be deleted by their owner;
+// team vaults also by a team admin, so a team outlives the member who happened
+// to create its vaults.
+func (s *vaultService) Delete(ctx context.Context, userID, vaultID uuid.UUID) error {
+	vault, err := s.vaultRepo.GetByID(ctx, vaultID)
+	if err != nil {
+		return err
+	}
+	if vault.OwnerID != userID {
+		if vault.TeamID == nil {
+			return ErrNoVaultAccess
+		}
+		member, err := s.teamRepo.GetMember(ctx, *vault.TeamID, userID)
+		if err != nil || member.Role != "admin" {
+			return ErrNoVaultAccess
+		}
+	}
+	return s.vaultRepo.Delete(ctx, vaultID)
 }
 
 func (s *vaultService) ListByTeam(ctx context.Context, userID, teamID uuid.UUID) ([]models.Vault, error) {

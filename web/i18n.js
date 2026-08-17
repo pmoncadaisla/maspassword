@@ -132,6 +132,30 @@ const es = {
   'move.confirm': 'Mover',
   'move.noTargets': 'No hay otras cajas fuerte disponibles',
   'move.done': 'Elemento movido',
+  'copyItem.title': 'Copiar a otra caja fuerte',
+  'copyItem.confirm': 'Copiar',
+  'copyItem.done': 'Elemento copiado',
+
+  // Ajustes de la caja fuerte: exportar y eliminar
+  'vaultMenu.title': 'Ajustes de la caja fuerte',
+  'export.open': 'Exportar caja fuerte…',
+  'export.hint': 'Descarga una copia descifrada de esta caja en tu dispositivo. Nada sale al servidor.',
+  'export.title': 'Exportar caja fuerte',
+  'export.format': 'Formato',
+  'export.fmt.kdbx': 'KeePass (.kdbx) — cifrado',
+  'export.fmt.csv': 'CSV — sin cifrar',
+  'export.fmt.json': 'JSON — sin cifrar',
+  'export.password': 'Contraseña del archivo',
+  'export.passwordHint': 'El archivo .kdbx queda cifrado con esta contraseña; la necesitarás para abrirlo en KeePass, KeePassXC o cualquier app compatible.',
+  'export.plainWarning': 'Este formato se descarga SIN cifrar. Guarda el archivo en un lugar seguro y bórralo cuando termines.',
+  'export.needPassword': 'Elige una contraseña para proteger el archivo',
+  'export.countHint': 'Se exportarán {n} elementos de esta caja fuerte.',
+  'export.start': 'Exportar',
+  'export.done': '{n} elementos exportados',
+  'deleteVault.confirmLabel': 'Para eliminarla, escribe el nombre de la caja fuerte:',
+  'deleteVault.button': 'Eliminar caja fuerte',
+  'deleteVault.warning': 'Se eliminarán la caja y todos sus elementos para todos los que tengan acceso. No se puede deshacer.',
+  'deleteVault.done': 'Caja fuerte eliminada',
   'items.icon.change': 'Cambiar icono',
 
   // Item types
@@ -259,7 +283,6 @@ const es = {
   'import.summary': '{imported} de {total} elementos importados correctamente.',
   'import.errors': '{count} errores.',
   'import.failed': 'La importación ha fallado: {error}',
-  'export.title': 'Exportar',
 
   // Command palette
   'cmd.placeholder': 'Busca elementos o escribe un comando…',
@@ -512,6 +535,30 @@ const en = {
   'move.confirm': 'Move',
   'move.noTargets': 'No other vaults available',
   'move.done': 'Item moved',
+  'copyItem.title': 'Copy to another vault',
+  'copyItem.confirm': 'Copy',
+  'copyItem.done': 'Item copied',
+
+  // Vault settings: export and delete
+  'vaultMenu.title': 'Vault settings',
+  'export.open': 'Export vault…',
+  'export.hint': 'Downloads a decrypted copy of this vault to your device. Nothing is sent to the server.',
+  'export.title': 'Export vault',
+  'export.format': 'Format',
+  'export.fmt.kdbx': 'KeePass (.kdbx) — encrypted',
+  'export.fmt.csv': 'CSV — unencrypted',
+  'export.fmt.json': 'JSON — unencrypted',
+  'export.password': 'File password',
+  'export.passwordHint': 'The .kdbx file is encrypted with this password; you will need it to open the file in KeePass, KeePassXC or any compatible app.',
+  'export.plainWarning': 'This format downloads UNENCRYPTED. Keep the file somewhere safe and delete it when you are done.',
+  'export.needPassword': 'Choose a password to protect the file',
+  'export.countHint': '{n} items from this vault will be exported.',
+  'export.start': 'Export',
+  'export.done': '{n} items exported',
+  'deleteVault.confirmLabel': 'To delete it, type the vault name:',
+  'deleteVault.button': 'Delete vault',
+  'deleteVault.warning': 'The vault and all its items will be deleted for everyone who has access. This cannot be undone.',
+  'deleteVault.done': 'Vault deleted',
   'items.icon.change': 'Change icon',
 
   // Item types
@@ -639,7 +686,6 @@ const en = {
   'import.summary': '{imported} of {total} item(s) imported successfully.',
   'import.errors': '{count} error(s).',
   'import.failed': 'Import failed: {error}',
-  'export.title': 'Export',
 
   // Command palette
   'cmd.placeholder': 'Search items or type a command…',
@@ -892,6 +938,30 @@ const fr = {
   'move.confirm': 'Déplacer',
   'move.noTargets': 'Aucun autre coffre disponible',
   'move.done': 'Élément déplacé',
+  'copyItem.title': 'Copier vers un autre coffre',
+  'copyItem.confirm': 'Copier',
+  'copyItem.done': 'Élément copié',
+
+  // Paramètres du coffre : exporter et supprimer
+  'vaultMenu.title': 'Paramètres du coffre',
+  'export.open': 'Exporter le coffre…',
+  'export.hint': 'Télécharge une copie déchiffrée de ce coffre sur votre appareil. Rien ne part vers le serveur.',
+  'export.title': 'Exporter le coffre',
+  'export.format': 'Format',
+  'export.fmt.kdbx': 'KeePass (.kdbx) — chiffré',
+  'export.fmt.csv': 'CSV — non chiffré',
+  'export.fmt.json': 'JSON — non chiffré',
+  'export.password': 'Mot de passe du fichier',
+  'export.passwordHint': 'Le fichier .kdbx est chiffré avec ce mot de passe ; il vous le faudra pour ouvrir le fichier dans KeePass, KeePassXC ou toute app compatible.',
+  'export.plainWarning': 'Ce format est téléchargé NON chiffré. Conservez le fichier en lieu sûr et supprimez-le une fois terminé.',
+  'export.needPassword': 'Choisissez un mot de passe pour protéger le fichier',
+  'export.countHint': '{n} éléments de ce coffre seront exportés.',
+  'export.start': 'Exporter',
+  'export.done': '{n} éléments exportés',
+  'deleteVault.confirmLabel': 'Pour le supprimer, saisissez le nom du coffre :',
+  'deleteVault.button': 'Supprimer le coffre',
+  'deleteVault.warning': 'Le coffre et tous ses éléments seront supprimés pour tous ceux qui y ont accès. Irréversible.',
+  'deleteVault.done': 'Coffre supprimé',
   'items.icon.change': "Changer l'icône",
 
   // Item types
@@ -1019,7 +1089,6 @@ const fr = {
   'import.summary': '{imported} sur {total} éléments importés avec succès.',
   'import.errors': '{count} erreurs.',
   'import.failed': "Échec de l'importation : {error}",
-  'export.title': 'Exporter',
 
   // Command palette
   'cmd.placeholder': 'Recherchez des éléments ou tapez une commande…',

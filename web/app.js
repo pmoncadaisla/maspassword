@@ -12,6 +12,7 @@ import { findDuplicateGroups } from '/duplicates.js';
 import { initOnboarding, onboardingStepDone, shouldShowWelcome } from '/onboarding.js';
 import { qrSvg } from '/qr.js';
 import { saveSessionKey, loadSessionKey, touchSessionKey, clearSessionKey } from '/keystore.js';
+import { buildKdbx, buildCsv, buildJson, itemsToKdbxEntries } from '/export.js';
 
 // --- Item types (1Password-style) ---
 // Labels are resolved lazily through t() so they follow the active locale.
@@ -247,6 +248,9 @@ async function navigateToVault(vaultId) {
     closeMobileSidebar();
     // Lazily fetch which teams this vault is shared with (renders chips under the header).
     loadVaultShares(vault);
+    // Owner/admin-only vault menu (export + delete); role check may be async.
+    document.getElementById('btn-vault-menu').style.display = 'none';
+    updateVaultMenuButton();
   }
 }
 
@@ -1627,12 +1631,15 @@ async function deleteCurrentItem() {
   } catch (e) { toast(e.message, true); }
 }
 
-// --- Move item to another vault ---
+// --- Move / copy item to another vault ---
 // The item's plaintext is re-encrypted under the destination vault's key and
-// created there, then the source copy is deleted. Both keys live only in this
-// client, so the server still sees nothing but ciphertext at every step.
-async function openMoveModal() {
+// created there; a move then deletes the source copy, a copy keeps it. Both
+// keys live only in this client, so the server still sees nothing but
+// ciphertext at every step.
+let moveMode = 'move';
+async function openMoveModal(mode = 'move') {
   if (!currentItem || !currentItem._data || !currentVault) return;
+  moveMode = mode;
   const select = document.getElementById('move-target-vault');
   const targets = vaults.filter(v => v.id !== currentVault.id);
   if (!targets.length) return toast(t('move.noTargets'), true);
@@ -1643,6 +1650,10 @@ async function openMoveModal() {
     opts.push(`<option value="${escAttr(v.id)}">${esc(name)}</option>`);
   }
   select.innerHTML = opts.join('');
+  document.getElementById('move-modal-title').textContent =
+    t(mode === 'copy' ? 'copyItem.title' : 'move.title');
+  document.getElementById('btn-confirm-move').textContent =
+    t(mode === 'copy' ? 'copyItem.confirm' : 'move.confirm');
   openModal('modal-move-item');
 }
 
@@ -1659,13 +1670,168 @@ async function confirmMoveItem() {
     // Create the destination copy first; only delete the source once it exists,
     // so a failure mid-move never loses the item.
     const created = await api('POST', `/api/vaults/${target.id}/items`, { data_encrypted: dataEnc });
+    globalIndex = null;
+    if (moveMode === 'copy') {
+      toast(t('copyItem.done'));
+      closeModal('modal-move-item');
+      return;
+    }
     await api('DELETE', `/api/vaults/${currentVault.id}/items/${currentItem.id}`);
     toast(t('move.done'));
     closeModal('modal-move-item');
-    globalIndex = null;
     currentItem = null;
     await selectVault(target.id);
     if (created?.id) await openItem(created.id);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// --- Vault settings: export + delete ---
+// Both are gated to the vault owner (and team admins for team vaults). For
+// export this is a UI courtesy, not a security boundary: anyone who can read
+// a vault necessarily holds its key. Deletion is enforced server-side too.
+const teamRoleCache = {};
+async function canManageVault(v) {
+  const me = getCurrentUserId();
+  if (!me || !v) return false;
+  if (v.owner_id === me) return true;
+  if (!v.team_id) return false;
+  if (teamRoleCache[v.team_id] === undefined) {
+    try {
+      const members = (await api('GET', `/api/teams/${v.team_id}/members`)) || [];
+      teamRoleCache[v.team_id] = members.find(m => m.user_id === me)?.role || null;
+    } catch { teamRoleCache[v.team_id] = null; }
+  }
+  return teamRoleCache[v.team_id] === 'admin';
+}
+
+async function updateVaultMenuButton() {
+  const btn = document.getElementById('btn-vault-menu');
+  const vault = currentVault;
+  const show = await canManageVault(vault);
+  // The user may have switched vaults while the role check was in flight.
+  if (currentVault !== vault) return;
+  btn.style.display = show ? '' : 'none';
+}
+
+let vaultSettingsName = '';
+async function openVaultSettings() {
+  if (!currentVault) return;
+  vaultSettingsName = 'Vault';
+  try {
+    vaultSettingsName = await decrypt(await getVaultDecryptionKey(currentVault), currentVault.name_encrypted);
+  } catch {}
+  document.getElementById('vault-settings-title').textContent = vaultSettingsName;
+  const input = document.getElementById('delete-vault-confirm-input');
+  input.value = '';
+  input.placeholder = vaultSettingsName;
+  document.getElementById('btn-vault-delete').disabled = true;
+  openModal('modal-vault-settings');
+}
+
+async function deleteCurrentVault() {
+  if (!currentVault) return;
+  const input = document.getElementById('delete-vault-confirm-input');
+  if (input.value.trim() !== vaultSettingsName.trim()) return;
+  const btn = document.getElementById('btn-vault-delete');
+  btn.disabled = true;
+  try {
+    const deletedId = currentVault.id;
+    await api('DELETE', `/api/vaults/${deletedId}`);
+    closeModal('modal-vault-settings');
+    toast(t('deleteVault.done'));
+    delete vaultKeyCache[deletedId];
+    delete vaultSharesCache[deletedId];
+    globalIndex = null;
+    currentItem = null;
+    currentVault = null;
+    await loadVaults();
+    renderSidebar();
+    if (vaults.length) {
+      await selectVault(vaults[0].id);
+    } else {
+      items = [];
+      document.getElementById('item-list').innerHTML = '';
+      document.getElementById('item-list-actions').style.display = 'none';
+      showDetailEmpty();
+      setHash('/');
+    }
+  } catch (e) {
+    toast(e.message, true);
+    btn.disabled = false;
+  }
+}
+
+// --- Export (KDBX / CSV / JSON) ---
+function updateExportFormatUI() {
+  const format = document.getElementById('export-format').value;
+  document.getElementById('export-password-group').style.display = format === 'kdbx' ? '' : 'none';
+  document.getElementById('export-plain-warning').style.display = format === 'kdbx' ? 'none' : '';
+}
+
+function openExportModal() {
+  if (!currentVault) return;
+  closeModal('modal-vault-settings');
+  document.getElementById('export-password').value = '';
+  document.getElementById('export-format').value = 'kdbx';
+  updateExportFormatUI();
+  document.getElementById('export-count-hint').textContent = t('export.countHint', { n: items.length });
+  openModal('modal-export');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+async function runExport() {
+  if (!currentVault) return;
+  const format = document.getElementById('export-format').value;
+  const password = document.getElementById('export-password').value;
+  if (format === 'kdbx' && !password) return toast(t('export.needPassword'), true);
+  const btn = document.getElementById('btn-start-export');
+  btn.disabled = true;
+  try {
+    const key = await getVaultDecryptionKey(currentVault);
+    let vaultName = 'Vault';
+    try { vaultName = await decrypt(key, currentVault.name_encrypted); } catch {}
+    const decrypted = [];
+    for (const it of items) {
+      try {
+        decrypted.push({
+          data: JSON.parse(await decrypt(key, it.data_encrypted)),
+          created_at: it.created_at,
+          updated_at: it.updated_at,
+        });
+      } catch { /* skip undecryptable rows rather than aborting the export */ }
+    }
+    const slug = vaultName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'vault';
+    const date = new Date().toISOString().slice(0, 10);
+    let blob, filename;
+    if (format === 'kdbx') {
+      const bytes = await buildKdbx({ vaultName, entries: itemsToKdbxEntries(decrypted), password });
+      blob = new Blob([bytes], { type: 'application/octet-stream' });
+      filename = `sesamo-${slug}-${date}.kdbx`;
+    } else if (format === 'csv') {
+      blob = new Blob([buildCsv(decrypted)], { type: 'text/csv;charset=utf-8' });
+      filename = `sesamo-${slug}-${date}.csv`;
+    } else {
+      blob = new Blob([buildJson(vaultName, decrypted)], { type: 'application/json' });
+      filename = `sesamo-${slug}-${date}.json`;
+    }
+    downloadBlob(blob, filename);
+    closeModal('modal-export');
+    toast(t('export.done', { n: decrypted.length }));
   } catch (e) {
     toast(e.message, true);
   } finally {
@@ -3314,9 +3480,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-delete-item').addEventListener('click', deleteCurrentItem);
 
   // Move item between vaults
-  document.getElementById('btn-move-item').addEventListener('click', openMoveModal);
+  document.getElementById('btn-move-item').addEventListener('click', () => openMoveModal('move'));
+  document.getElementById('btn-copy-item').addEventListener('click', () => openMoveModal('copy'));
   document.getElementById('btn-confirm-move').addEventListener('click', confirmMoveItem);
   document.getElementById('btn-cancel-move').addEventListener('click', () => closeModal('modal-move-item'));
+
+  // Vault settings (export + delete) — the button only shows for owners/admins.
+  document.getElementById('btn-vault-menu').addEventListener('click', openVaultSettings);
+  document.getElementById('btn-close-vault-settings').addEventListener('click', () => closeModal('modal-vault-settings'));
+  document.getElementById('btn-vault-export').addEventListener('click', openExportModal);
+  document.getElementById('delete-vault-confirm-input').addEventListener('input', (e) => {
+    document.getElementById('btn-vault-delete').disabled = e.target.value.trim() !== vaultSettingsName.trim();
+  });
+  document.getElementById('btn-vault-delete').addEventListener('click', deleteCurrentVault);
+  document.getElementById('export-format').addEventListener('change', updateExportFormatUI);
+  document.getElementById('btn-cancel-export').addEventListener('click', () => closeModal('modal-export'));
+  document.getElementById('btn-start-export').addEventListener('click', runExport);
 
   // Remove a passkey shown in the detail panel (delegated: the button is
   // re-rendered on every openItem).

@@ -310,6 +310,7 @@
         <div id="team-vault-list" class="vault-list"></div>
       </div>
       <div class="item-list-actions" style="display:none;" id="item-list-actions">
+        <button class="item-list-add-btn" id="btn-vault-menu" style="display:none;flex:0 0 auto;" data-icon="gear" data-i18n-title="vaultMenu.title" title="Ajustes de la caja fuerte"></button>
         <button class="item-list-add-btn" id="btn-import-items" data-i18n="items.import" data-i18n-title="import.title" title="Importar desde 1Password">Importar</button>
         <button class="item-list-add-btn" id="btn-add-item" data-i18n="items.new" data-i18n-title="form.newItem" title="Nuevo elemento">+ Nuevo elemento</button>
       </div>
@@ -332,6 +333,7 @@
             <button class="btn-icon" id="btn-share-item" data-icon="share" data-i18n-title="share.title" title="Compartir elemento"></button>
             <button class="btn-icon" id="btn-item-history" data-icon="history" data-i18n-title="history.title" title="Historial de contraseñas"></button>
             <button class="btn-icon" id="btn-move-item" data-icon="external" data-i18n-title="move.title" title="Mover a otra caja fuerte"></button>
+            <button class="btn-icon" id="btn-copy-item" data-icon="copy" data-i18n-title="copyItem.title" title="Copiar a otra caja fuerte"></button>
             <button class="btn-icon" id="btn-edit-item" data-icon="edit" data-i18n-title="actions.edit" title="Editar"></button>
             <button class="btn-icon btn-icon-danger" id="btn-delete-item" data-icon="trash" data-i18n-title="actions.delete" title="Eliminar"></button>
           </div>
@@ -383,7 +385,7 @@
 <!-- MODAL: Move item to another vault -->
 <div class="modal-overlay" id="modal-move-item">
   <div class="modal">
-    <h3 data-i18n="move.title">Mover a otra caja fuerte</h3>
+    <h3 id="move-modal-title" data-i18n="move.title">Mover a otra caja fuerte</h3>
     <p class="label-hint" data-i18n="move.help">El elemento se vuelve a cifrar con la clave de la caja fuerte de destino. Nadie más ve el texto plano.</p>
     <div class="form-group">
       <label data-i18n="move.target">Caja fuerte de destino</label>
@@ -392,6 +394,52 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btn-cancel-move" data-i18n="actions.cancel">Cancelar</button>
       <button class="btn btn-primary" id="btn-confirm-move" data-i18n="move.confirm">Mover</button>
+    </div>
+  </div>
+</div>
+
+<!-- VAULT SETTINGS (export + delete) -->
+<div class="modal-overlay" id="modal-vault-settings">
+  <div class="modal">
+    <h3 id="vault-settings-title">Caja fuerte</h3>
+    <div class="form-group" id="vault-export-group">
+      <button class="btn btn-secondary" id="btn-vault-export"><span data-icon="download" data-icon-size="15"></span> <span data-i18n="export.open">Exportar caja fuerte…</span></button>
+      <p class="label-hint" data-i18n="export.hint">Descarga una copia descifrada de esta caja en tu dispositivo. Nada sale al servidor.</p>
+    </div>
+    <div class="form-group" id="vault-delete-group">
+      <label data-i18n="deleteVault.confirmLabel">Para eliminarla, escribe el nombre de la caja fuerte:</label>
+      <input type="text" id="delete-vault-confirm-input" class="input" autocomplete="off" spellcheck="false">
+      <button class="btn btn-danger" id="btn-vault-delete" disabled style="margin-top:8px;"><span data-icon="trash" data-icon-size="15"></span> <span data-i18n="deleteVault.button">Eliminar caja fuerte</span></button>
+      <p class="label-hint" id="delete-vault-warning" data-i18n="deleteVault.warning">Se eliminarán la caja y todos sus elementos para todos los que tengan acceso. No se puede deshacer.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-close-vault-settings" data-i18n="actions.close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT VAULT -->
+<div class="modal-overlay" id="modal-export">
+  <div class="modal">
+    <h3 data-i18n="export.title">Exportar caja fuerte</h3>
+    <p class="label-hint" id="export-count-hint"></p>
+    <div class="form-group">
+      <label data-i18n="export.format">Formato</label>
+      <select id="export-format" class="input">
+        <option value="kdbx" data-i18n="export.fmt.kdbx">KeePass (.kdbx) — cifrado</option>
+        <option value="csv" data-i18n="export.fmt.csv">CSV — sin cifrar</option>
+        <option value="json" data-i18n="export.fmt.json">JSON — sin cifrar</option>
+      </select>
+    </div>
+    <div class="form-group" id="export-password-group">
+      <label data-i18n="export.password">Contraseña del archivo</label>
+      <input type="password" id="export-password" class="input" autocomplete="new-password">
+      <p class="label-hint" data-i18n="export.passwordHint">El archivo .kdbx queda cifrado con esta contraseña; la necesitarás para abrirlo en KeePass, KeePassXC o cualquier app compatible.</p>
+    </div>
+    <p class="label-hint" id="export-plain-warning" style="display:none;" data-i18n="export.plainWarning">Este formato se descarga SIN cifrar. Guarda el archivo en un lugar seguro y bórralo cuando termines.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-cancel-export" data-i18n="actions.cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-start-export" data-i18n="export.start">Exportar</button>
     </div>
   </div>
 </div>
