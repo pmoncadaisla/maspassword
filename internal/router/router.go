@@ -183,6 +183,7 @@ func Setup(
 	r.StaticFile("/duplicates.js", "web/duplicates.js")
 	r.StaticFile("/onboarding.js", "web/onboarding.js")
 	r.StaticFile("/qr.js", "web/qr.js")
+	r.StaticFile("/keystore.js", "web/keystore.js")
 	r.StaticFile("/sw.js", "web/sw.js")
 	r.StaticFile("/manifest.json", "web/manifest.json")
 	r.Static("/icons", "web/icons")
@@ -199,6 +200,7 @@ func Setup(
 		"/breach.js": true, "/import.js": true, "/i18n.js": true,
 		"/icons.js": true, "/attachments.js": true, "/sharelink.js": true,
 		"/duplicates.js": true, "/onboarding.js": true, "/qr.js": true,
+		"/keystore.js": true,
 	}
 	r.Use(func(c *gin.Context) {
 		if jsPaths[c.Request.URL.Path] {

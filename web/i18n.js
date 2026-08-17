@@ -401,6 +401,7 @@ const es = {
   'passkeyAuth.loginFailed': 'No se pudo entrar con la passkey',
   'passkeyAuth.unsupported': 'Este navegador no soporta passkeys',
   'passkeyAuth.needUnlock': 'Desbloquea la caja fuerte antes de registrar una passkey',
+  'passkeyAuth.needFreshUnlock': 'Por seguridad, bloquea y vuelve a desbloquear con tu contraseña maestra antes de registrar una passkey.',
 };
 
 const en = {
@@ -780,6 +781,7 @@ const en = {
   'passkeyAuth.loginFailed': 'Could not sign in with the passkey',
   'passkeyAuth.unsupported': 'This browser does not support passkeys',
   'passkeyAuth.needUnlock': 'Unlock the vault before registering a passkey',
+  'passkeyAuth.needFreshUnlock': 'For security, lock and unlock again with your master password before registering a passkey.',
 };
 
 const fr = {
@@ -1159,6 +1161,7 @@ const fr = {
   'passkeyAuth.loginFailed': 'Connexion avec la passkey impossible',
   'passkeyAuth.unsupported': 'Ce navigateur ne prend pas en charge les passkeys',
   'passkeyAuth.needUnlock': 'Déverrouillez le coffre avant d\'enregistrer une passkey',
+  'passkeyAuth.needFreshUnlock': 'Par sécurité, verrouillez puis déverrouillez à nouveau avec votre mot de passe maître avant d\'enregistrer une passkey.',
 };
 
 // Exposed for tests and tooling (key-set parity checks, i18n-keys.md generation).

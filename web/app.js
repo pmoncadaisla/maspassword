@@ -11,6 +11,7 @@ import { createSharePayload, decryptSharePayload, buildShareUrl, parseShareHash 
 import { findDuplicateGroups } from '/duplicates.js';
 import { initOnboarding, onboardingStepDone, shouldShowWelcome } from '/onboarding.js';
 import { qrSvg } from '/qr.js';
+import { saveSessionKey, loadSessionKey, touchSessionKey, clearSessionKey } from '/keystore.js';
 
 // --- Item types (1Password-style) ---
 // Labels are resolved lazily through t() so they follow the active locale.
@@ -413,6 +414,7 @@ async function login() {
 
     lockContext = { email, encryptedPrivateKey: lockEncPrivKey };
     sessionStorage.setItem('token', token);
+    saveSessionKey(email, encKey);
     startAutoLock();
     toast(t('toast.loggedIn'));
     await Promise.all([loadVaults(), loadTeams()]);
@@ -438,6 +440,7 @@ async function login() {
 }
 
 function logout() {
+  clearSessionKey();
   token = null;
   encKey = null;
   privateKey = null;
@@ -465,12 +468,21 @@ function logout() {
 }
 
 // --- Auto-lock (locks the vault after inactivity; re-unlock needs only the master password) ---
+let lastKeystoreTouch = 0;
 function startAutoLock() {
   stopAutoLock();
   if (!autoLockMinutes || autoLockMinutes <= 0) return;
   const reset = () => {
     clearTimeout(autoLockTimer);
     autoLockTimer = setTimeout(lockVault, autoLockMinutes * 60 * 1000);
+    // Keep the persisted key's deadline tracking activity (throttled: at most
+    // one IndexedDB write per minute), so a reload after active use doesn't
+    // relock early.
+    const now = Date.now();
+    if (now - lastKeystoreTouch > 60000) {
+      lastKeystoreTouch = now;
+      touchSessionKey();
+    }
   };
   startAutoLock._reset = reset;
   ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(evt =>
@@ -503,6 +515,7 @@ function wipePlaintextCaches() {
 // The JWT session token is preserved so unlocking is a local key re-derivation.
 function lockVault() {
   if (!lockContext) return; // nothing to lock
+  clearSessionKey();
   encKey = null;
   privateKey = null;
   vaultKeyCache = {};
@@ -546,6 +559,7 @@ async function unlockVault() {
     // Verify by decrypting the private key; also restore it for shared-vault access.
     privateKey = await decryptPrivateKey(k, lockContext.encryptedPrivateKey);
     encKey = k;
+    saveSessionKey(lockContext.email, encKey);
     startAutoLock();
     showMainApp();
     renderSidebar();
@@ -885,6 +899,9 @@ async function initIAPSession() {
     sessionStorage.setItem('token', token);
 
     if (iapSession.encryption_setup) {
+      // A reload with a persisted session key reopens the vault silently.
+      if (await restoreSessionFromKeystore()) return true;
+
       // Encryption already set up — show unlock screen. Showing it rewrites
       // the hash to /iap-unlock, so save the pre-reload route first (a PWA
       // pull-to-refresh keeps the hash) to restore it after the unlock.
@@ -903,6 +920,36 @@ async function initIAPSession() {
   } catch {
     return false;
   }
+}
+
+// A page reload wipes the in-memory keys but not the non-extractable copy the
+// keystore holds. When that copy is present, fresh (within the auto-lock
+// window) and belongs to the session's account, reopen the vault without
+// prompting for the master password. Returns true when the vault is open.
+async function restoreSessionFromKeystore() {
+  const saved = await loadSessionKey();
+  if (!saved || saved.email !== iapSession.email) return false;
+  if (autoLockMinutes > 0 && Date.now() - saved.savedAt > autoLockMinutes * 60 * 1000) {
+    await clearSessionKey();
+    return false;
+  }
+  try {
+    // Decrypting the private key both validates the stored key and restores
+    // shared-vault access, exactly like a manual unlock.
+    privateKey = await decryptPrivateKey(saved.key, iapSession.encrypted_private_key);
+  } catch {
+    await clearSessionKey();
+    return false;
+  }
+  encKey = saved.key;
+  lockContext = { email: iapSession.email, encryptedPrivateKey: iapSession.encrypted_private_key };
+  startAutoLock();
+  await Promise.all([loadVaults(), loadTeams()]);
+  startOnboarding(iapSession.email);
+  showMainApp();
+  renderSidebar();
+  await restoreRouteAfterUnlock();
+  return true;
 }
 
 // Land the user back where they were after a fresh unlock, with items loaded.
@@ -946,6 +993,7 @@ async function iapUnlock() {
     privateKey = await decryptPrivateKey(encKey, iapSession.encrypted_private_key);
 
     lockContext = { email: iapSession.email, encryptedPrivateKey: iapSession.encrypted_private_key };
+    saveSessionKey(iapSession.email, encKey);
     startAutoLock();
     toast(t('toast.unlocked'));
     await Promise.all([loadVaults(), loadTeams()]);
@@ -1003,6 +1051,7 @@ async function iapSetup() {
     privateKey = await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
 
     lockContext = { email: iapSession.email, encryptedPrivateKey: encryptedPrivKey };
+    saveSessionKey(iapSession.email, encKey);
     startAutoLock();
     toast(t('toast.encryptionSetup'));
     await Promise.all([loadVaults(), loadTeams()]);
@@ -2468,6 +2517,9 @@ function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))
 async function registerLoginPasskey() {
   if (!window.PublicKeyCredential) return toast(t('passkeyAuth.unsupported'), true);
   if (!encKey) return toast(t('passkeyAuth.needUnlock'), true);
+  // A key restored from the keystore is non-extractable and cannot be wrapped
+  // under the passkey's PRF secret — ask for a fresh master-password unlock.
+  if (!encKey.extractable) return toast(t('passkeyAuth.needFreshUnlock'), true);
   const btn = document.getElementById('btn-create-passkey');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
@@ -2617,6 +2669,7 @@ async function passkeyLogin() {
       encKey = k;
       iapSession = session;
       lockContext = { email: session.email, encryptedPrivateKey: session.encrypted_private_key };
+      saveSessionKey(session.email, k);
       startAutoLock();
       toast(t('toast.unlocked'));
       await Promise.all([loadVaults(), loadTeams()]);

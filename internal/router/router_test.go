@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -62,6 +63,21 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 	)
 }
 
+// appModules lists every JS file the web app ships, as the URL path it must be
+// reachable at. Derived from disk so a new module is covered the day it lands.
+func appModules(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob("web/*.js")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("globbing web/*.js: %v (%d files)", err, len(files))
+	}
+	paths := make([]string, len(files))
+	for i, f := range files {
+		paths[i] = "/" + filepath.Base(f)
+	}
+	return paths
+}
+
 func get(r *gin.Engine, path string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
@@ -98,6 +114,17 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 	w = get(r, "/landing")
 	if w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != "/" {
 		t.Errorf("GET /landing = %d %q, want 301 /", w.Code, w.Header().Get("Location"))
+	}
+
+	// Every ES module the app shell imports must be served as a real file. A
+	// missing registration falls through to the SPA fallback, which returns
+	// HTML with a 200 — the browser then fails to parse the module and the
+	// whole app dies at boot.
+	for _, mod := range appModules(t) {
+		w = get(r, mod)
+		if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "<!DOCTYPE html>") {
+			t.Errorf("GET %s = %d, want the JS file (got the SPA fallback?)", mod, w.Code)
+		}
 	}
 
 	// SPA deep links still fall back to the app shell.
