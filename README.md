@@ -28,6 +28,7 @@ Levanta PostgreSQL y el servidor (imagen multi-arch amd64/arm64) con las migraci
 - **Mover y copiar items entre bovedas:** el item se vuelve a cifrar con la clave de destino, util cuando algo personal pasa a ser del equipo.
 - **Borrado de bovedas:** el propietario (o un admin del equipo) puede eliminar una boveda con confirmacion escribiendo su nombre; items, historial, claves y comparticiones caen en cascada.
 - **Anti-enumeracion:** respuestas ficticias ante emails invalidos para prevenir la enumeracion de usuarios.
+- **Auditoria estructurada:** cada accion relevante (logins, creacion/edicion/borrado de items y bovedas, comparticiones, exports, visualizacion de secretos) emite una linea JSON por stdout con quien/que/cuando/desde donde — solo metadatos, nunca contenido. En Cloud Run acaban en Cloud Logging listas para consultar o exportar a BigQuery.
 
 ## Instalacion
 
@@ -195,6 +196,30 @@ maspassword/
 | GET | `/api/teams` | Listar equipos del usuario |
 | POST | `/api/teams/:teamId/members` | Anadir miembro |
 | POST | `/api/users/keys` | Subir par de claves RSA |
+| POST | `/api/audit` | Registrar evento de auditoria observado por el cliente |
+
+---
+
+## Auditoria
+
+Cada accion relevante emite una linea JSON por stdout:
+
+```json
+{"audit":true,"time":"2026-08-18T09:30:00Z","severity":"INFO","action":"item.create","source":"server","user_id":"<uuid>","vault_id":"<uuid>","status":201,"result":"success","ip":"1.2.3.4","user_agent":"..."}
+```
+
+- `source=server`: mutaciones registradas por middleware (logins con exito y fallidos — estos con `severity=WARNING` —, items, bovedas, equipos, comparticiones, dispositivos, passkeys). Es el rastro autoritativo: un cliente no puede saltarselo.
+- `source=client`: acciones que el servidor no puede ver por el modelo zero-knowledge (revelar/copiar un secreto ya descifrado, exportar o importar una boveda). Las reporta la web via `POST /api/audit` con accion y campos validados contra listas cerradas; son telemetria de un cliente honesto, no evidencia.
+- Nunca viaja contenido: solo ids (UUID), nombres de campo estables (`password`, `card_cvv`...), formato y recuentos.
+
+En Cloud Run las lineas aparecen en Cloud Logging con los campos en `jsonPayload`:
+
+```bash
+gcloud logging read 'resource.labels.service_name="sesamo" AND jsonPayload.audit=true AND jsonPayload.action="item.secret_viewed"' \
+  --project=mm-sesamo-prod --limit=20 --format='table(jsonPayload.time, jsonPayload.user_id, jsonPayload.item_id)'
+```
+
+Para analitica continua, crear un sink de Cloud Logging hacia BigQuery filtrando `jsonPayload.audit=true`.
 
 ---
 

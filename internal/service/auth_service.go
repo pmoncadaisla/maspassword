@@ -202,6 +202,7 @@ func (s *authService) LoginStep2(ctx context.Context, req dto.LoginStep2Request)
 	resp := &dto.LoginStep2Response{
 		Token:       token,
 		ServerProof: serverProof,
+		UserID:      uid.String(),
 	}
 
 	// Fetch user to include encrypted_private_key

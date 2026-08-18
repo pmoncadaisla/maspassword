@@ -34,6 +34,7 @@ type LoginStep2Response struct {
 	Token               string `json:"token"`
 	ServerProof         string `json:"server_proof"`
 	EncryptedPrivateKey string `json:"encrypted_private_key,omitempty"`
+	UserID              string `json:"user_id,omitempty"`
 }
 
 type SessionInfoResponse struct {

@@ -194,6 +194,8 @@ func (h *PasskeyHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "internal error"}})
 		return
 	}
+	// Expose the authenticated user to the audit middleware (public route).
+	c.Set(middleware.UserIDKey, cred.UserID)
 	c.JSON(http.StatusOK, gin.H{
 		"token":                 token,
 		"prf_salt":              cred.PRFSalt,

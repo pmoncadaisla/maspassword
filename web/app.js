@@ -77,6 +77,22 @@ async function api(method, path, body) {
   return data;
 }
 
+// Best-effort client-side audit trail for actions the server can't see under
+// zero-knowledge (revealing/copying a decrypted secret, export). Only ids and
+// stable field names leave the device — never values. Fire-and-forget: a
+// failure must never disturb the UI.
+function reportAudit(action, extra = {}) {
+  if (!token) return; // shared-link viewers are unauthenticated
+  api('POST', '/api/audit', { action, ...extra }).catch(() => {});
+}
+
+function itemAuditRef() {
+  const ref = {};
+  if (currentVault?.id) ref.vault_id = currentVault.id;
+  if (currentItem?.id) ref.item_id = currentItem.id;
+  return ref;
+}
+
 // --- Navigation ---
 function showAuthScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1435,7 +1451,7 @@ async function openItem(id) {
 // Build a single detail field row. Copy/reveal use event delegation (see wireCopyReveal).
 function fieldRow(label, value, opts = {}) {
   if (value == null || value === '') return '';
-  const { mono = false, masked = false, url = false } = opts;
+  const { mono = false, masked = false, url = false, audit = '' } = opts;
   const enc = encodeURIComponent(value);
   let valHtml;
   if (url) {
@@ -1444,8 +1460,10 @@ function fieldRow(label, value, opts = {}) {
   } else {
     valHtml = `<div class="field-value ${mono ? 'mono' : ''} ${masked ? 'masked' : ''}" data-raw="${enc}">${masked ? '••••••••••' : esc(value)}</div>`;
   }
-  const reveal = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">${icon('eye', { size: 15 })}</button>` : '';
-  const copy = `<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 15 })}</button>`;
+  // Masked rows carry a stable field name so reveal/copy can be audited.
+  const auditAttr = masked ? ` data-audit="${escAttr(audit || 'secret')}"` : '';
+  const reveal = masked ? `<button class="btn-icon js-reveal"${auditAttr} title="${escAttr(t('actions.show'))}">${icon('eye', { size: 15 })}</button>` : '';
+  const copy = `<button class="btn-icon js-copy"${auditAttr} data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 15 })}</button>`;
   return `<div class="field"><div class="field-main"><div class="field-label">${esc(label)}</div>${valHtml}</div><div class="field-actions">${reveal}${copy}</div></div>`;
 }
 
@@ -1506,17 +1524,17 @@ function renderDetail(data) {
   let html = '';
   if (type === 'login') {
     html += fieldRow(t('fields.username'), data.username);
-    html += fieldRow(t('fields.password'), data.password, { mono: true, masked: true });
+    html += fieldRow(t('fields.password'), data.password, { mono: true, masked: true, audit: 'password' });
     if (data.totp_secret) html += totpFieldHtml();
     html += fieldRow(t('fields.website'), data.url, { url: true });
     html += fieldRow(t('fields.notes'), data.notes);
   } else if (type === 'card') {
     html += fieldRow(t('fields.cardholder'), data.card_holder);
-    html += fieldRow(t('fields.cardNumber'), data.card_number, { mono: true, masked: true });
+    html += fieldRow(t('fields.cardNumber'), data.card_number, { mono: true, masked: true, audit: 'card_number' });
     html += fieldRow(t('fields.cardBrand'), data.card_brand);
     html += fieldRow(t('fields.cardExpiry'), data.card_exp, { mono: true });
-    html += fieldRow(t('fields.cvv'), data.card_cvv, { mono: true, masked: true });
-    html += fieldRow(t('fields.pin'), data.card_pin, { mono: true, masked: true });
+    html += fieldRow(t('fields.cvv'), data.card_cvv, { mono: true, masked: true, audit: 'card_cvv' });
+    html += fieldRow(t('fields.pin'), data.card_pin, { mono: true, masked: true, audit: 'card_pin' });
     html += fieldRow(t('fields.notes'), data.notes);
   } else if (type === 'identity') {
     html += fieldRow(t('fields.fullName'), data.id_fullname);
@@ -1555,7 +1573,7 @@ function renderDetail(data) {
   if (cfs.length) {
     html += `<div class="detail-section-title">${esc(t('items.customFields'))}</div>`;
     for (const cf of cfs) {
-      html += fieldRow(cf.label || t('items.customFields.label'), cf.value, { masked: !!cf.hidden, mono: !!cf.hidden });
+      html += fieldRow(cf.label || t('items.customFields.label'), cf.value, { masked: !!cf.hidden, mono: !!cf.hidden, audit: 'custom' });
     }
   }
 
@@ -1833,6 +1851,7 @@ async function runExport() {
     downloadBlob(blob, filename);
     closeModal('modal-export');
     toast(t('export.done', { n: decrypted.length }));
+    reportAudit('vault.exported', { vault_id: currentVault.id, format, count: decrypted.length });
   } catch (e) {
     toast(e.message, true);
   } finally {
@@ -1913,11 +1932,12 @@ function miniDetailHtml(data) {
   const add = (label, value, masked = false) => {
     if (value == null || value === '') return;
     const enc = encodeURIComponent(value);
-    const revealBtn = masked ? `<button class="btn-icon js-reveal" title="${escAttr(t('actions.show'))}">${icon('eye', { size: 14 })}</button>` : '';
+    const auditAttr = masked ? ' data-audit="secret"' : '';
+    const revealBtn = masked ? `<button class="btn-icon js-reveal"${auditAttr} title="${escAttr(t('actions.show'))}">${icon('eye', { size: 14 })}</button>` : '';
     rows.push(`<div class="mini-field">
       <span class="mini-label">${esc(label)}</span>
       <span class="mini-value${masked ? ' masked' : ''}" data-raw="${enc}">${masked ? '••••••••' : esc(value)}</span>
-      <span class="mini-actions">${revealBtn}<button class="btn-icon js-copy" data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 14 })}</button></span>
+      <span class="mini-actions">${revealBtn}<button class="btn-icon js-copy"${auditAttr} data-copy="${enc}" title="${escAttr(t('actions.copy'))}">${icon('copy', { size: 14 })}</button></span>
     </div>`);
   };
   const type = itemType(data);
@@ -2973,6 +2993,8 @@ async function importItems(parsedItems) {
     ).join('');
   }
 
+  if (imported > 0) reportAudit('vault.imported', { vault_id: currentVault.id, count: imported });
+
   // Refresh items list
   globalIndex = null;
   await loadItems();
@@ -3300,8 +3322,10 @@ function wireCopyReveal(root) {
       let text;
       if (copyBtn.dataset.copy === 'totp') {
         text = (document.getElementById('detail-totp-code')?.textContent || '').replace(/\s/g, '');
+        reportAudit('item.totp_copied', itemAuditRef());
       } else {
         text = decodeURIComponent(copyBtn.dataset.copy || '');
+        if (copyBtn.dataset.audit) reportAudit('item.secret_copied', { field: copyBtn.dataset.audit, ...itemAuditRef() });
       }
       navigator.clipboard.writeText(text).then(() => toast(t('toast.copied')));
       return;
@@ -3315,6 +3339,7 @@ function wireCopyReveal(root) {
           valEl.textContent = decodeURIComponent(valEl.dataset.raw || '');
           valEl.classList.remove('masked');
           reveal.innerHTML = icon('eyeOff', { size: sz });
+          reportAudit('item.secret_viewed', { field: reveal.dataset.audit || 'secret', ...itemAuditRef() });
         } else {
           valEl.textContent = '••••••••••';
           valEl.classList.add('masked');

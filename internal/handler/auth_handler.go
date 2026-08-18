@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/middleware"
 	"github.com/masorange/maspassword/internal/service"
@@ -68,6 +69,11 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 		return
 	}
 
+	// Expose the new user to the audit middleware (public route).
+	if uid, err := uuid.Parse(resp.ID); err == nil {
+		c.Set(middleware.UserIDKey, uid)
+	}
+
 	c.JSON(http.StatusCreated, resp)
 }
 
@@ -108,6 +114,12 @@ func (h *AuthHandler) LoginStep2(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "internal error"}})
 		return
+	}
+
+	// Expose the authenticated user to the audit middleware (public route, so
+	// the JWT middleware hasn't populated the context).
+	if uid, err := uuid.Parse(resp.UserID); err == nil {
+		c.Set(middleware.UserIDKey, uid)
 	}
 
 	c.JSON(http.StatusOK, resp)

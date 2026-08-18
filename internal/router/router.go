@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/masorange/maspassword/internal/audit"
 	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/handler"
 	"github.com/masorange/maspassword/internal/iap"
@@ -46,6 +47,7 @@ func Setup(
 
 	// Public routes (no JWT)
 	auth := r.Group("/auth")
+	auth.Use(audit.Middleware())
 	{
 		auth.POST("/signup", authHandler.Signup)
 		auth.POST("/login/step1", authHandler.LoginStep1)
@@ -92,7 +94,11 @@ func Setup(
 	// Protected routes
 	api := r.Group("/api")
 	api.Use(authMiddleware)
+	api.Use(audit.Middleware())
 	{
+		// Client-observed audit events (secret viewed/copied, export, import)
+		api.POST("/audit", handler.NewAuditHandler().Report)
+
 		// Auth session (for IAP flow)
 		api.GET("/auth/session", authHandler.GetSession)
 		api.POST("/auth/setup-encryption", authHandler.SetupEncryption)
