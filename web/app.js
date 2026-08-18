@@ -4,6 +4,7 @@ import { generatePassword as genAdvanced, generatePassphrase, passwordEntropyBit
 import { estimateStrength } from '/strength.js';
 import { checkPwnedCount } from '/breach.js';
 import { detectFormatAndParse } from '/import.js';
+import { readKdbx, kdbxEntriesToItems } from '/kdbx-read.js';
 import { initI18n, getLocale, setLocale, t, applyI18n, LOCALES } from '/i18n.js';
 import { icon, faviconUrl } from '/icons.js';
 import { MAX_ATTACHMENTS, fileToAttachment, attachmentDataUrl, formatSize } from '/attachments.js';
@@ -1974,6 +1975,11 @@ function showDetailEmpty() {
 
 // --- TOTP ---
 async function updateTOTP(secret) {
+  // The detail layout only renders the TOTP section for login items; an item
+  // of another type can still carry totp_secret (e.g. imported). Without this
+  // guard the TypeError escapes openItemDirect and a reload on that item's
+  // route falls back to the login screen.
+  if (!document.getElementById('detail-totp-code')) return;
   try {
     const { code, remaining } = await generateTOTP(secret);
     const formatted = code.slice(0, 3) + ' ' + code.slice(3);
@@ -2979,6 +2985,8 @@ function resetImportModal() {
   document.getElementById('import-file-input').value = '';
   document.getElementById('import-file-label-text').textContent = t('import.chooseFile');
   document.getElementById('import-file-label').classList.remove('has-file');
+  document.getElementById('import-kdbx-password').value = '';
+  document.getElementById('import-kdbx-password-group').style.display = 'none';
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-errors-preview').style.display = 'none';
   document.getElementById('import-errors-preview').textContent = '';
@@ -3677,9 +3685,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Import
   let parsedImportItems = [];
+  let pendingKdbxBytes = null;
+
+  const updateKdbxImportButton = () => {
+    if (pendingKdbxBytes) {
+      document.getElementById('btn-start-import').disabled = !document.getElementById('import-kdbx-password').value;
+    }
+  };
 
   document.getElementById('btn-import-items').addEventListener('click', () => {
     if (!currentVault) return toast(t('toast.selectVaultFirst'), true);
+    pendingKdbxBytes = null;
     resetImportModal();
     openModal('modal-import');
   });
@@ -3690,6 +3706,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('import-file-label-text').textContent = file.name;
     document.getElementById('import-file-label').classList.add('has-file');
+    document.getElementById('import-errors-preview').style.display = 'none';
+    document.getElementById('import-errors-preview').textContent = '';
+
+    if (file.name.split('.').pop().toLowerCase() === 'kdbx') {
+      // The count is unknown until the file is decrypted, so just ask for the
+      // file password and enable the button once one is typed.
+      const kdbxReader = new FileReader();
+      kdbxReader.onload = () => {
+        pendingKdbxBytes = new Uint8Array(kdbxReader.result);
+        parsedImportItems = [];
+        document.getElementById('import-kdbx-password-group').style.display = 'block';
+        document.getElementById('import-preview').style.display = 'block';
+        document.getElementById('import-preview-text').textContent = t('import.kdbxDetected');
+        updateKdbxImportButton();
+        document.getElementById('import-kdbx-password').focus();
+      };
+      kdbxReader.readAsArrayBuffer(file);
+      return;
+    }
+    pendingKdbxBytes = null;
+    document.getElementById('import-kdbx-password-group').style.display = 'none';
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -3720,9 +3757,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     reader.readAsText(file);
   });
 
-  document.getElementById('btn-start-import').addEventListener('click', () => importItems(parsedImportItems));
-  document.getElementById('btn-cancel-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
-  document.getElementById('btn-close-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); });
+  document.getElementById('btn-start-import').addEventListener('click', async () => {
+    if (!pendingKdbxBytes) return importItems(parsedImportItems);
+
+    // KDBX: decrypt locally first. Argon2 files can take a while, so surface
+    // KDF progress on the bar; a failure returns to the selection step.
+    const password = document.getElementById('import-kdbx-password').value;
+    document.getElementById('import-step-select').style.display = 'none';
+    document.getElementById('import-step-progress').style.display = 'block';
+    document.getElementById('import-progress-text').textContent = t('import.decrypting');
+    const bar = document.getElementById('import-progress-bar');
+    try {
+      const db = await readKdbx(pendingKdbxBytes, password, {
+        onProgress: (f) => { bar.style.width = Math.round(f * 100) + '%'; },
+      });
+      bar.style.width = '0%';
+      const items = kdbxEntriesToItems(db.entries);
+      if (!items.length) {
+        const err = new Error(t('import.noItems'));
+        err.code = 'empty';
+        throw err;
+      }
+      await importItems(items);
+    } catch (err) {
+      document.getElementById('import-step-progress').style.display = 'none';
+      document.getElementById('import-step-select').style.display = 'block';
+      bar.style.width = '0%';
+      const box = document.getElementById('import-errors-preview');
+      box.style.display = 'block';
+      box.textContent = err.code === 'bad-password' ? t('import.wrongPassword')
+        : err.code === 'empty' ? err.message
+        : t('import.kdbxError', { error: err.message });
+    }
+  });
+  document.getElementById('import-kdbx-password').addEventListener('input', updateKdbxImportButton);
+  document.getElementById('btn-cancel-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); pendingKdbxBytes = null; });
+  document.getElementById('btn-close-import').addEventListener('click', () => { closeModal('modal-import'); resetImportModal(); pendingKdbxBytes = null; });
 
   // Recovery key buttons
   document.getElementById('btn-show-recover').addEventListener('click', () => showAuthScreen('recover'));

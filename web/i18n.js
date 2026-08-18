@@ -271,8 +271,8 @@ const es = {
   'teams.notFound': 'Equipo no encontrado',
 
   // Import / export
-  'import.title': 'Importar desde 1Password',
-  'import.description': 'Selecciona un archivo .csv o .1pif exportado desde 1Password.',
+  'import.title': 'Importar elementos',
+  'import.description': 'Selecciona un archivo .csv o .1pif de 1Password, o una base de datos KeePass (.kdbx).',
   'import.chooseFile': 'Elegir archivo...',
   'import.noItems': 'No se han encontrado elementos en el archivo.',
   'import.found': 'Se han encontrado {count} elementos — Formato: {format}',
@@ -283,6 +283,11 @@ const es = {
   'import.summary': '{imported} de {total} elementos importados correctamente.',
   'import.errors': '{count} errores.',
   'import.failed': 'La importación ha fallado: {error}',
+  'import.filePassword': 'Contraseña del archivo',
+  'import.kdbxDetected': 'Base de datos KeePass cifrada — introduce su contraseña.',
+  'import.decrypting': 'Descifrando archivo...',
+  'import.wrongPassword': 'Contraseña incorrecta (o el archivo usa un fichero de claves, no compatible).',
+  'import.kdbxError': 'No se pudo leer el archivo: {error}',
 
   // Command palette
   'cmd.placeholder': 'Busca elementos o escribe un comando…',
@@ -674,8 +679,8 @@ const en = {
   'teams.notFound': 'Team not found',
 
   // Import / export
-  'import.title': 'Import from 1Password',
-  'import.description': 'Select a .csv or .1pif file exported from 1Password.',
+  'import.title': 'Import items',
+  'import.description': 'Select a 1Password .csv or .1pif file, or a KeePass database (.kdbx).',
   'import.chooseFile': 'Choose file...',
   'import.noItems': 'No items found in file.',
   'import.found': 'Found {count} item(s) — Format: {format}',
@@ -686,6 +691,11 @@ const en = {
   'import.summary': '{imported} of {total} item(s) imported successfully.',
   'import.errors': '{count} error(s).',
   'import.failed': 'Import failed: {error}',
+  'import.filePassword': 'File password',
+  'import.kdbxDetected': 'Encrypted KeePass database — enter its password.',
+  'import.decrypting': 'Decrypting file...',
+  'import.wrongPassword': 'Wrong password (or the file uses a key file, which is not supported).',
+  'import.kdbxError': 'Could not read the file: {error}',
 
   // Command palette
   'cmd.placeholder': 'Search items or type a command…',
@@ -1077,8 +1087,8 @@ const fr = {
   'teams.notFound': 'Équipe introuvable',
 
   // Import / export
-  'import.title': 'Importer depuis 1Password',
-  'import.description': 'Sélectionnez un fichier .csv ou .1pif exporté depuis 1Password.',
+  'import.title': 'Importer des éléments',
+  'import.description': 'Sélectionnez un fichier .csv ou .1pif de 1Password, ou une base KeePass (.kdbx).',
   'import.chooseFile': 'Choisir un fichier...',
   'import.noItems': 'Aucun élément trouvé dans le fichier.',
   'import.found': '{count} éléments trouvés — Format : {format}',
@@ -1089,6 +1099,11 @@ const fr = {
   'import.summary': '{imported} sur {total} éléments importés avec succès.',
   'import.errors': '{count} erreurs.',
   'import.failed': "Échec de l'importation : {error}",
+  'import.filePassword': 'Mot de passe du fichier',
+  'import.kdbxDetected': 'Base KeePass chiffrée — saisissez son mot de passe.',
+  'import.decrypting': 'Déchiffrement du fichier...',
+  'import.wrongPassword': 'Mot de passe incorrect (ou le fichier utilise un fichier-clé, non pris en charge).',
+  'import.kdbxError': 'Impossible de lire le fichier : {error}',
 
   // Command palette
   'cmd.placeholder': 'Recherchez des éléments ou tapez une commande…',

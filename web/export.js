@@ -130,7 +130,7 @@ async function aesKdfHalf(cbcKey, half, rounds) {
   return iv;
 }
 
-async function aesKdf(compositeKey, seed, rounds) {
+export async function aesKdf(compositeKey, seed, rounds) {
   const cbcKey = await subtle.importKey('raw', seed, { name: 'AES-CBC' }, false, ['encrypt']);
   const [left, right] = await Promise.all([
     aesKdfHalf(cbcKey, compositeKey.slice(0, 16), rounds),
