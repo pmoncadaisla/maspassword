@@ -19,6 +19,7 @@
 package audit
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -73,6 +74,52 @@ func Emit(action, source string, fields map[string]any) {
 	out.Write(append(line, '\n'))
 }
 
+// EmailResolver turns a user id into an email. Wired to the user repository
+// by the router; kept as a func so the audit package needs no repository
+// import.
+type EmailResolver func(ctx context.Context, id uuid.UUID) (string, error)
+
+// EmailCache memoizes resolutions so a log line never costs a DB round-trip
+// after the first sighting of a user. Emails are immutable here; failures are
+// retried after a short backoff so one DB hiccup doesn't blind the trail.
+type EmailCache struct {
+	resolve EmailResolver
+	mu      sync.Mutex
+	entries map[uuid.UUID]emailEntry
+}
+
+type emailEntry struct {
+	email      string
+	retryAfter time.Time // zero for successful lookups, which never expire
+}
+
+func NewEmailCache(resolve EmailResolver) *EmailCache {
+	return &EmailCache{resolve: resolve, entries: make(map[uuid.UUID]emailEntry)}
+}
+
+// Email returns the user's email, or "" when it cannot be resolved (the event
+// still carries user_id).
+func (c *EmailCache) Email(ctx context.Context, id uuid.UUID) string {
+	if c == nil || id == uuid.Nil {
+		return ""
+	}
+	c.mu.Lock()
+	entry, ok := c.entries[id]
+	c.mu.Unlock()
+	if ok && (entry.email != "" || now().Before(entry.retryAfter)) {
+		return entry.email
+	}
+	email, err := c.resolve(ctx, id)
+	entry = emailEntry{email: email}
+	if err != nil {
+		entry = emailEntry{retryAfter: now().Add(time.Minute)}
+	}
+	c.mu.Lock()
+	c.entries[id] = entry
+	c.mu.Unlock()
+	return entry.email
+}
+
 // routeSpec names the audit action for one route and maps gin route params to
 // audit field names.
 type routeSpec struct {
@@ -122,7 +169,8 @@ var routes = map[string]routeSpec{
 // Middleware records the routes above after they complete. Attach it to a
 // group AFTER the auth middleware so the user id is already in the context;
 // on the public auth group, handlers set the user id on success themselves.
-func Middleware() gin.HandlerFunc {
+// emails may be nil (events then carry only user_id).
+func Middleware(emails *EmailCache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
@@ -146,6 +194,7 @@ func Middleware() gin.HandlerFunc {
 		}
 		if id := middleware.GetUserID(c); id != uuid.Nil {
 			fields["user_id"] = id.String()
+			fields["user_email"] = emails.Email(c.Request.Context(), id)
 		}
 		for param, field := range spec.params {
 			if v := c.Param(param); v != "" {

@@ -205,7 +205,7 @@ maspassword/
 Cada accion relevante emite una linea JSON por stdout:
 
 ```json
-{"audit":true,"time":"2026-08-18T09:30:00Z","severity":"INFO","action":"item.create","source":"server","user_id":"<uuid>","vault_id":"<uuid>","status":201,"result":"success","ip":"1.2.3.4","user_agent":"..."}
+{"audit":true,"time":"2026-08-18T09:30:00Z","severity":"INFO","action":"item.create","source":"server","user_id":"<uuid>","user_email":"ana@example.com","vault_id":"<uuid>","status":201,"result":"success","ip":"1.2.3.4","user_agent":"..."}
 ```
 
 - `source=server`: mutaciones registradas por middleware (logins con exito y fallidos — estos con `severity=WARNING` —, items, bovedas, equipos, comparticiones, dispositivos, passkeys). Es el rastro autoritativo: un cliente no puede saltarselo.
@@ -216,7 +216,7 @@ En Cloud Run las lineas aparecen en Cloud Logging con los campos en `jsonPayload
 
 ```bash
 gcloud logging read 'resource.labels.service_name="sesamo" AND jsonPayload.audit=true AND jsonPayload.action="item.secret_viewed"' \
-  --project=mm-sesamo-prod --limit=20 --format='table(jsonPayload.time, jsonPayload.user_id, jsonPayload.item_id)'
+  --project=mm-sesamo-prod --limit=20 --format='table(jsonPayload.time, jsonPayload.user_email, jsonPayload.item_id)'
 ```
 
 Para analitica continua, crear un sink de Cloud Logging hacia BigQuery filtrando `jsonPayload.audit=true`.

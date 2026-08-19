@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +19,10 @@ func auditTestRouter(userID uuid.UUID) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) { c.Set(middleware.UserIDKey, userID) })
-	r.POST("/api/audit", NewAuditHandler().Report)
+	emails := audit.NewEmailCache(func(context.Context, uuid.UUID) (string, error) {
+		return "cliente@example.com", nil
+	})
+	r.POST("/api/audit", NewAuditHandler(emails).Report)
 	return r
 }
 
@@ -53,7 +57,8 @@ func TestAuditReport(t *testing.T) {
 		}
 		if ev["action"] != "item.secret_viewed" || ev["source"] != "client" ||
 			ev["vault_id"] != vaultID || ev["item_id"] != itemID ||
-			ev["field"] != "password" || ev["user_id"] != uid.String() {
+			ev["field"] != "password" || ev["user_id"] != uid.String() ||
+			ev["user_email"] != "cliente@example.com" {
 			t.Fatalf("bad event: %v", ev)
 		}
 	})

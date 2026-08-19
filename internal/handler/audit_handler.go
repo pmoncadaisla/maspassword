@@ -15,10 +15,12 @@ import (
 // importing a vault. Everything is validated against whitelists so the log
 // stream cannot be polluted with arbitrary strings; ids must be UUIDs. The
 // payload carries metadata only — no field values ever travel here.
-type AuditHandler struct{}
+type AuditHandler struct {
+	emails *audit.EmailCache // nil: events carry only user_id
+}
 
-func NewAuditHandler() *AuditHandler {
-	return &AuditHandler{}
+func NewAuditHandler(emails *audit.EmailCache) *AuditHandler {
+	return &AuditHandler{emails: emails}
 }
 
 var clientAuditActions = map[string]bool{
@@ -54,8 +56,10 @@ func (h *AuditHandler) Report(c *gin.Context) {
 		return
 	}
 
+	userID := middleware.GetUserID(c)
 	fields := map[string]any{
-		"user_id":    middleware.GetUserID(c).String(),
+		"user_id":    userID.String(),
+		"user_email": h.emails.Email(c.Request.Context(), userID),
 		"ip":         c.ClientIP(),
 		"user_agent": c.Request.UserAgent(),
 	}

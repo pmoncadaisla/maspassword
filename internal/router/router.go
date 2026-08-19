@@ -1,9 +1,11 @@
 package router
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/masorange/maspassword/internal/audit"
 	"github.com/masorange/maspassword/internal/config"
 	"github.com/masorange/maspassword/internal/handler"
@@ -45,9 +47,19 @@ func Setup(
 	authHandler.SetSignupEnabled(signupEnabled)
 	authHandler.SetPasswordLoginEnabled(passwordLoginEnabled)
 
+	// Audit events resolve the acting user's email through a memoizing cache
+	// so log lines are readable without joining on the users table.
+	auditEmails := audit.NewEmailCache(func(ctx context.Context, id uuid.UUID) (string, error) {
+		user, err := userRepo.GetByID(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return user.Email, nil
+	})
+
 	// Public routes (no JWT)
 	auth := r.Group("/auth")
-	auth.Use(audit.Middleware())
+	auth.Use(audit.Middleware(auditEmails))
 	{
 		auth.POST("/signup", authHandler.Signup)
 		auth.POST("/login/step1", authHandler.LoginStep1)
@@ -94,10 +106,10 @@ func Setup(
 	// Protected routes
 	api := r.Group("/api")
 	api.Use(authMiddleware)
-	api.Use(audit.Middleware())
+	api.Use(audit.Middleware(auditEmails))
 	{
 		// Client-observed audit events (secret viewed/copied, export, import)
-		api.POST("/audit", handler.NewAuditHandler().Report)
+		api.POST("/audit", handler.NewAuditHandler(auditEmails).Report)
 
 		// Auth session (for IAP flow)
 		api.GET("/auth/session", authHandler.GetSession)

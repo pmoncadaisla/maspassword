@@ -2,11 +2,14 @@ package audit
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -65,7 +68,7 @@ func TestEmitShape(t *testing.T) {
 	}
 }
 
-func testEngine(userID uuid.UUID) *gin.Engine {
+func testEngine(userID uuid.UUID, emails *EmailCache) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
@@ -73,7 +76,7 @@ func testEngine(userID uuid.UUID) *gin.Engine {
 			c.Set(middleware.UserIDKey, userID)
 		}
 	})
-	r.Use(Middleware())
+	r.Use(Middleware(emails))
 	// Route patterns mirror the real router's audited ones.
 	r.POST("/api/vaults/:id/items", func(c *gin.Context) { c.JSON(201, gin.H{}) })
 	r.DELETE("/api/vaults/:id", func(c *gin.Context) { c.JSON(200, gin.H{}) })
@@ -85,8 +88,14 @@ func testEngine(userID uuid.UUID) *gin.Engine {
 func TestMiddlewareMapsRoutesAndParams(t *testing.T) {
 	uid := uuid.New()
 	vaultID := uuid.New().String()
+	emails := NewEmailCache(func(_ context.Context, id uuid.UUID) (string, error) {
+		if id == uid {
+			return "ana@example.com", nil
+		}
+		return "", errors.New("unknown user")
+	})
 	events := capture(t, func() {
-		r := testEngine(uid)
+		r := testEngine(uid, emails)
 		req := httptest.NewRequest(http.MethodPost, "/api/vaults/"+vaultID+"/items", nil)
 		req.Header.Set("User-Agent", "test-agent")
 		r.ServeHTTP(httptest.NewRecorder(), req)
@@ -101,6 +110,9 @@ func TestMiddlewareMapsRoutesAndParams(t *testing.T) {
 	if ev["user_id"] != uid.String() {
 		t.Fatalf("user_id missing: %v", ev)
 	}
+	if ev["user_email"] != "ana@example.com" {
+		t.Fatalf("user_email missing: %v", ev)
+	}
 	if ev["result"] != "success" || ev["status"] != float64(201) {
 		t.Fatalf("bad result: %v", ev)
 	}
@@ -111,7 +123,7 @@ func TestMiddlewareMapsRoutesAndParams(t *testing.T) {
 
 func TestMiddlewareAuthFailureIsWarning(t *testing.T) {
 	events := capture(t, func() {
-		r := testEngine(uuid.Nil)
+		r := testEngine(uuid.Nil, nil)
 		r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/auth/login/step2", nil))
 	})
 	if len(events) != 1 {
@@ -128,11 +140,51 @@ func TestMiddlewareAuthFailureIsWarning(t *testing.T) {
 
 func TestMiddlewareIgnoresUnlistedRoutes(t *testing.T) {
 	events := capture(t, func() {
-		r := testEngine(uuid.New())
+		r := testEngine(uuid.New(), nil)
 		r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vaults", nil))
 	})
 	if len(events) != 0 {
 		t.Fatalf("routine reads must not be audited, got %v", events)
+	}
+}
+
+func TestEmailCache(t *testing.T) {
+	uid := uuid.New()
+	calls := 0
+	failing := true
+	cache := NewEmailCache(func(_ context.Context, id uuid.UUID) (string, error) {
+		calls++
+		if failing {
+			return "", errors.New("db down")
+		}
+		return "ana@example.com", nil
+	})
+
+	// Failure: empty email, and the next call within the backoff window must
+	// not hit the resolver again.
+	if got := cache.Email(context.Background(), uid); got != "" {
+		t.Fatalf("expected empty email on failure, got %q", got)
+	}
+	if got := cache.Email(context.Background(), uid); got != "" || calls != 1 {
+		t.Fatalf("failure must be cached briefly: email %q, %d resolver calls", got, calls)
+	}
+
+	// After the backoff the resolver is retried and the success is memoized.
+	failing = false
+	oldNow := now
+	now = func() time.Time { return oldNow().Add(2 * time.Minute) }
+	defer func() { now = oldNow }()
+	if got := cache.Email(context.Background(), uid); got != "ana@example.com" || calls != 2 {
+		t.Fatalf("expected retry after backoff: email %q, %d calls", got, calls)
+	}
+	if got := cache.Email(context.Background(), uid); got != "ana@example.com" || calls != 2 {
+		t.Fatalf("success must be cached forever: email %q, %d calls", got, calls)
+	}
+
+	// nil cache and nil uuid are safe no-ops.
+	var nilCache *EmailCache
+	if nilCache.Email(context.Background(), uid) != "" || cache.Email(context.Background(), uuid.Nil) != "" {
+		t.Fatal("nil cache / nil id must resolve to empty")
 	}
 }
 
