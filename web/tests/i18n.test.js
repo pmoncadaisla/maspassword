@@ -255,11 +255,13 @@ test('applyI18n sets textContent, placeholder and title from data-i18n* attribut
   const textNode = fakeEl({ 'data-i18n': 'sidebar.vaults' });
   const inputNode = fakeEl({ 'data-i18n-placeholder': 'items.search.placeholder' });
   const btnNode = fakeEl({ 'data-i18n-title': 'actions.copy' });
+  const htmlNode = fakeEl({ 'data-i18n-html': 'landing.how.s3.text' });
   const root = {
     querySelectorAll(selector) {
       if (selector === '[data-i18n]') return [textNode];
       if (selector === '[data-i18n-placeholder]') return [inputNode];
       if (selector === '[data-i18n-title]') return [btnNode];
+      if (selector === '[data-i18n-html]') return [htmlNode];
       return [];
     },
   };
@@ -267,6 +269,7 @@ test('applyI18n sets textContent, placeholder and title from data-i18n* attribut
   assert.equal(textNode.textContent, 'Vaults');
   assert.equal(inputNode.attrs.placeholder, 'Search items...');
   assert.equal(btnNode.attrs.title, 'Copy');
+  assert.ok(htmlNode.innerHTML.includes('<code>pg_dump</code>'), 'data-i18n-html keeps inline markup');
 
   setLocale('fr');
   applyI18n(root);
@@ -279,4 +282,20 @@ test('applyI18n is a no-op for null/invalid roots (never throws)', () => {
   applyI18n(null);
   applyI18n({});
   applyI18n(undefined); // no document in Node -> default resolves to null
+});
+
+// Every data-i18n* key referenced by the landing page must exist in the es
+// catalog (the fallback locale). A typo here would silently render the raw
+// key string on the public landing.
+test('landing.html references only existing catalog keys', () => {
+  const html = readFileSync(new URL('../landing.html', import.meta.url), 'utf8');
+  const keys = [...html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(keys.length > 40, `expected a fully tagged landing, found ${keys.length} keys`);
+  setLocale('es');
+  const missing = keys.filter((k) => t(k) === k);
+  assert.deepEqual(missing, [], `landing keys missing from catalogs: ${missing.join(', ')}`);
+  // The keys the landing script sets outside data-i18n attributes:
+  for (const k of ['landing.title', 'landing.metaDescription']) {
+    assert.notEqual(t(k), k, `${k} missing from catalogs`);
+  }
 });
