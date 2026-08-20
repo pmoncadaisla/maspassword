@@ -116,6 +116,18 @@ func TestRouter_LandingAppAndSSORoutes(t *testing.T) {
 		t.Errorf("GET /landing = %d %q, want 301 /", w.Code, w.Header().Get("Location"))
 	}
 
+	// Legal pages: required by the Google OAuth consent screen, so a broken
+	// registration here silently falls back to the SPA shell (200 + wrong
+	// content) and Google would render the app instead of the policy.
+	w = get(r, "/privacy")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Política de privacidad") {
+		t.Errorf("GET /privacy = %d, want the privacy policy page", w.Code)
+	}
+	w = get(r, "/terms")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Términos de servicio") {
+		t.Errorf("GET /terms = %d, want the terms of service page", w.Code)
+	}
+
 	// Every ES module the app shell imports must be served as a real file. A
 	// missing registration falls through to the SPA fallback, which returns
 	// HTML with a 200 — the browser then fails to parse the module and the

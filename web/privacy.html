@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de privacidad — Sésamo</title>
+<meta name="description" content="Qué datos guarda Sésamo, cuáles no puede leer por diseño (zero-knowledge), dónde se alojan y qué derechos tienes.">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png">
+<style>
+/* Mismo lenguaje visual que la landing (Orange Design System): esquinas
+   rectas, bordes 2px, negro y blanco con naranja de acento. Auto-contenida. */
+:root {
+  --orange: #ff7900; --orange-a11y: #f16e00;
+  --ink: #000; --ink-2: #333; --ink-3: #595959;
+  --paper: #fff; --grey-2: #ddd;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Helvetica Neue', Helvetica, 'Noto Sans', Arial, sans-serif; color: var(--ink); background: var(--paper); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--orange-a11y); outline-offset: 2px; }
+.container { max-width: 860px; margin: 0 auto; padding: 0 30px; }
+header { border-bottom: 2px solid var(--ink); }
+.header-inner { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--ink); text-decoration: none; }
+.brand-door { width: 22px; height: 22px; fill: var(--orange); }
+header nav a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; margin-left: 22px; font-size: 15px; }
+header nav a:hover { color: var(--orange-a11y); }
+main { padding: 44px 0 64px; }
+h1 { font-size: clamp(30px, 4vw, 42px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 6px; }
+.updated { color: var(--ink-3); font-size: 14px; margin-bottom: 34px; }
+h2 { font-size: 22px; font-weight: 700; margin: 34px 0 10px; }
+p, li { color: var(--ink-2); }
+ul { padding-left: 22px; margin: 10px 0; }
+li { margin: 6px 0; }
+a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--orange-a11y); }
+strong { color: var(--ink); }
+.zk { border: 2px solid var(--ink); border-left: 8px solid var(--orange); padding: 16px 18px; margin: 22px 0; }
+.zk p { color: var(--ink); }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+th, td { border: 1px solid var(--grey-2); padding: 8px 10px; text-align: left; vertical-align: top; color: var(--ink-2); }
+th { color: var(--ink); background: #f6f6f6; }
+footer { background: var(--ink); color: #ccc; padding: 30px 0; font-size: 14px; margin-top: 40px; }
+footer a { color: #fff; }
+footer nav { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <a class="brand" href="/"><svg class="brand-door" viewBox="0 0 96 96" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>sésamo</a>
+    <nav aria-label="Legal">
+      <a href="/terms">Términos de servicio</a>
+      <a href="/app">Abrir la aplicación</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+<h1>Política de privacidad</h1>
+<p class="updated">Última actualización: 20 de agosto de 2026</p>
+
+<p>Sésamo es un gestor de contraseñas <strong>zero-knowledge</strong> operado por MasOrange y disponible en <a href="https://opensesamo.com">opensesamo.com</a>. Esta política describe qué datos tratamos, cuáles no podemos leer por diseño, dónde se alojan y qué derechos tienes.</p>
+
+<div class="zk">
+  <p><strong>Lo esencial:</strong> tus contraseñas y todo el contenido de tus bóvedas se cifran en tu navegador con AES-256-GCM antes de enviarse. La clave se deriva de tu contraseña maestra (PBKDF2, 600.000 iteraciones) y nunca sale de tu dispositivo. El servidor almacena solo texto cifrado: ni los administradores del servicio pueden leer tus credenciales, títulos, URLs, notas ni adjuntos.</p>
+</div>
+
+<h2>1. Responsable del tratamiento</h2>
+<p>MasOrange opera el servicio. Para cualquier cuestión sobre esta política o el ejercicio de tus derechos puedes abrir una incidencia en <a href="https://github.com/pmoncadaisla/maspassword/issues">el repositorio del proyecto</a> o dirigirte al operador a través de los canales internos de tu organización.</p>
+
+<h2>2. Datos que tratamos</h2>
+<table>
+  <tr><th>Dato</th><th>Detalle</th><th>¿Podemos leerlo?</th></tr>
+  <tr><td>Cuenta</td><td>Email y nombre visible (proporcionados por tu proveedor de identidad al iniciar sesión con Google, o al registrarte).</td><td>Sí</td></tr>
+  <tr><td>Material criptográfico</td><td>Tu clave pública RSA, tu clave privada cifrada con tu contraseña maestra, el verificador SRP y la copia cifrada con tu clave de recuperación.</td><td>Solo la clave pública. El resto está cifrado con claves que no tenemos.</td></tr>
+  <tr><td>Contenido de bóvedas</td><td>Cada elemento (credenciales, tarjetas, identidades, notas, adjuntos) es un único blob cifrado en tu navegador, incluido su historial de versiones y el nombre de la bóveda.</td><td>No, por diseño</td></tr>
+  <tr><td>Registro de auditoría</td><td>Metadatos de actividad: acción realizada (p. ej. «elemento creado», «contraseña visualizada»), identificadores de usuario/bóveda/elemento, email, dirección IP, agente de usuario y fecha. Nunca el contenido.</td><td>Sí (solo metadatos)</td></tr>
+  <tr><td>Almacenamiento local</td><td>En tu dispositivo: token de sesión, preferencias (tema, idioma, autobloqueo) y la clave de sesión no exportable que permite recargar sin volver a escribir la contraseña. No usamos cookies de terceros ni analítica publicitaria.</td><td>No sale de tu dispositivo</td></tr>
+</table>
+
+<h2>3. Para qué y con qué base</h2>
+<p>Usamos estos datos exclusivamente para prestar el servicio: autenticarte, sincronizar tus bóvedas cifradas entre dispositivos, permitir la compartición en equipos (recifrando las claves de bóveda con la clave pública de cada miembro) y mantener un registro de auditoría de seguridad. La base es la ejecución del servicio que solicitas. No vendemos datos, no hacemos perfilado y no mostramos publicidad.</p>
+
+<h2>4. Servicios de terceros</h2>
+<ul>
+  <li><strong>Google Cloud</strong>: el servicio corre en Cloud Run y Cloud SQL en la región <strong>europe-southwest1 (Madrid, UE)</strong>. Los registros de auditoría se almacenan en Cloud Logging.</li>
+  <li><strong>Google (inicio de sesión)</strong>: si tu organización usa SSO, Google nos comunica tu email y nombre al autenticarte.</li>
+  <li><strong>Mailgun</strong>: envío de correos transaccionales desde un dominio alojado en la UE.</li>
+  <li><strong>Have I Been Pwned</strong>: si usas la comprobación de contraseñas filtradas, tu navegador consulta la API con k-anonimidad: solo salen los 5 primeros caracteres de un hash SHA-1, nunca la contraseña ni su hash completo.</li>
+  <li><strong>Favicons de Google</strong>: para mostrar el icono de un sitio guardado, tu navegador puede pedir el favicon a Google, lo que revela el dominio (no la credencial) a ese servicio.</li>
+</ul>
+
+<h2>5. Conservación y supresión</h2>
+<p>Conservamos tus datos mientras tu cuenta exista. Al eliminar una bóveda se borran en cascada sus elementos, historial, claves y comparticiones. Los registros de auditoría siguen la retención estándar de Cloud Logging (30 días). Puedes exportar tus datos en cualquier momento en formatos abiertos (KeePass .kdbx cifrado, CSV o JSON): el descifrado y el cifrado del fichero exportado ocurren en tu navegador.</p>
+
+<h2>6. Seguridad</h2>
+<p>Además del cifrado en cliente: el login por contraseña usa SRP-6a (la contraseña nunca viaja por la red, ni siquiera cifrada), las bóvedas compartidas se recifran por usuario con RSA-OAEP de 4096 bits, y el código fuente es público y auditable en <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>. Si olvidas tu contraseña maestra y tu clave de recuperación, no podemos restaurar tu acceso: no tenemos ninguna copia de tus claves.</p>
+
+<h2>7. Tus derechos</h2>
+<p>Conforme al RGPD puedes ejercer los derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad sobre los datos que sí tratamos en claro (cuenta y registros de auditoría) contactando por los canales del apartado 1. La portabilidad del contenido cifrado la tienes siempre disponible tú mismo mediante la exportación. También puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
+
+<h2>8. Cambios</h2>
+<p>Si cambiamos esta política, actualizaremos la fecha de esta página. Los cambios sustanciales se anunciarán en las notas de versión del proyecto.</p>
+
+</div>
+</main>
+
+<footer>
+  <div class="container">
+    <span>Un producto MasOrange. Cifrado de extremo a extremo: el servidor nunca ve tus datos en claro.</span>
+    <nav aria-label="Enlaces">
+      <a href="/">Inicio</a>
+      <a href="/terms">Términos de servicio</a>
+      <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

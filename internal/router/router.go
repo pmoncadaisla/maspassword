@@ -178,6 +178,8 @@ func Setup(
 	// and /landing keeps old links alive via a permanent redirect.
 	r.StaticFile("/", "web/landing.html")
 	r.StaticFile("/app", "web/index.html")
+	r.StaticFile("/privacy", "web/privacy.html")
+	r.StaticFile("/terms", "web/terms.html")
 	// http.ServeFile would 301 any "/index.html" request to "/" (the landing),
 	// so keep the legacy path pointing at the app with an explicit redirect.
 	r.GET("/index.html", func(c *gin.Context) {

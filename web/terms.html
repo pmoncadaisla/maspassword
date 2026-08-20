@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Términos de servicio — Sésamo</title>
+<meta name="description" content="Condiciones de uso de Sésamo: responsabilidades sobre la contraseña maestra, uso aceptable, disponibilidad y limitación de responsabilidad.">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png">
+<style>
+/* Mismo lenguaje visual que la landing (Orange Design System): esquinas
+   rectas, bordes 2px, negro y blanco con naranja de acento. Auto-contenida. */
+:root {
+  --orange: #ff7900; --orange-a11y: #f16e00;
+  --ink: #000; --ink-2: #333; --ink-3: #595959;
+  --paper: #fff; --grey-2: #ddd;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Helvetica Neue', Helvetica, 'Noto Sans', Arial, sans-serif; color: var(--ink); background: var(--paper); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--orange-a11y); outline-offset: 2px; }
+.container { max-width: 860px; margin: 0 auto; padding: 0 30px; }
+header { border-bottom: 2px solid var(--ink); }
+.header-inner { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--ink); text-decoration: none; }
+.brand-door { width: 22px; height: 22px; fill: var(--orange); }
+header nav a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; margin-left: 22px; font-size: 15px; }
+header nav a:hover { color: var(--orange-a11y); }
+main { padding: 44px 0 64px; }
+h1 { font-size: clamp(30px, 4vw, 42px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 6px; }
+.updated { color: var(--ink-3); font-size: 14px; margin-bottom: 34px; }
+h2 { font-size: 22px; font-weight: 700; margin: 34px 0 10px; }
+p, li { color: var(--ink-2); }
+ul { padding-left: 22px; margin: 10px 0; }
+li { margin: 6px 0; }
+a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--orange-a11y); }
+strong { color: var(--ink); }
+.warn { border: 2px solid var(--ink); border-left: 8px solid var(--orange); padding: 16px 18px; margin: 22px 0; }
+.warn p { color: var(--ink); }
+footer { background: var(--ink); color: #ccc; padding: 30px 0; font-size: 14px; margin-top: 40px; }
+footer a { color: #fff; }
+footer nav { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <a class="brand" href="/"><svg class="brand-door" viewBox="0 0 96 96" aria-hidden="true"><polygon points="8,2 42,14 42,82 8,94"/><polygon points="88,2 54,14 54,82 88,94"/></svg>sésamo</a>
+    <nav aria-label="Legal">
+      <a href="/privacy">Política de privacidad</a>
+      <a href="/app">Abrir la aplicación</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+<h1>Términos de servicio</h1>
+<p class="updated">Última actualización: 20 de agosto de 2026</p>
+
+<p>Estos términos regulan el uso de Sésamo, el gestor de contraseñas zero-knowledge operado por MasOrange en <a href="https://opensesamo.com">opensesamo.com</a>. Al usar el servicio los aceptas.</p>
+
+<h2>1. El servicio</h2>
+<p>Sésamo almacena y sincroniza tus credenciales cifradas entre dispositivos y permite compartir bóvedas en equipo. Todo el cifrado y descifrado ocurre en tu navegador; el servidor solo guarda y sirve datos cifrados. El funcionamiento se describe en detalle en la <a href="/privacy">política de privacidad</a> y en el <a href="https://github.com/pmoncadaisla/maspassword">código fuente público</a>.</p>
+
+<h2>2. Tu cuenta</h2>
+<p>El acceso se realiza con la cuenta que tu organización haya configurado (inicio de sesión con Google) o con email y contraseña. Eres responsable de la actividad realizada con tu cuenta y de mantener seguros tus factores de acceso, incluidos los dispositivos donde la aplicación queda desbloqueada.</p>
+
+<div class="warn">
+  <p><strong>Contraseña maestra y clave de recuperación.</strong> Por el diseño zero-knowledge, no tenemos copia de tu contraseña maestra ni de tus claves. Si pierdes la contraseña maestra <em>y</em> la clave de recuperación que se genera al crear la cuenta, tus datos cifrados son irrecuperables, también para nosotros. Guarda la clave de recuperación en un lugar seguro y exporta copias de seguridad periódicas.</p>
+</div>
+
+<h2>3. Uso aceptable</h2>
+<p>Te comprometes a no usar el servicio para actividades ilegales, a no intentar acceder a cuentas o datos de terceros, a no interferir con la disponibilidad del servicio (incluyendo abuso de la API) y a no eludir sus mecanismos de seguridad, salvo investigación de seguridad responsable comunicada a través de <a href="https://github.com/pmoncadaisla/maspassword/issues">GitHub</a>.</p>
+
+<h2>4. Tus datos</h2>
+<p>El contenido que guardas es tuyo. Puedes exportarlo en cualquier momento en formatos abiertos (KeePass .kdbx cifrado, CSV o JSON) y eliminar elementos, bóvedas o tu cuenta. Al operar en equipos, los administradores del equipo pueden gestionar las bóvedas compartidas con ese equipo, incluida su eliminación.</p>
+
+<h2>5. Disponibilidad y cambios</h2>
+<p>El servicio se presta «tal cual» y «según disponibilidad», sin garantía de continuidad ni de ausencia de errores. Podemos actualizar, modificar o interrumpir funciones, publicando los cambios relevantes en las notas de versión. Recomendamos mantener exportaciones periódicas como copia de seguridad bajo tu control.</p>
+
+<h2>6. Propiedad intelectual</h2>
+<p>El software de Sésamo se distribuye desde <a href="https://github.com/pmoncadaisla/maspassword">su repositorio público</a> bajo la licencia allí indicada. Estos términos no te transfieren derechos sobre las marcas del operador.</p>
+
+<h2>7. Limitación de responsabilidad</h2>
+<p>En la medida permitida por la ley, MasOrange no responde de daños indirectos ni de pérdidas de datos derivadas de la pérdida de tu contraseña maestra y clave de recuperación, del incumplimiento de estos términos o de causas fuera de su control razonable. Nada en estos términos limita responsabilidades que legalmente no puedan excluirse.</p>
+
+<h2>8. Suspensión y terminación</h2>
+<p>Podemos suspender o cerrar cuentas que incumplan estos términos o comprometan la seguridad del servicio. Puedes dejar de usar el servicio en cualquier momento; te recomendamos exportar tus datos antes.</p>
+
+<h2>9. Ley aplicable</h2>
+<p>Estos términos se rigen por la legislación española. Cualquier controversia se someterá a los juzgados y tribunales competentes conforme a la normativa aplicable.</p>
+
+<h2>10. Contacto</h2>
+<p>Dudas sobre estos términos: <a href="https://github.com/pmoncadaisla/maspassword/issues">incidencias del repositorio</a> o los canales internos de tu organización.</p>
+
+</div>
+</main>
+
+<footer>
+  <div class="container">
+    <span>Un producto MasOrange. Cifrado de extremo a extremo: el servidor nunca ve tus datos en claro.</span>
+    <nav aria-label="Enlaces">
+      <a href="/">Inicio</a>
+      <a href="/privacy">Política de privacidad</a>
+      <a href="https://github.com/pmoncadaisla/maspassword">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
